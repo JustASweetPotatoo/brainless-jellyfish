@@ -1,5 +1,5 @@
 import { ConnectingWordChannelConfigJSON } from "../../structure/interface/ConnectingWordGameDataStructure";
-import { toInsertQuery } from "../../utils/functions/default";
+import { toInsertQuery } from "../../utils/functions";
 import { ConnectingWordChannelConfig } from "../models/ConnectingWordGameChannelConfig";
 import { DefautRepository } from "./DefaulRepository";
 

@@ -8,7 +8,3 @@ export interface CommandExecuteFunction {
 export interface CommandAutocompleteExecuteFunction {
   (client: SuwaBot, interaction: AutocompleteInteraction): Promise<void>;
 }
-
-export interface EventExecuteFunction {
-  (client: SuwaBot, ...args: any[]): Promise<void>;
-}

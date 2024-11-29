@@ -1,9 +1,6 @@
 import { SlashCommandSubcommandBuilder } from "discord.js";
-import { CommandAutocompleteExecuteFunction, CommandExecuteFunction } from "./interface/functions";
-import {
-  defaultFunctionForAutocompleteInteraction,
-  defaultFunctionForCommandInteraction,
-} from "../utils/functions/default";
+import { CommandAutocompleteExecuteFunction, CommandExecuteFunction } from "./interface";
+import { defaultFunctionForAutocompleteInteraction, defaultFunctionForCommandInteraction } from "./functions";
 
 class ClientSlashCommandSubcommandBuilder extends SlashCommandSubcommandBuilder {
   public readonly localFilePath;

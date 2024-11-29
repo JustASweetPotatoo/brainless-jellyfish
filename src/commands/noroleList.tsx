@@ -7,7 +7,7 @@ import {
   PermissionFlagsBits,
   SlashCommandRoleOption,
 } from "discord.js";
-import ClientSlashCommandBuilder from "../structure/SlashCommandBuilder";
+import ClientSlashCommandBuilder from "./struct/SlashCommandBuilder";
 import SuwaBot from "../bot/SuwaBot";
 import { autoDeferReplyInteraction } from "../utils/functions/auto";
 

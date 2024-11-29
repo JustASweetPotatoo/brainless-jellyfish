@@ -16,12 +16,16 @@ export default class DBConnector {
   }
 
   createPromisePool(connectionOptions?: ConnectionOptions) {
-    if (this.pool) this.pool = undefined;
-    if (connectionOptions) {
-      this.pool = createPool(connectionOptions);
-    } else {
-      this.pool = createPool(this.connectionOptions);
+    try {
+      if (this.pool) this.pool = undefined;
+      if (connectionOptions) {
+        this.pool = createPool(connectionOptions);
+      } else {
+        this.pool = createPool(this.connectionOptions);
+      }
+      return this.pool;
+    } catch (error) {
+      return error;
     }
-    return this.pool;
   }
 }

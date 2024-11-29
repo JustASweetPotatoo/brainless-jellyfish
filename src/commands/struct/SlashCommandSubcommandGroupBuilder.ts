@@ -1,10 +1,10 @@
 import * as fs from "fs";
 import { Collection, SlashCommandSubcommandGroupBuilder } from "discord.js";
 
-import ClientError from "../error/ClientError";
+import ClientError from "../../error/ClientError";
 import * as path from "path";
 import ClientSlashCommandSubcommandBuilder from "./SlashCommandSubcommandBuilder";
-import { ErrorCode } from "../error/ClientErrorCode";
+import { ErrorCode } from "../../error/ClientErrorCode";
 
 class ClientSlashCommandSubcommandGroupBuilder extends SlashCommandSubcommandGroupBuilder {
   public readonly localFilePath: string;
