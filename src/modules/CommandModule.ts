@@ -1,46 +1,78 @@
 import {
+  Interaction,
+  GuildMember,
+  OmitPartialGroupDMChannel,
+  Message,
+  PartialMessage,
+  ReadonlyCollection,
+  Guild,
+  Collection,
+  RESTPostAPIApplicationCommandsJSONBody,
+  AutocompleteInteraction,
   CommandInteraction,
   ChatInputCommandInteraction,
-  Message,
-  Collection,
-  AutocompleteInteraction,
   Routes,
-  RESTPostAPIApplicationCommandsJSONBody,
-  Guild,
+  Channel,
+  Emoji,
+  Presence,
 } from "discord.js";
-import { BotModule } from "../structure/BotModule";
-import { BotModuleOptions } from "../structure/interface/module";
-import ClientSlashCommandBuilder from "../structure/SlashCommandBuilder";
+import {
+  BaseModule,
+  BaseModuleOptions,
+  ModuleWorkMode,
+  UserChangeEventData,
+} from "./struct/ModuleConstructor";
+import ClientSlashCommandBuilder from "../commands/struct/SlashCommandBuilder";
 import path = require("path");
-import fs = require("fs");
-import ClientError from "../error/ClientError";
+import * as fs from "fs";
 import { ErrorCode } from "../error/ClientErrorCode";
+import ClientError from "../error/ClientError";
 
-export interface CommandModuleOptions extends BotModuleOptions {}
+export interface SlashCommandModuleOptions extends BaseModuleOptions {}
 
-export class CommandModule extends BotModule<CommandModuleOptions> {
-  private readonly commandFolder = path.join(__dirname, "../commands");
-  public readonly commandBuilderCollection = new Collection<string, ClientSlashCommandBuilder>();
-  public applicationCommandsJSONBody: Array<RESTPostAPIApplicationCommandsJSONBody> = [];
+export class SlashComamndModule extends BaseModule<SlashCommandModuleOptions> {
+  private readonly commandsFolder = path.join(__dirname, "");
+  private readonly commandBuilderCollection: Collection<string, ClientSlashCommandBuilder> = new Collection();
+  private applicationSlashCommandJSONBody: Array<RESTPostAPIApplicationCommandsJSONBody> = [];
 
-  constructor(options: CommandModuleOptions) {
+  constructor(options: SlashCommandModuleOptions) {
     super(options);
-
-    this.pushBeforeActivateFunction(this.loadCommandsFromFolder);
-    // this.pushBeforeActivateFunction(this.craftCommandsJSONBody);
-    // this.pushBeforeActivateFunction(this.registerCommands);
   }
 
-  async loadCommandsFromFolder() {
-    if (!fs.existsSync(this.commandFolder))
+  public registerEvents(): void {
+    this.on("interactionCreate", (interaction: Interaction) => this.onInteractionCreate(interaction));
+    this.on("clientReady", () => this.onClientready());
+
+    this.emit("allEventsRegisted");
+  }
+
+  protected onThisModuleInitialized(): Promise<unknown> {
+    throw new Error("Method not implemented.");
+  }
+
+  protected async onClientready(): Promise<void> {
+    await this.loadCommands();
+    await this.registerCommands();
+  }
+
+  protected async onInteractionCreate(interaction: Interaction): Promise<void> {
+    if (interaction instanceof CommandInteraction) {
+      this.executeCommandInteraction(interaction);
+    } else if (interaction instanceof AutocompleteInteraction) {
+      this.executeAutocompleteCommandInteraction(interaction);
+    }
+  }
+
+  async loadCommands() {
+    if (!fs.existsSync(this.commandsFolder))
       throw new ClientError("Folder of commands is not found !", ErrorCode.LOAD_COMMAND_FAILED);
 
     this.logger.log("Loading application (/) commands...");
-    fs.readdirSync(this.commandFolder).forEach((commandFile) => {
+    fs.readdirSync(this.commandsFolder).forEach((commandFile) => {
       if (!commandFile.endsWith(".js") && !commandFile.endsWith(".ts")) return;
 
       try {
-        const filePath = path.join(this.commandFolder, commandFile);
+        const filePath = path.join(this.commandsFolder, commandFile);
         const builder = require(filePath);
         if (builder instanceof ClientSlashCommandBuilder) {
           builder.loadSubcommands();
@@ -63,23 +95,13 @@ export class CommandModule extends BotModule<CommandModuleOptions> {
   async reloadCommands() {
     this.commandBuilderCollection.clear();
     this.logger.success("Cleared all appliction (/) commands!");
-    this.loadCommandsFromFolder();
-  }
-
-  private craftCommandsJSONBody() {
-    this.logger.log("Refreshing application (/) commands JSON body!");
-    this.applicationCommandsJSONBody = [];
-    this.commandBuilderCollection.forEach((commandBuilder) => {
-      this.applicationCommandsJSONBody.push(commandBuilder.toJSON());
-    });
-    this.logger.success(`Refreshing JSON body successfully! Total: ${this.commandBuilderCollection.size}`);
-    return this.applicationCommandsJSONBody;
+    this.loadCommands();
   }
 
   async registerCommands() {
     try {
       let guilds;
-      if (this.workMode === "debug") {
+      if (this.workMode == ModuleWorkMode.DEBUG) {
         const defaultGuild = await this.client.guilds.fetch("811939594882777128");
         if (!defaultGuild) return;
         guilds = new Collection<string, Guild>().set(defaultGuild.id, defaultGuild);
@@ -92,8 +114,8 @@ export class CommandModule extends BotModule<CommandModuleOptions> {
       guilds.forEach(async (guild, id) => {
         try {
           const route = Routes.applicationGuildCommands(this.client.botId, guild.id);
-          await this.client.rest.put(route, { body: this.applicationCommandsJSONBody });
-          if (this.workMode == "debug") {
+          await this.client.rest.put(route, { body: this.applicationSlashCommandJSONBody });
+          if (this.workMode == ModuleWorkMode.DEBUG) {
             this.logger.success(`Registered command for guild default named: ${guild.name}-${guild.id}`);
           }
         } catch (error) {
@@ -111,6 +133,16 @@ export class CommandModule extends BotModule<CommandModuleOptions> {
         logger: this.logger,
       });
     }
+  }
+
+  private craftCommandsJSONBody() {
+    this.logger.log("Refreshing application (/) commands JSON body!");
+    this.applicationSlashCommandJSONBody = [];
+    this.commandBuilderCollection.forEach((commandBuilder) => {
+      this.applicationSlashCommandJSONBody.push(commandBuilder.toJSON());
+    });
+    this.logger.success(`Refreshing JSON body successfully! Total: ${this.commandBuilderCollection.size}`);
+    return this.applicationSlashCommandJSONBody;
   }
 
   async executeCommandInteraction(interaction: CommandInteraction | ChatInputCommandInteraction) {
@@ -148,13 +180,67 @@ export class CommandModule extends BotModule<CommandModuleOptions> {
     }
   }
 
-  async pushInteraction(interaction: CommandInteraction | ChatInputCommandInteraction): Promise<void> {
-    await this.executeCommandInteraction(interaction);
+  // Not used
+  protected async onGuildMemberJoin(member: GuildMember): Promise<unknown> {
+    return;
   }
-
-  async pushMessageEvent(message: Message): Promise<void> {}
-
-  async pushGuildEvent(): Promise<void> {}
-
-  async pushMemberEvent(): Promise<void> {}
+  protected async onGuildMemberUpdate(userEventData: UserChangeEventData): Promise<unknown> {
+    return;
+  }
+  protected async onGuildMemberLeave(member: GuildMember): Promise<unknown> {
+    return;
+  }
+  protected async onMessageCreate(
+    message: OmitPartialGroupDMChannel<Message<boolean>> | Message<boolean> | PartialMessage
+  ): Promise<unknown> {
+    return;
+  }
+  protected async onMessageUpdate(
+    message: OmitPartialGroupDMChannel<Message<boolean>> | Message<boolean> | PartialMessage
+  ): Promise<unknown> {
+    return;
+  }
+  protected async onMessageDelete(
+    message: OmitPartialGroupDMChannel<Message<boolean>> | Message<boolean> | PartialMessage
+  ): Promise<unknown> {
+    return;
+  }
+  protected async onMessageBulkDelete(
+    messages: ReadonlyCollection<
+      string,
+      OmitPartialGroupDMChannel<Message<boolean> | PartialMessage> | Message<boolean>
+    >
+  ): Promise<unknown> {
+    return;
+  }
+  protected async onGuildCreate(guild: Guild): Promise<unknown> {
+    return;
+  }
+  protected async onGuildDelete(guild: Guild): Promise<unknown> {
+    return;
+  }
+  protected onChannelCreate(channel: Channel): Promise<unknown> {
+    throw new Error("Method not implemented.");
+  }
+  protected onChannelUpdate(oldChannel: Channel, newChannel: Channel): Promise<unknown> {
+    throw new Error("Method not implemented.");
+  }
+  protected onChannelDelete(channel: Channel): Promise<unknown> {
+    throw new Error("Method not implemented.");
+  }
+  protected onGuildUpadte(oldGuild: Guild, newGuild: Guild): Promise<unknown> {
+    throw new Error("Method not implemented.");
+  }
+  protected onEmojiCreate(emoji: Emoji): Promise<unknown> {
+    throw new Error("Method not implemented.");
+  }
+  protected onEmojiUpdate(oldEmoji: Emoji, newEmoji: Emoji): Promise<unknown> {
+    throw new Error("Method not implemented.");
+  }
+  protected onEmojiDetele(emoji: Emoji): Promise<unknown> {
+    throw new Error("Method not implemented.");
+  }
+  protected onUserPresenceUpdate(oldPresence: Presence, newPresence: Presence): Promise<unknown> {
+    throw new Error("Method not implemented.");
+  }
 }

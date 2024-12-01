@@ -9,13 +9,10 @@ import {
 } from "discord.js";
 import ClientSlashCommandSubcommandBuilder from "./SlashCommandSubcommandBuilder";
 import ClientSlashCommandSubcommandGroupBuilder from "./SlashCommandSubcommandGroupBuilder";
-import { CommandAutocompleteExecuteFunction, CommandExecuteFunction } from "./interface/functions";
-import {
-  defaultFunctionForAutocompleteInteraction,
-  defaultFunctionForCommandInteraction,
-} from "../utils/functions/default";
-import { ErrorCode } from "../error/ClientErrorCode";
-import ClientError from "../error/ClientError";
+import { CommandAutocompleteExecuteFunction, CommandExecuteFunction } from "./interface";
+import { defaultFunctionForAutocompleteInteraction, defaultFunctionForCommandInteraction } from "./functions";
+import { ErrorCode } from "../../error/ClientErrorCode";
+import ClientError from "../../error/ClientError";
 
 declare type SubcommandBuilderCollectionItem =
   | ClientSlashCommandSubcommandBuilder
@@ -92,7 +89,8 @@ class ClientSlashCommandBuilder extends SlashCommandBuilder {
       case 1:
         return this.execute;
       case 2:
-        if (subBuilder && subBuilder instanceof ClientSlashCommandSubcommandBuilder) return subBuilder.execute;
+        if (subBuilder && subBuilder instanceof ClientSlashCommandSubcommandBuilder)
+          return subBuilder.execute;
         else return undefined;
       case 3:
         if (subBuilder && subBuilder instanceof ClientSlashCommandSubcommandGroupBuilder)
@@ -103,7 +101,9 @@ class ClientSlashCommandBuilder extends SlashCommandBuilder {
     }
   }
 
-  getAutocompleteExecutor(commandStackName: string | Array<string>): CommandAutocompleteExecuteFunction | undefined {
+  getAutocompleteExecutor(
+    commandStackName: string | Array<string>
+  ): CommandAutocompleteExecuteFunction | undefined {
     let components: Array<string> = [];
     if (typeof commandStackName == "string") components = commandStackName.split(" ");
     else components = commandStackName;
