@@ -12,6 +12,3 @@ node_modules
 /src/utils/log/*
 .VSCodeCounter
 temp
-test.js
-test.ts
-/src/test

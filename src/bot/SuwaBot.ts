@@ -2,6 +2,7 @@ import { Client, GatewayIntentBits, REST, version } from "discord.js";
 import { Logger, LogPrinter } from "../utils/Logger";
 import Connector from "../database/connector";
 import { ManagerModule } from "./ManagerModule";
+import { ManagerModule } from "./ManagerModule";
 import { ErrorHandlerModule } from "../modules/ErrorHandlerModule";
 import ClientError from "../error/ClientError";
 import { ErrorCode } from "../error/ClientErrorCode";
@@ -30,6 +31,7 @@ export default class SuwaBot extends Client {
       > REST Version: 10
       > Number of server joined: `;
 
+
   constructor(botId: string) {
     super({
       intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent, GatewayIntentBits.GuildMembers],
@@ -51,6 +53,7 @@ export default class SuwaBot extends Client {
   async start(token: string) {
     this.startedTimestamp = Date.now();
 
+    // Print info
     // Print info
     this.logger.info("Startup");
     this.logger.info(this.clientInfo);

@@ -2,8 +2,6 @@ import {
   Interaction,
   GuildMember,
   Message,
-  PartialMessage,
-  ReadonlyCollection,
   Guild,
   Collection,
   RESTPostAPIApplicationCommandsJSONBody,
@@ -18,6 +16,7 @@ import {
   ButtonInteraction,
   ModalSubmitInteraction,
   OAuth2Guild,
+  PartialMessage,
 } from "discord.js";
 import { BaseModule, BaseModuleOptions, ModuleWorkMode, UserChangeEventData } from "./struct/ModuleConstructor";
 import ClientSlashCommandBuilder from "../commands/struct/SlashCommandBuilder";
@@ -26,6 +25,7 @@ import * as fs from "fs";
 import { ErrorCode } from "../error/ClientErrorCode";
 import ClientError from "../error/ClientError";
 
+export interface SlashCommandModuleOptions extends BaseModuleOptions {}
 export interface SlashCommandModuleOptions extends BaseModuleOptions {}
 
 export class SlashCommandModule extends BaseModule<SlashCommandModuleOptions> {
@@ -52,8 +52,7 @@ export class SlashCommandModule extends BaseModule<SlashCommandModuleOptions> {
   }
 
   private loadCommands() {
-    if (!fs.existsSync(this.commandFolderPath))
-      throw new ClientError("Folder of commands is not found !", ErrorCode.LOAD_COMMAND_FAILED);
+    if (!fs.existsSync(this.commandFolderPath)) throw new ClientError("Folder of commands is not found !", ErrorCode.LOAD_COMMAND_FAILED);
 
     this.logger.log("Loading application (/) commands...");
     fs.readdirSync(this.commandFolderPath).forEach((commandFile) => {
@@ -83,6 +82,7 @@ export class SlashCommandModule extends BaseModule<SlashCommandModuleOptions> {
   async reloadCommands() {
     this.commandBuilderCollection.clear();
     this.logger.success("Cleared all appliction (/) commands!");
+    this.loadCommands();
     this.loadCommands();
   }
 
@@ -168,9 +168,7 @@ export class SlashCommandModule extends BaseModule<SlashCommandModuleOptions> {
     }
   }
 
-  protected async onSlashCommandInteractionCreate(
-    interaction: CommandInteraction | ChatInputCommandInteraction
-  ): Promise<void> {
+  protected async onSlashCommandInteractionCreate(interaction: CommandInteraction | ChatInputCommandInteraction): Promise<void> {
     this.executeCommandInteraction(interaction);
   }
 
