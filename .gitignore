@@ -14,3 +14,4 @@ node_modules
 temp
 test.js
 test.ts
+/src/test

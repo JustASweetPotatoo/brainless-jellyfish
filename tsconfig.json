@@ -9,7 +9,8 @@
         "skipLibCheck": true,
         "strictNullChecks": true,
         "resolveJsonModule": true,
-        "outDir": "dist"
+        "outDir": "dist",
+        "esModuleInterop": true
     },
     "include": ["src", "temp/utils", "temp/bot.ts", "src/index.ts", "temp/test.ts", "temp/structures", "temp/manager", "temp/interfaces", "temp/handler", "temp/events", "temp/dashboard", "temp/components", "temp/database", "temp/commands"],
     "files" : ["src/index.ts"],
