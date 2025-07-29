@@ -1,6 +1,7 @@
 #danger
 .env
 /src/nghich.js
+test
 
 # dependencies
 node_modules
