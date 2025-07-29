@@ -17,6 +17,7 @@ import {
   ModalSubmitInteraction,
   OAuth2Guild,
   PartialMessage,
+  ReadonlyCollection,
 } from "discord.js";
 import { BaseModule, BaseModuleOptions, ModuleWorkMode, UserChangeEventData } from "./struct/ModuleConstructor";
 import ClientSlashCommandBuilder from "../commands/struct/SlashCommandBuilder";

@@ -88,8 +88,6 @@ client.on(
   }
 );
 
-client.login("MTE2ODQzMDc5NzU5OTAxOTAyMg.GQLBJe.LFDfB3ZqTu_gTwqgO2SmZ9-NiYpycN1JNzyJb8");
-
 // client.on(Events.InteractionCreate, async (interaction) => {
 //   if (!(interaction instanceof ButtonInteraction)) return;
 //   if (!interaction.inGuild()) return;
