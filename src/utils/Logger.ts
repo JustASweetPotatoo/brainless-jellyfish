@@ -40,6 +40,9 @@ class LogPrinter {
   }
 }
 
+let infoLabelStringLength: number = 30;
+let infoLabelStringLength2: number = 0;
+
 class Logger {
   public readonly label: string;
   public readonly printer: LogPrinter;
@@ -56,8 +59,24 @@ class Logger {
 
   print(content: string, type: LogMessageType | LogMessageType.LOG, printToFile?: boolean) {
     const logTimestamp = `${getStringTimestamp()}`;
+    let infoLabel = `[${logTimestamp}][${type.toUpperCase()}]`;
 
-    const message = `[${logTimestamp}][${this.label.toUpperCase()}][${type.toUpperCase()}] ${content}`;
+    if (infoLabel.length > infoLabelStringLength) {
+      infoLabelStringLength = infoLabel.length;
+    } else {
+      infoLabel += " ".repeat(infoLabelStringLength - infoLabel.length);
+    }
+
+    infoLabel += " ".repeat(3);
+    infoLabel += `[${this.label.toUpperCase()}]`;
+
+    if (infoLabel.length > infoLabelStringLength2) {
+      infoLabelStringLength2 = infoLabel.length;
+    } else {
+      infoLabel += " ".repeat(infoLabelStringLength2 - infoLabel.length);
+    }
+
+    const message = `${infoLabel} ${content}`;
 
     if (printToFile ?? true) this.printer.write(message);
 
@@ -81,6 +100,10 @@ class Logger {
         console.log(message);
         break;
     }
+  }
+
+  printMultiLines(messages: Array<{ content: string; type: LogMessageType }>) {
+    messages.forEach((data) => this.print(data.content, data.type));
   }
 
   /**

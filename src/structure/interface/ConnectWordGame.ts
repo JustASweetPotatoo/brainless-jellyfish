@@ -1,4 +1,4 @@
-export interface ConnectingWordChannelConfig {
+export interface ConnectWordChannelConfig {
   readonly channelId: string;
 
   lastUserId: string;
@@ -9,7 +9,7 @@ export interface ConnectingWordChannelConfig {
   usedList: string;
 }
 
-export interface ConnectingWordGameGuildConfigJSON {
+export interface ConnectWordGameGuildConfigJSON {
   readonly guild_id: string;
   activate: boolean;
   max_channel: number;
@@ -17,7 +17,7 @@ export interface ConnectingWordGameGuildConfigJSON {
   notification_delete_timeout: number;
 }
 
-export interface ConnectingWordChannelConfigJSON {
+export interface ConnectWordChannelConfigJSON {
   readonly channel_id: string;
   readonly guild_id: string;
 

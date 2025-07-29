@@ -7,16 +7,24 @@ import {
   ReadonlyCollection,
   Guild,
   Collection,
+  Channel,
+  Emoji,
+  Presence,
+  Events,
+  ButtonInteraction,
+  CommandInteraction,
+  ModalSubmitInteraction,
 } from "discord.js";
 import { BaseModule, BaseModuleOptions, UserChangeEventData } from "./struct/ModuleConstructor";
-import { ConnectingWordGameGuildConfig } from "./ConnectingWordGameModule/dataModels";
-import { ConnectingWordChannelConfig } from "./ConnectingWordGameModule/interface";
-import { ConnectingWordGameGuildConfigRepository } from "../database/repositories/ConnectingWordGameGuildConfigRepository";
-import { ConnectingWordGameChannelConfigRepository } from "../database/repositories/ConnectingWordGameChannelConfigRepository";
+import { CWGameGuildRepository } from "../database/repositories/CWGameGuildRepository";
+import { CWGameChannelRepository } from "../database/repositories/CWGameChannelRepository";
 
 import dictionary = require("./ConnectingWordGameModule/EnglishDictionary_src-unknow.json");
+import CWGuildProfile from "../database/models/CWGuildProfile";
+import { CWChannelProfile } from "../database/models/CWChannelProfile";
+import path = require("path");
 
-export interface ConnectingWordGameModuleOptons extends BaseModuleOptions {}
+export interface ConnectWordGameModuleOptions extends BaseModuleOptions {}
 
 interface Dictionary {
   [startChar: string]: {
@@ -24,68 +32,58 @@ interface Dictionary {
   };
 }
 
-export class ConnectingWordGameModule extends BaseModule<ConnectingWordGameModuleOptons> {
-  public readonly guildDataCollection: Collection<string, ConnectingWordGameGuildConfig>;
-  public readonly channelDataCollection: Collection<string, ConnectingWordChannelConfig>;
-  public readonly dictionary: Dictionary;
-  private readonly guildRepository: ConnectingWordGameGuildConfigRepository;
-  private readonly channelRepository: ConnectingWordGameChannelConfigRepository;
+export class ConnectWordGameModule extends BaseModule<ConnectWordGameModuleOptions> {
+  commandFolderPath: string = path.join(__dirname, "../commands/CWGame");
+  requiredDatabase: boolean = true;
+  eventList: Events[] = [Events.InteractionCreate];
 
-  constructor(options: ConnectingWordGameModuleOptons) {
+  public loadResouces(): Promise<this> {
+    throw new Error("Method not implemented.");
+  }
+
+  public readonly guildDataCollection: Collection<string, CWGuildProfile>;
+  public readonly channelDataCollection: Collection<string, CWChannelProfile>;
+  public readonly dictionary: Dictionary;
+  private readonly guildRepository: CWGameGuildRepository;
+  private readonly channelRepository: CWGameChannelRepository;
+
+  constructor(options: ConnectWordGameModuleOptions) {
     super(options);
 
     this.guildDataCollection = new Collection();
     this.channelDataCollection = new Collection();
     this.dictionary = dictionary as Dictionary;
-    this.channelRepository = new ConnectingWordGameChannelConfigRepository();
-    this.guildRepository = new ConnectingWordGameGuildConfigRepository();
+    this.channelRepository = new CWGameChannelRepository();
+    this.guildRepository = new CWGameGuildRepository();
   }
 
-  protected registerEvents(): void {
-    throw new Error("Method not implemented.");
-  }
-  protected onClientready(): Promise<void> {
-    throw new Error("Method not implemented.");
-  }
-  protected onInteractionCreate(interaction: Interaction): Promise<unknown> {
-    throw new Error("Method not implemented.");
-  }
-  protected onGuildMemberJoin(member: GuildMember): Promise<unknown> {
-    throw new Error("Method not implemented.");
-  }
-  protected onGuildMemberUpdate(userEventData: UserChangeEventData): Promise<unknown> {
-    throw new Error("Method not implemented.");
-  }
-  protected onGuildMemberLeave(member: GuildMember): Promise<unknown> {
-    throw new Error("Method not implemented.");
-  }
-  protected onMessageCreate(
+  protected async onMessageCreate(
     message: OmitPartialGroupDMChannel<Message<boolean>> | Message<boolean> | PartialMessage
-  ): Promise<unknown> {
-    throw new Error("Method not implemented.");
+  ): Promise<void> {
+    if (message.author?.bot) return;
+    if (!message.inGuild()) return;
+
+    return;
   }
-  protected onMessageUpdate(
-    message: OmitPartialGroupDMChannel<Message<boolean>> | Message<boolean> | PartialMessage
-  ): Promise<unknown> {
-    throw new Error("Method not implemented.");
-  }
-  protected onMessageDelete(
-    message: OmitPartialGroupDMChannel<Message<boolean>> | Message<boolean> | PartialMessage
-  ): Promise<unknown> {
-    throw new Error("Method not implemented.");
-  }
-  protected onMessageBulkDelete(
-    messages: ReadonlyCollection<
-      string,
-      OmitPartialGroupDMChannel<Message<boolean> | PartialMessage> | Message<boolean>
-    >
-  ): Promise<unknown> {
-    throw new Error("Method not implemented.");
-  }
-  protected onGuildCreate(guild: Guild): Promise<unknown> {
-    throw new Error("Method not implemented.");
-  }
-  protected onGuildDelete(guild: Guild): Promise<unknown> {
-    throw new Error("Method not implemented.");
-  }
+
+  protected async onClientReady(): Promise<void> {}
+  protected async onGuildMemberJoin(member: GuildMember): Promise<void> {}
+  protected async onGuildMemberUpdate(userEventData: UserChangeEventData): Promise<void> {}
+  protected async onGuildMemberLeave(member: GuildMember): Promise<void> {}
+  protected async onMessageUpdate(message: PartialMessage): Promise<void> {}
+  protected async onMessageDelete(message: PartialMessage): Promise<void> {}
+  protected async onMessageBulkDelete(messages: ReadonlyCollection<string, Message<boolean>>): Promise<void> {}
+  protected async onGuildCreate(guild: Guild): Promise<void> {}
+  protected async onGuildDelete(guild: Guild): Promise<void> {}
+  protected async onChannelCreate(channel: Channel): Promise<void> {}
+  protected async onChannelUpdate(oldChannel: Channel, newChannel: Channel): Promise<void> {}
+  protected async onChannelDelete(channel: Channel): Promise<void> {}
+  protected async onGuildUpadte(oldGuild: Guild, newGuild: Guild): Promise<void> {}
+  protected async onEmojiCreate(emoji: Emoji): Promise<void> {}
+  protected async onEmojiUpdate(oldEmoji: Emoji, newEmoji: Emoji): Promise<void> {}
+  protected async onEmojiDetele(emoji: Emoji): Promise<void> {}
+  protected async onUserPresenceUpdate(oldPresence: Presence | null, newPresence: Presence | null): Promise<void> {}
+  protected async onButtonInteractionCreate(interaction: ButtonInteraction): Promise<void> {}
+  protected async onSlashCommandInteractionCreate(interaction: CommandInteraction): Promise<void> {}
+  protected async onModalSubmitInteractionCreate(interaction: ModalSubmitInteraction): Promise<void> {}
 }

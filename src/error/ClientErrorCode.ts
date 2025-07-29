@@ -20,16 +20,35 @@ enum ErrorCode {
   UNKNOWN_ERROR = "GE_300",
 
   /**
+   * Bot login failed.
+   * @description Wrong token or something is going wrong !.
+   * @fix Check the logs for more details.
+   */
+  LOGIN_FAILED = "GE_301",
+
+  /**
    * Connector pool not found.
    * @description
    */
-  CONNECTOR_POOL_NOT_FOUND = "GE_301",
+  POOL_NOT_FOUND = "GE_302",
+
+  /**
+   * Database connect failed
+   * @description Connect to database failed
+   */
+  DATABASE_CONNECT_FAILED = "GE_303",
 
   /**
    * Execute query failed.
    * @description check the query log.
    */
-  EXECUTE_QUERY_FAILED = "GE_302",
+  EXECUTE_QUERY_FAILED = "GE_304",
+
+  /**
+   * Table not found in database
+   * @description Check name of database or table
+   */
+  DB_TABLE_NOT_FOUND = "GE_305",
 
   /**
    * Interaction has been replied.
@@ -144,8 +163,11 @@ enum ErrorCode {
  */
 const ErrorMessage: { [key in ErrorCode]: string } = {
   [ErrorCode.UNKNOWN_ERROR]: "An error occurred. Please check the logs",
-  [ErrorCode.CONNECTOR_POOL_NOT_FOUND]: "Pool to execute query is not found",
+  [ErrorCode.LOGIN_FAILED]: "Login Failed. Please check the logs",
+  [ErrorCode.POOL_NOT_FOUND]: "Pool to execute query is not found",
+  [ErrorCode.DATABASE_CONNECT_FAILED]: "Can't connect to database",
   [ErrorCode.EXECUTE_QUERY_FAILED]: "Execute query failed, please check the log",
+  [ErrorCode.DB_TABLE_NOT_FOUND]: "Table is not found !",
   [ErrorCode.NO_TARGET_CHANNEL]: "The channel is undefined or invalid",
   [ErrorCode.INTERACTION_REPLIED]: "The interaction response has been sent",
   [ErrorCode.MESSAGE_INVALID]: "The message is invalid",

@@ -5,21 +5,21 @@ class ClientError extends Error {
   public readonly baseMessage: string;
   public readonly cause?: Error;
 
-  constructor(message: string, code: ErrorCode, cause?: Error) {
-    super(message);
+  constructor(message: string | undefined, code: ErrorCode, cause?: Error) {
+    super(message ?? "At");
     this.code = code;
     this.cause = cause;
     this.baseMessage = ErrorMessage[code];
 
-    // Set the prototype explicitly
+    if (this.cause) {
+      this.stack += `\nCause by > ${this.cause.stack}`;
+    }
+
     Object.setPrototypeOf(this, ClientError.prototype);
   }
 
   createMessage(getStack: boolean = true): string {
-    const stackInfo = `${this.stack}${this.cause ? `\n${this.cause.stack}` : ""}`;
-    return `${this.code}: ${this.baseMessage} ${this.message ? `- ${this.message}` : ""}: ${
-      getStack ? `\n${stackInfo}` : ""
-    }`;
+    return `${this.code}: ${this.baseMessage}: ${getStack ? `\n${this.stack}` : ""}\n`;
   }
 }
 

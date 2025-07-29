@@ -14,10 +14,7 @@ export async function defaultFunctionForCommandInteraction(
   await interaction.editReply({ content: "This command has no setup yet !" });
 }
 
-export async function defaultFunctionForAutocompleteInteraction(
-  client: SuwaBot,
-  interaction: AutocompleteInteraction
-) {
+export async function defaultFunctionForAutocompleteInteraction(client: SuwaBot, interaction: AutocompleteInteraction) {
   await interaction.respond([]);
 }
 
@@ -25,5 +22,7 @@ export async function autoDeferReplyInteraction(
   interaction: CommandInteraction | ChatInputCommandInteraction | ButtonInteraction,
   options: InteractionDeferReplyOptions
 ) {
-  await interaction.deferReply(options);
+  if (!interaction.deferred) {
+    await interaction.deferReply(options);
+  }
 }

@@ -7,3 +7,8 @@ export interface CommandErrorData {
   logger: Logger;
   interaction?: CommandInteraction | ChatInputCommandInteraction;
 }
+
+export interface ClientErrorData {
+  error: ClientError | unknown;
+  logger: Logger;
+}

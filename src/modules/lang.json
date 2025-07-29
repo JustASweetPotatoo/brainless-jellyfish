@@ -1,0 +1,68 @@
+{
+  "modules": {
+    "messageLogger": {
+      "lang": {
+        "en-US": {
+          "editedMessage": {
+            "title": "A message has been edited in <#$CHANNEL_ID>",
+            "description": "\n**Old content:** $OLD_CONTENT\n**New content:** $NEW_CONTENT"
+          },
+          "deletedMessage": {
+            "title": "A message has been deleted in <#$CHANNEL_ID>",
+            "description": "**Content:** $CONTENT\n\n-# *If you want to save attachments, please use command `/message-logger attachment`!*"
+          },
+          "bulkDeletedMessage": {
+            "title": "$AMOUNT messages has been deleted in <#$CHANNEL_ID>",
+            "description": "**Content:** $CONTENT"
+          },
+          "completeNotification": {
+            "title": "Action complete",
+            "description": "The message log channel is: <#$CHANNEL_ID>"
+          },
+          "failedNotification": {
+            "title": "Action failed",
+            "description": "`$CONTENT`\n"
+          },
+          "errorNotification": {
+            "title": "Bot Error",
+            "description": "#CONTENT"
+          }
+        },
+        "vi": {
+          "editedMessage": {
+            "title": "Một tin nhắn đã bị sửa trong <#$CHANNEL_ID>",
+            "description": "\n**Old content:** $OLD_CONTENT\n**New content:** $NEW_CONTENT"
+          },
+          "deletedMessage": {
+            "title": "Một tin nhắn đã bị xóa trong <#$CHANNEL_ID>",
+            "description": "**Content:** $CONTENT\n\n-# *Để lưu lại tệp đính kèm vui lòng sử dụng command: `/message-logger attachment`*"
+          },
+          "bulkDeletedMessage": {
+            "title": "$AMOUNT tin nhắn đã bị xóa trong <#$CHANNEL_ID>",
+            "description": "**Content:** $CONTENT"
+          },
+          "completeNotification": {
+            "title": "Thao tác thành công",
+            "description": "Log tin nhắn hiện tại: <#CHANNEL_ID>"
+          },
+          "failedNotification": {
+            "title": "Thao tác thất bại",
+            "description": ""
+          },
+          "errorNotification": {
+            "title": "Bot Error",
+            "description": ""
+          }
+        }
+      },
+
+      "format": {
+        "channelId": "CHANNEL_ID",
+        "messageContent": "CONTENT",
+        "messageOldContent": "OLD_CONTENT",
+        "messageNewContent": "NEW_CONTENT",
+        "amount": "AMOUNT"
+      }
+    }
+  }
+}

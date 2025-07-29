@@ -11,7 +11,7 @@ import { BotModule } from "../structure/BotModule";
 import { BotModuleOptions } from "../structure/interface/module";
 import ClientError from "../error/ClientError";
 import { ErrorCode } from "../error/ClientErrorCode";
-import { CommandErrorData } from "../structure/interface/error";
+import { ClientErrorData, CommandErrorData } from "../structure/interface/error";
 import ClientSlashCommandBuilder from "../commands/struct/SlashCommandBuilder";
 
 const dangerIconUrl =
@@ -30,6 +30,12 @@ export class ErrorHandlerModule extends BotModule<ErrorHandlerModuleOptions> {
       : error instanceof Error
       ? new ClientError(error.message, ErrorCode.UNKNOWN_ERROR, error)
       : new ClientError("An unknown error occurred", ErrorCode.UNKNOWN_ERROR);
+  }
+
+  handleClientError(data: ClientErrorData) {
+    const error = this.identifyError(data.error);
+
+    data.logger.error(error.createMessage(true));
   }
 
   async handleSlashCommandError(data: CommandErrorData) {
