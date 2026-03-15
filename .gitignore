@@ -1,12 +1,10 @@
 #danger
 .env
+test.ts
+test.js
+package-lock.json
 
-# dependencies
 node_modules
-
-# production
-/dist
-/clone
-
-#others
-/src/utils/log/*
+.VSCodeCounter
+temp
+src/logs

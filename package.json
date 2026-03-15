@@ -1,9 +1,19 @@
 {
   "dependencies": {
+    "@fastify/websocket": "^11.2.0",
     "discord-api-types": "^0.37.101",
     "discord.js": "^14.16.3",
+    "fastify": "^5.7.4",
     "mysql": "^2.18.1",
-    "typescript": "^5.6.2"
+    "mysql2": "^3.11.4",
+    "readline": "^1.3.0",
+    "sql-template-strings": "^2.2.2",
+    "sqlite": "^5.1.1",
+    "sqlite3": "^5.1.7",
+    "ts-node": "^10.9.2",
+    "typeorm": "^0.3.28",
+    "typescript": "^5.7.2",
+    "unicode-emoji-json": "^0.8.0"
   },
   "devDependencies": {
     "@types/jest": "^29.5.13",
@@ -16,8 +26,9 @@
   },
   "scripts": {
     "start": "ts-node src/index.ts",
-    "test": "jest",
-    "pretest": "ts-node src/test.ts"
+    "test": "node test.js",
+    "ts-file-test": "ts-node test.ts",
+    "js-file-test": "node test.js"
   },
   "name": "webpack",
   "version": "BETA-5.1.1",

@@ -1,12 +1,7 @@
-import SuwaClient from "./bot";
+import MassClient from "./Client";
 
-import * as dotenv from "dotenv";
+const client = new MassClient();
 
-dotenv.config();
+const { TOKEN } = process.env;
 
-const { TOKEN, CLIENT_ID } = process.env;
-
-if (TOKEN && CLIENT_ID) {
-  const client = new SuwaClient(CLIENT_ID);
-  client.start(TOKEN);
-}
+client.login(TOKEN);

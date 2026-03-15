@@ -18,9 +18,19 @@
       "name": "test component",
       "request": "launch",
       "type": "node-terminal"
+    }, {
+      "command": "npm run js-file-test",
+      "name": "Run js test file",
+      "request": "launch",
+      "type": "node-terminal"
+    },{
+      "command": "npm run ts-file-test",
+      "name": "Run ts test file",
+      "request": "launch",
+      "type": "node-terminal"
     }
   ],
   "scripts": {
-    "start": "ts-node src/index.ts"
+    "start": "ts-node src/index.ts",
   }
 }

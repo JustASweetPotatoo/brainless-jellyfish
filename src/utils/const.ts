@@ -1,0 +1,2 @@
+export const EMBED_DESCRIPTION_MAX_LENGTH = 4096;
+export const MBED_TITLE_MAX_LENGTH = 256;

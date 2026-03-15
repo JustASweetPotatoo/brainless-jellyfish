@@ -1,17 +1,21 @@
 {
-    "compilerOptions": {
-        "target": "ES2022",
-        "module": "CommonJS",
-        "moduleResolution": "Node",
-        "strict": true,
-        "noImplicitAny": true,
-        "declaration": false,
-        "skipLibCheck": true,
-        "strictNullChecks": true,
-        "resolveJsonModule": true,
-        "outDir": "dist"
-    },
-    "include": ["src"],
-    "files" : ["src/index.ts"],
-    "exclude": ["node_modules"]
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "strict": true,
+    "noImplicitAny": true,
+    "declaration": false,
+    "skipLibCheck": true,
+    "strictNullChecks": true,
+    "resolveJsonModule": true,
+    "outDir": "dist",
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "strictPropertyInitialization": false,
+    "esModuleInterop": true
+  },
+  "include": ["src"],
+  "files": ["temp/index.ts"],
+  "exclude": ["node_modules"]
 }

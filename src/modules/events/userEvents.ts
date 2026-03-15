@@ -1,0 +1,10 @@
+export enum UserGuildEvents {
+  JOIN,
+  LEAVE,
+  NAME_UPDATED,
+  AVATAR_UPDATED,
+  ROLE_ADDED,
+  ROLE_REMOVED,
+  BANNED,
+  UNBANNED,
+}
