@@ -1,6 +1,9 @@
+import dotenv from "dotenv";
 import MassClient from "./Client";
 
-const client = new MassClient();
+dotenv.config();
+
+const client = new MassClient("default");
 
 const { TOKEN } = process.env;
 

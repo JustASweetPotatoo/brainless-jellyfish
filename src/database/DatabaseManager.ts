@@ -1,7 +1,6 @@
 import { ConnectionOptions, createPool, Pool, RowDataPacket } from "mysql2/promise";
 
 import MassClient from "../Client";
-import { Events } from "discord.js";
 import { Logger } from "../logger/Logger";
 import ClientError from "../error/ClientError";
 import { ErrorCode } from "../error/ErrorCode";
@@ -75,5 +74,9 @@ export default class DatabaseManager {
       const [rows] = await this.defaultPool.query<RowDataPacket[]>(query, values);
       return rows;
     }
+  }
+
+  public getLogger(): Logger {
+    return this.logger;
   }
 }

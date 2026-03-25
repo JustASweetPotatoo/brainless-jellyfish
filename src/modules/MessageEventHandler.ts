@@ -1,12 +1,14 @@
 import {
+  ChannelType,
+  ChatInputCommandInteraction,
   Collection,
   Colors,
-  CommandInteraction,
-  Embed,
   EmbedBuilder,
   Events,
   Guild,
+  Locale,
   Message,
+  PermissionFlagsBits,
   TextChannel,
 } from "discord.js";
 import Module from "./constructor/Module";
@@ -14,6 +16,8 @@ import GuildLoggerProfileRepo from "../database/repository/GuildLoggerProfileRep
 import { ModuleOptions } from "./constructor/BaseModule";
 import { EMBED_DESCRIPTION_MAX_LENGTH } from "../utils/const";
 import GuildLoggerProfile from "../database/model/GuildLoggerProfile";
+import { autoDeferReply } from "../utils/functions";
+import { sendInteractionMessageReply } from "../utils/replier";
 
 export default class MessageEventLogger extends Module {
   readonly discordEvents: Events[] = [
@@ -23,74 +27,75 @@ export default class MessageEventLogger extends Module {
   ];
 
   private readonly repo: GuildLoggerProfileRepo;
-  private readonly prolfieCache: Collection<string, GuildLoggerProfile> =
+  private readonly guildProfCache: Collection<string, GuildLoggerProfile> =
     new Collection();
-  private readonly cache: Collection<
+  private readonly channelCache: Collection<
     { guildId: string; channelId: string },
     TextChannel
   > = new Collection();
 
   constructor(options: ModuleOptions) {
     super("message-event-logger", options);
-
     this.repo = new GuildLoggerProfileRepo(this.client.database);
   }
 
-  private async check(guild: Guild): Promise<TextChannel | undefined> {
-    let profile = this.prolfieCache.get(guild.id) ?? (await this.repo.get(guild.id));
+  private async initChannel(channleId: string, guild: Guild) {
+    let channelCache = this.channelCache.get({ channelId: channleId, guildId: guild.id });
 
-    if (!profile) {
-      profile = new GuildLoggerProfile({ guildId: guild.id });
-      this.repo.create(profile);
-    }
-
-    this.prolfieCache.set(guild.id, profile);
-
-    if (!profile.messageLoggerActive) return;
-
-    if (!profile.messageLogChannelId) return;
-
-    let channel = this.cache.get({
-      guildId: guild.id,
-      channelId: profile.messageLogChannelId,
-    });
-
-    if (!channel) {
-      channel = (await guild.channels.fetch(profile.messageLogChannelId)) as TextChannel;
-
-      if (!channel) return;
-
-      this.cache.set(
-        {
-          guildId: guild.id,
-          channelId: channel.id,
-        },
-        channel
+    if (!channelCache) {
+      let fetchChannel = await guild.channels.fetch(channleId);
+      if (!fetchChannel) return undefined;
+      this.channelCache.set(
+        { channelId: channleId, guildId: guild.id },
+        fetchChannel as TextChannel
       );
     }
 
-    return channel;
+    return channelCache;
+  }
+
+  private async initGuildProf(guildId: string) {
+    let guildProf = this.guildProfCache.get(guildId);
+    if (!guildProf) {
+      guildProf = new GuildLoggerProfile({ guildId: guildId });
+      guildProf = await this.repo.update(guildProf);
+      this.guildProfCache.set(guildId, guildProf);
+    }
+
+    return guildProf;
+  }
+
+  private async check(guild: Guild): Promise<TextChannel | undefined> {
+    let prolfieCache = await this.initGuildProf(guild.id);
+    if (!prolfieCache.messageLoggerActive) return;
+
+    return await this.initChannel(prolfieCache.messageLogChannelId!, guild);
   }
 
   protected async onMessageUpdate(
     oldMessage: Message,
     newMessage: Message
   ): Promise<any> {
-    if (oldMessage.author.bot) return;
-    if (!oldMessage.inGuild()) return;
-
+    if (oldMessage.author.bot || !oldMessage.inGuild()) return;
     let channel = await this.check(oldMessage.guild);
-
     if (!channel) return;
+
+    const locale = oldMessage.guild.preferredLocale;
 
     await channel.send({
       embeds: [
         new EmbedBuilder()
           .setAuthor({
-            name: `${oldMessage.author.tag}`,
+            name: `${oldMessage.author.tag}/${oldMessage.author.id}`,
             iconURL: oldMessage.author.displayAvatarURL(),
           })
-          .setTitle(`Message edited in <#${oldMessage.channelId}>`)
+          .setTitle(
+            `${
+              locale == Locale.Vietnamese
+                ? "Tin nhắn đã chỉnh sửa trong"
+                : "Message edited in"
+            } <#${oldMessage.channelId}>`
+          )
           .addFields([
             {
               name: "Before:",
@@ -101,9 +106,13 @@ export default class MessageEventLogger extends Module {
               value: newMessage.partial ? "*No content*" : newMessage.content,
             },
           ])
-          .setDescription(`Edited <t:${Math.floor(Date.now() / 1000)}:R>`)
+          .setDescription(
+            `${locale == Locale.Vietnamese ? "Đã chỉnh sửa" : "Edited"} <t:${Math.floor(
+              Date.now() / 1000
+            )}:R>`
+          )
           .setColor(Colors.Yellow)
-          .setFooter({ text: `${oldMessage.author.id}` })
+          .setFooter({ text: `MSG-ID: ${oldMessage.id}` })
           .setTimestamp(),
       ],
     });
@@ -121,24 +130,27 @@ export default class MessageEventLogger extends Module {
 
     const embed = new EmbedBuilder()
       .setAuthor({
-        name: `${message.author.tag}`,
+        name: `${message.author.tag}/${message.author.id}`,
         iconURL: message.author.displayAvatarURL(),
       })
       .setTitle(`Message deleted in <#${message.channelId}>`)
       .setDescription(
         `Deleted <t:${Math.floor(Date.now() / 1000)}:R>\n**Content:** ${
-          message.partial ? "*No content*" : message.content
+          message.content.length == 0 ? "*No content*" : message.content
         }`.slice(0, EMBED_DESCRIPTION_MAX_LENGTH - 3) + (isOverSizeMessage ? "..." : "")
       )
       .setColor(Colors.Red)
-      .setFooter({ text: `${message.author.id}` })
+      .setFooter({ text: `MSG-ID: ${message.id}` })
       .setTimestamp();
 
     await channel.send({
       embeds: [embed],
       files: isOverSizeMessage
-        ? [{ attachment: Buffer.from(message.content, "utf-8"), name: "message.txt" }]
-        : [],
+        ? [
+            { attachment: Buffer.from(message.content, "utf-8"), name: "message.txt" },
+            ...message.attachments.map((att) => att),
+          ]
+        : [...message.attachments.map((att) => att)],
     });
   }
 
@@ -178,7 +190,6 @@ export default class MessageEventLogger extends Module {
             firstEmbedFullContent = true;
             embeds.push(firstEmbed);
           }
-
           return;
         }
 
@@ -190,5 +201,80 @@ export default class MessageEventLogger extends Module {
           embeds.push(new EmbedBuilder().setDescription(chunk));
         }
       });
+  }
+
+  private async autoReplyNotInGuildCommandInteraction(
+    interaction: ChatInputCommandInteraction
+  ) {
+    await autoDeferReply(interaction);
+
+    if (!interaction.inCachedGuild()) {
+      await sendInteractionMessageReply(interaction, {
+        content: "You can't use this command in here !",
+      });
+      return;
+    }
+
+    return interaction;
+  }
+
+  // Command executor
+  async createChannelCommandInteraction(itrt: ChatInputCommandInteraction) {
+    let interaction = await this.autoReplyNotInGuildCommandInteraction(itrt);
+    if (!interaction) return;
+
+    const guildProf = await this.initGuildProf(interaction.guild.id);
+
+    if (!guildProf.messageLoggerActive) {
+      guildProf.messageLoggerActive = true;
+    }
+
+    let channelName = interaction.options.getString("name");
+    let privateForEveryone = interaction.options.getBoolean("private", true);
+
+    if (!channelName) {
+      channelName = "message-logs";
+    }
+
+    const logChannel = await interaction.guild.channels.create({
+      name: channelName,
+      type: ChannelType.GuildText,
+      permissionOverwrites: privateForEveryone
+        ? [
+            {
+              id: interaction.guild.roles.everyone,
+              deny: [PermissionFlagsBits.ViewChannel],
+            },
+          ]
+        : [],
+    });
+
+    guildProf.messageLogChannelId = logChannel.id;
+    this.channelCache.set(
+      { guildId: logChannel.guildId, channelId: logChannel.id },
+      logChannel
+    );
+    this.guildProfCache.set(guildProf.guildId, guildProf);
+    await this.repo.update(guildProf);
+  }
+
+  async setChannelCommandInteraction(itrt: ChatInputCommandInteraction) {
+    let interaction = await this.autoReplyNotInGuildCommandInteraction(itrt);
+    if (!interaction) return;
+
+    const guildProf = await this.initGuildProf(interaction.guild.id);
+
+    if (!guildProf.messageLoggerActive) {
+      guildProf.messageLoggerActive = true;
+    }
+
+    const channel = interaction.options.getChannel("channel", true, [
+      ChannelType.GuildText,
+    ]);
+
+    guildProf.messageLogChannelId = channel.id;
+    this.channelCache.set({ guildId: channel.guildId, channelId: channel.id }, channel);
+    this.guildProfCache.set(guildProf.guildId, guildProf);
+    await this.repo.update(guildProf);
   }
 }

@@ -19,7 +19,7 @@
     "@types/jest": "^29.5.13",
     "@types/mysql": "^2.15.26",
     "@types/node": "^22.7.4",
-    "dotenv": "^16.4.5",
+    "dotenv": "^16.6.1",
     "jest": "^29.7.0",
     "ts-jest": "^29.2.5",
     "webpack": "^5.95.0"
@@ -27,8 +27,8 @@
   "scripts": {
     "start": "ts-node src/index.ts",
     "test": "node test.js",
-    "ts-file-test": "ts-node test.ts",
-    "js-file-test": "node test.js"
+    "debug": "ts-node src/dev.ts",
+    "js-file-test": "node dev.js"
   },
   "name": "webpack",
   "version": "BETA-5.1.1",

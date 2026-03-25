@@ -7,16 +7,27 @@ export default class LevelUpSystemGuildProfileRepo extends Repository {
     super("level_up_guild_profile", database);
   }
 
-  /**
-   * @deprecated
-   */
-  async createTable() {}
+  async createTable() {
+    const query = `
+      CREATE TABLE IF NOT EXISTS ?
+      (
+        id VARCHAR(64) PRIMARY KEY NOT NULL,
+        \`activate\` TINYINT NOT NULL DEFAULT 0,
+        log_channel_id VARCHAR(64),
+        rate LONGINT NOT NULL DEFAULT 1,
+        MILESTONES JSON
+      )
+    `;
+
+    const values = [this.fullTableName];
+    await this.executeQuery(query, values);
+
+    return true;
+  }
 
   async get(id: string): Promise<LevelUpSystemGuildProfileJSON | undefined> {
     const query = `SELECT * FROM ${this.fullTableName} WHERE id = ?;`;
     const row = (await this.executeQuery(query, [id])).at(0);
-
-    console.log(row);
 
     if (row)
       return {

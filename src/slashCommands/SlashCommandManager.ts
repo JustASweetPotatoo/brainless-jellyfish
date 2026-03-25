@@ -103,7 +103,7 @@ export default class SlashCommandManager extends Module {
   }
 
   async pushCommandToDiscordServer() {
-    if (this.client.mode === "test") {
+    if (this.client.mode === "debug") {
       this.logger.warn(
         "Client is in test mode, skipping pushing (/) commands to discord server"
       );
@@ -183,6 +183,6 @@ export default class SlashCommandManager extends Module {
   }
 
   protected override async onGuildAvailable(guild: Guild): Promise<any> {
-    if (this.client.mode !== "test") await this.pushCommandToDirectGuild(guild);
+    if (this.client.mode !== "debug") await this.pushCommandToDirectGuild(guild);
   }
 }

@@ -1,18 +1,30 @@
 import path from "path";
-import Fastify, { FastifyInstance, RouteShorthandMethod } from "fastify";
+import Fastify, { FastifyInstance, FastifyRequest, RouteShorthandMethod } from "fastify";
 import MassClient from "../Client";
 import { Logger } from "../logger/Logger";
 import { readConfigFile } from "../utils/readConfig";
+import { RouteShorthandOptions } from "fastify/types/route";
+import websocket from "@fastify/websocket";
+import WebSocket from "ws";
 
 export interface FastifyConfig {
   host: string;
   port: number;
 }
 
+export enum PathListenerType {
+  GET,
+}
+
+export interface FastifyGetRequestHandler {
+  (websocket: WebSocket, request: FastifyRequest): any;
+}
+
 export default class FastifyServer {
   private readonly client: MassClient;
   private readonly logger: Logger;
   public readonly instance: FastifyInstance;
+  private websocketRegisted: boolean = false;
   public readonly get: RouteShorthandMethod;
   public readonly post: RouteShorthandMethod;
 
@@ -28,10 +40,7 @@ export default class FastifyServer {
     this.client = client;
     this.logger = new Logger({ label: "Fastify", printer: client.logPrinter });
 
-    this.instance = Fastify({
-      logger: false,
-    });
-
+    this.instance = Fastify();
     this.get = this.instance.get.bind(this.instance);
     this.post = this.instance.post.bind(this.instance);
   }
@@ -52,6 +61,25 @@ export default class FastifyServer {
     }
   }
 
+  public async registerWebListener(
+    path: string,
+    opts: RouteShorthandOptions,
+    type: PathListenerType,
+    handler: FastifyGetRequestHandler
+  ) {
+    if (!this.websocketRegisted) {
+      await this.instance.register(websocket);
+      this.websocketRegisted = true;
+    }
+
+    switch (type) {
+      case PathListenerType.GET:
+        this.instance.get(path, { ...opts, websocket: true }, handler);
+        this.logger.info(`Server get request create with path: ${path}`);
+        break;
+    }
+  }
+
   public async open() {
     this.logger.log("Opening server...");
     await this.loadConfig();
@@ -60,6 +88,8 @@ export default class FastifyServer {
       host: this.config.host,
       port: this.config.port,
     });
+
+    this.logger.info("Route tree:\n" + this.instance.printRoutes());
 
     this.logger.success(
       `Server running at http://${this.config.host}:${this.config.port}`

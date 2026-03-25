@@ -6,6 +6,7 @@ import ServerStatsManager from "./ServerStats";
 import MessageEventLogger from "./MessageEventHandler";
 import { ModuleOptions } from "./constructor/BaseModule";
 import UserLevelUpSystem from "./UserLevelUpSystem";
+import AutoLink from "./AutoLink";
 
 export default class ModuleManager extends Module {
   readonly discordEvents: Events[];
@@ -21,6 +22,7 @@ export default class ModuleManager extends Module {
       ServerStatsManager,
       MessageEventLogger,
       UserLevelUpSystem,
+      AutoLink,
     ];
 
     for (const ModuleClass of moduleClasses) {

@@ -13,19 +13,9 @@
       "request": "launch",
       "type": "node-terminal"
     },
-    {
-      "command": "npm run pretest",
-      "name": "test component",
-      "request": "launch",
-      "type": "node-terminal"
-    }, {
-      "command": "npm run js-file-test",
-      "name": "Run js test file",
-      "request": "launch",
-      "type": "node-terminal"
-    },{
-      "command": "npm run ts-file-test",
-      "name": "Run ts test file",
+     {
+      "command": "npm run debug",
+      "name": "Run dev client",
       "request": "launch",
       "type": "node-terminal"
     }

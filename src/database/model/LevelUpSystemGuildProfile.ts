@@ -90,6 +90,8 @@ export class LevelUpSystemGuildProfile {
    */
   milestones: Collection<string, LevelUpMileStone>;
 
+  locale?: string;
+
   constructor(options: LevelUpSystemGuildProfileOptions) {
     this.id = options.id;
     this.active = options.active;

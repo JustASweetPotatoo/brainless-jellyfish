@@ -65,7 +65,7 @@ export class LogPrinter {
    * @param content
    */
   public writeContent(content: string): boolean {
-    if (this.client.mode == "test") {
+    if (this.client.mode == "debug") {
       this.writeToDebugFile(content);
       return true;
     } else {
@@ -90,7 +90,8 @@ export enum LogMessageType {
   INFO = "info",
   OK = "ok  ",
   WARN = "warn",
-  ERROR = "erro",
+  ERROR = "err ",
+  DEBUG = "dev "
 }
 
 let labelStringLength = 50;
@@ -184,5 +185,10 @@ export class Logger {
   error(message: string, error?: Error | any, printToFile?: boolean) {
     const content = `${message}${error ? `\n${error?.message}\n${error?.stack}` : ""}`;
     this.print(content, LogMessageType.ERROR, printToFile ?? true);
+  }
+
+  debug(message: string) {
+    const content = `${message}`;
+    this.print(content, LogMessageType.DEBUG, false);
   }
 }

@@ -59,7 +59,7 @@ export default class GuildLoggerProfile {
     });
   }
 
-  static rowConvert(row: any): GuildLoggerProfile {
+  static toThis(row: GuildLoggerProfileJSON): GuildLoggerProfile {
     return new GuildLoggerProfile({
       guildId: row.guild_id,
       messageLoggerActive: row.message_logger_active,

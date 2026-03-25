@@ -8,9 +8,8 @@ import ClientError from "./error/ClientError";
 import { ErrorCode } from "./error/ErrorCode";
 import DatabaseManager from "./database/DatabaseManager";
 import MessageReplier from "./modules/MessageReplier";
-import FastifyServer from "./webServer/FastifyServer";
 
-export type OperationMode = "default" | "test";
+export type OperationMode = "default" | "debug";
 
 export default class MassClient extends Client {
   // Client info
@@ -34,7 +33,6 @@ export default class MassClient extends Client {
   public readonly moduleManager: ModuleManager;
   public readonly errorHandler: ErrorHandler;
   public readonly messageReplier: MessageReplier;
-  public readonly fastifyServer: FastifyServer;
 
   // Database
   public readonly database: DatabaseManager;
@@ -42,7 +40,7 @@ export default class MassClient extends Client {
   // Init module
   public readonly slashCommandManager: SlashCommandManager;
 
-  constructor() {
+  constructor(operationMode: OperationMode) {
     super({
       intents: [
         GatewayIntentBits.Guilds,
@@ -55,7 +53,6 @@ export default class MassClient extends Client {
 
     this.setMaxListeners(100);
 
-    this.mode = "test";
     this.startAt = new Date();
     this.logPrinter = new LogPrinter(this);
     this.logger = new Logger({ label: "main", printer: this.logPrinter });
@@ -64,7 +61,6 @@ export default class MassClient extends Client {
     this.errorHandler = new ErrorHandler({ client: this });
     this.messageReplier = new MessageReplier({ client: this });
 
-    this.fastifyServer = new FastifyServer(this);
     this.slashCommandManager = new SlashCommandManager({ client: this });
 
     this.on(Events.ClientReady, async () => this.clientReadyAction());

@@ -8,3 +8,5 @@ node_modules
 .VSCodeCounter
 temp
 src/logs
+debug.*
+dev.*

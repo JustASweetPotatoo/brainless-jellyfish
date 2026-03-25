@@ -47,8 +47,15 @@ const UsageChart: React.FC<UsageLineChartProps> = (props) => {
         const incoming = JSON.parse(event.data);
         const nodeDate = new Date(incoming.timeseconds);
 
+        const timeString =
+          event.data % 60 == 0
+            ? nodeDate.toLocaleTimeString()
+            : (event.data % 60).toString();
+
+        console.log(timeString);
+
         const newPoint: Point = {
-          time: nodeDate.toLocaleTimeString(),
+          time: timeString,
           value: incoming.value,
         };
 

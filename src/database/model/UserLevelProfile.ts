@@ -25,6 +25,8 @@ export default class UserLevelProfile {
   voiceExp: number = 0;
   milestoneId: string = "";
 
+  cacheCount: number = 0;
+
   constructor(options: UserLevelProfileOptions) {
     this.id = options.id;
     this.guildId = options.guildId;

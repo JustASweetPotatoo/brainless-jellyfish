@@ -1,0 +1,60 @@
+{
+  "user-level-up-system": {
+    "levelNotification": {
+      "levelUp": {
+        "vi": {
+          "title": "<@$USER_ID> Leve up !",
+          "description": {
+            "main": "Bạn đã đạt level $MESSAGE_LEVEL !",
+            "additional": "**Bạn đã đạt được thành tựu** <@&$MESSAGE_MILESTONE>"
+          },
+          "embed": {
+            "title": "<@$USER_ID> Leve up !",
+            "description": {
+              "main": "Bạn đã đạt level $MESSAGE_LEVEL !",
+              "additional": "**Bạn đã đạt được thành tựu** <@&$MESSAGE_MILESTONE>",
+              "timestamp": true
+            },
+            "color": "Blurple"
+          }
+        },
+        "en": {
+          "title": "<@$USER_ID> Leve up !",
+          "description": {
+            "main": "You have reached level $MESSAGE_LEVEL !",
+            "additional": "**Achievement granted** <@&$MESSAGE_MILESTONE>"
+          },
+          "embed": {
+            "title": "<@$USER_ID> Leve up !",
+            "description": {
+              "main": "You have reached level $MESSAGE_LEVEL !",
+              "additional": "**Achievement granted** <@&$MESSAGE_MILESTONE>",
+              "timestamp": true
+            },
+            "color": "Blurple"
+          }
+        }
+      },
+      "levelUpdate": {
+        "vi": {
+          "title": "",
+          "description": ""
+        },
+        "en": {
+          "title": "",
+          "description": ""
+        }
+      },
+      "levelRank": {
+        "vi": {
+          "title": "",
+          "description": ""
+        },
+        "en": {
+          "title": "",
+          "description": ""
+        }
+      }
+    }
+  }
+}

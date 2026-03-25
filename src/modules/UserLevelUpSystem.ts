@@ -3,11 +3,11 @@ import {
   ChatInputCommandInteraction,
   Collection,
   Colors,
-  CommandInteraction,
-  CreateChannelOptions,
   EmbedBuilder,
   Events,
+  Guild,
   GuildChannelCreateOptions,
+  Locale,
   Message,
   MessageFlags,
   Role,
@@ -21,7 +21,10 @@ import {
   sendTemporatyInteractionMessageReply,
 } from "../utils/replier";
 import LevelUpSystemGuildProfileRepo from "../database/repository/LevelUpSystemGuildProfileRepo";
-import { LevelUpSystemGuildProfile } from "../database/model/LevelUpSystemGuildProfile";
+import {
+  LevelUpMileStone,
+  LevelUpSystemGuildProfile,
+} from "../database/model/LevelUpSystemGuildProfile";
 import UserLevelProfile from "../database/model/UserLevelProfile";
 import UserlevelProfileRepo from "../database/repository/UserLevelProfileRepo";
 import {
@@ -42,10 +45,15 @@ export interface UserVoiceState {
 
 export default class UserLevelUpSystem extends Module {
   readonly discordEvents: Events[] = [Events.MessageCreate, Events.VoiceStateUpdate];
-  readonly channelCache: Collection<string, TextChannel> = new Collection();
-  readonly guildCache: Collection<string, LevelUpSystemGuildProfile> = new Collection();
-  readonly userCache: Collection<{ id: string; guildId: string }, UserLevelProfile> =
+  private readonly channelCache: Collection<string, TextChannel> = new Collection();
+  private readonly guildCache: Collection<string, LevelUpSystemGuildProfile> =
     new Collection();
+  private readonly userCache: Collection<
+    { id: string; guildId: string },
+    UserLevelProfile
+  > = new Collection();
+
+  private readonly guildRegion: Collection<string, Locale> = new Collection();
 
   readonly userVoiceStateCollection: Collection<string, UserVoiceState> =
     new Collection();
@@ -82,29 +90,30 @@ export default class UserLevelUpSystem extends Module {
     }, 60 * 1000);
   }
 
-  private async getGuildProf(guildId: string) {
-    let guildProfile = this.guildCache.get(guildId);
+  private async getGuildProf(guild: Guild) {
+    let guildProfile = this.guildCache.get(guild.id);
     if (!guildProfile) {
-      guildProfile = await this.initGuildProf(guildId);
+      guildProfile = await this.initGuildProf(guild);
     }
 
     if (guildProfile.active && guildProfile.logChannelId) {
-      const guild = await this.client.guilds.fetch(guildId);
       const channel = (await guild.channels.fetch(
         guildProfile.logChannelId
       )) as TextChannel;
       this.channelCache.set(channel.id, channel);
     }
 
+    guildProfile.locale = guild.preferredLocale;
+
     return guildProfile;
   }
 
-  private async initGuildProf(guildId: string) {
-    let JSONData = await this.guildRepo.get(guildId);
+  private async initGuildProf(guild: Guild) {
+    let JSONData = await this.guildRepo.get(guild.id);
 
     if (!JSONData) {
       const newProf = new LevelUpSystemGuildProfile({
-        id: guildId,
+        id: guild.id,
         active: false,
       });
       await this.guildRepo.create(newProf.toJSON());
@@ -114,13 +123,43 @@ export default class UserLevelUpSystem extends Module {
     return new LevelUpSystemGuildProfile(JSONData);
   }
 
+  private async initUserProf(userId: string, guildId: string) {
+    let userProf = this.userCache.get({
+      id: userId,
+      guildId: guildId,
+    });
+
+    if (!userProf) {
+      userProf = UserLevelProfile.toThis(
+        await this.userRepo.get({
+          id: userId,
+          guildId: guildId,
+        })
+      );
+    }
+
+    return userProf;
+  }
+
+  private async updateUserProfile(userProf: UserLevelProfile) {
+    if (userProf.cacheCount >= 10) {
+      userProf.cacheCount = 0;
+      await this.userRepo.update(userProf.toJSON());
+    }
+
+    userProf.cacheCount += 1;
+    this.userCache.set({ id: userProf.id, guildId: userProf.guildId }, userProf);
+
+    return userProf;
+  }
+
   // Channel access
   async createOrSetLogChannelInteractionExecutor(
     interaction: ChatInputCommandInteraction<"cached">
   ) {
     if (!interaction.command) return;
 
-    let guildConfig = await this.getGuildProf(interaction.guildId);
+    let guildConfig = await this.getGuildProf(interaction.guild);
 
     if (interaction.command.options.filter((ops) => ops.name == "set")) {
       const createChannelOptions: GuildChannelCreateOptions = {
@@ -186,10 +225,10 @@ export default class UserLevelUpSystem extends Module {
    *
    * @deprecated
    */
-  async disableGuildInteractionExecutor(
+  async disableGuildSLashComdExecutor(
     interaction: ChatInputCommandInteraction<"cached">
   ) {
-    const guildProfile = await this.getGuildProf(interaction.guildId);
+    const guildProfile = await this.getGuildProf(interaction.guild);
 
     guildProfile.active = !guildProfile.active;
     await this.guildRepo.update(guildProfile.toJSON());
@@ -208,6 +247,7 @@ export default class UserLevelUpSystem extends Module {
     });
   }
 
+  // User Interaction and command
   async getUserRank(interaction: ChatInputCommandInteraction<"cached">) {
     let target = interaction.options.getMember("member");
     if (!target) target = interaction.member;
@@ -267,25 +307,13 @@ export default class UserLevelUpSystem extends Module {
   }
 
   protected async onMessageCreate(message: Message<true>): Promise<any> {
-    const guildProfile = await this.getGuildProf(message.guildId);
+    const guildProfile = await this.getGuildProf(message.guild);
 
     // Filter
     if (!guildProfile) return;
     if (message.author.bot) return;
 
-    let userProf = this.userCache.get({
-      id: message.author.id,
-      guildId: message.guildId,
-    });
-
-    if (!userProf) {
-      userProf = UserLevelProfile.toThis(
-        await this.userRepo.get({
-          id: message.author.id,
-          guildId: message.guildId,
-        })
-      );
-    }
+    let userProf = await this.initUserProf(message.author.id, message.guildId);
 
     const oldLevel = calcLevel(userProf.messageExp);
     const newMessageExp = userProf.messageExp + calcExp(message.content);
@@ -293,8 +321,12 @@ export default class UserLevelUpSystem extends Module {
 
     userProf.messageExp = newMessageExp;
 
+    let milestoneChanged: boolean = false;
+    let leveUp: boolean = false;
+    let milestone: LevelUpMileStone | undefined;
+
     if (oldLevel != newLevel) {
-      let milestoneChanged = false;
+      leveUp = true;
       let addRole: Role | undefined;
 
       const newMilestone = guildProfile.milestones.find(
@@ -305,33 +337,32 @@ export default class UserLevelUpSystem extends Module {
         milestoneChanged = true;
         addRole = message.guild.roles.cache.get(newMilestone?.roleId ?? "");
       }
-
-      const channel = this.channelCache.get(message.guildId);
-
-      if (channel instanceof TextChannel) {
-        const embed = new EmbedBuilder({
-          title: `Bạn đã đạt level ${newLevel}`,
-          description: `${
-            milestoneChanged
-              ? `\n*Bạn đã đạt được thành tựu:**<@&${newMilestone?.roleId}***`
-              : undefined
-          }`,
-          color: Colors.Blurple,
-        });
-
-        await channel.send({ embeds: [embed] });
-      }
     }
 
-    this.userCache.set({ id: userProf.id, guildId: userProf.guildId }, userProf);
-    await this.userRepo.update(userProf.toJSON());
+    userProf = await this.updateUserProfile(userProf);
+
+    const channel = this.channelCache.get(message.guildId);
+
+    if (milestone && channel instanceof TextChannel) {
+      const embed = new EmbedBuilder({
+        title: `Bạn đã đạt level ${newLevel}`,
+        description: `${
+          milestoneChanged
+            ? `\n*Bạn đã đạt được thành tựu:**<@&${milestone?.roleId}***`
+            : undefined
+        }`,
+        color: Colors.Blurple,
+      });
+
+      await channel.send({ embeds: [embed] });
+    }
   }
 
   protected async onVoiceStateUpdate(
     oldState: VoiceState,
     newState: VoiceState
   ): Promise<any> {
-    const guildProfile = await this.getGuildProf(newState.guild.id);
+    const guildProfile = await this.getGuildProf(newState.guild);
     if (!guildProfile) return;
 
     // Join state
@@ -360,21 +391,10 @@ export default class UserLevelUpSystem extends Module {
         (Date.now() - userState.joinTimestamp) / 1000 / 60
       );
 
-      let userProfile = await this.userRepo.get({
-        id: member.id,
-        guildId: member.guild.id,
-      });
+      let userProf = await this.initUserProf(member.id, member.guild.id);
+      userProf.voiceExp += getRandomInt(25, 35) * timeByMinutes;
 
-      if (!userProfile)
-        userProfile = await this.userRepo.create({
-          id: member.id,
-          guildId: member.guild.id,
-        });
-
-      userProfile.voice_exp += getRandomInt(25, 35) * timeByMinutes;
-      this.userRepo.update(userProfile);
-
-      this.logger.log(`${oldState.member.user.tag} left ${oldState.channel.name}`);
+      userProf = await this.updateUserProfile(userProf);
     }
   }
 }

@@ -9,7 +9,7 @@ export default class GuildLoggerProfileRepo extends Repository {
 
   async createTable() {
     const query = `
-        CREATE TABLE IF NOT EXISTS ${this.fullTableName}
+        CREATE TABLE IF NOT EXISTS ?
         (
             guild_id VARCHAR(64) PRIMARY KEY NOT NULL,
             message_logger_active INT NOT NULL DEFAULT 0,
@@ -22,8 +22,9 @@ export default class GuildLoggerProfileRepo extends Repository {
             moderation_log_channel_id VARCHAR(64)
         );
     `;
-
-    throw new Error("Method not implemented.");
+    const values = [this.fullTableName];
+    await this.executeQuery(query, values);
+    return true;
   }
 
   async create(data: GuildLoggerProfile): Promise<GuildLoggerProfile> {
@@ -73,22 +74,26 @@ export default class GuildLoggerProfileRepo extends Repository {
     const query = `SELECT * FROM ${this.fullTableName} WHERE guild_id = ?;`;
     const values = [guildId];
     const result = await this.executeQuery(query, values);
-    return result.length > 0 ? GuildLoggerProfile.rowConvert(result[0]) : undefined;
+    return result.length > 0 ? GuildLoggerProfile.toThis(result[0]) : undefined;
   }
 
   async getAll(limit: number = 100): Promise<any> {
     const query = `SELECT * FROM ${this.fullTableName} LIMIT ?;`;
     const values = [limit];
     const rows = await this.executeQuery(query, values);
-    return rows.map((row) => GuildLoggerProfile.rowConvert(row));
+    return rows.map((row) => GuildLoggerProfile.toThis(row));
   }
 
-  async getOrderBy(data: any, DESC: boolean): Promise<GuildLoggerProfile | undefined> {
+  async getOrderBy(
+    rowsName: string,
+    DESC: boolean,
+    limit: number = 10
+  ): Promise<GuildLoggerProfile | undefined> {
     const query = `SELECT * FROM ${this.fullTableName} ORDER BY ? ${
       DESC ? "DESC" : "ASC"
-    } LIMIT 1;`;
-    const values = [data];
+    } LIMIT ?;`;
+    const values = [rowsName, limit];
     const result = await this.executeQuery(query, values);
-    return result.length > 0 ? GuildLoggerProfile.rowConvert(result[0]) : undefined;
+    return result.length > 0 ? GuildLoggerProfile.toThis(result[0]) : undefined;
   }
 }
