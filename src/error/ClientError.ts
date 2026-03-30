@@ -1,4 +1,4 @@
-import { ErrorCode, ErrorMessage } from "../../temp/error/ClientErrorCode";
+import { ErrorCode, ErrorMessage } from "./ErrorCode";
 
 export default class ClientError extends Error {
   public readonly code: string;

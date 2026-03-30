@@ -5,7 +5,6 @@ import {
   SlashCommandBuilder,
   SlashCommandChannelOption,
   SlashCommandNumberOption,
-  SlashCommandOptionsOnlyBuilder,
   SlashCommandRoleOption,
   SlashCommandStringOption,
   SlashCommandUserOption,

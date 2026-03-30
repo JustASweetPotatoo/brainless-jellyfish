@@ -1,0 +1,48 @@
+# version: "3.8"
+
+services:
+  mysql:
+    image: mysql:8
+    container_name: mysql
+    mem_limit: 300m  
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: Admin@123
+      MYSQL_DATABASE: bot
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # python:
+  #   build: ./python
+  #   container_name: py-server
+  #   restart: always
+  #   ports:
+  #     - "9812:9812"
+
+  bot:
+    build: .
+    container_name: bot
+    restart: always
+    # depends_on:
+      # mysql:
+      #   condition: service_healthy
+      # python:
+      #   condition: service_started
+    environment:
+      # DISCORD_BOT_TOKEN: ${DISCORD_BOT_TOKEN}
+      DB_HOST: mysql
+      DB_PORT: 3307
+      DB_USER: root
+      DB_PASS: Admin@123
+      DB_NAME: bot
+      # PYTHON_API: http://python:9812
+
+volumes:
+  mysql_data:

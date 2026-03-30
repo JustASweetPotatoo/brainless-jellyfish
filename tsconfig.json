@@ -16,6 +16,6 @@
     "esModuleInterop": true
   },
   "include": ["src"],
-  "files": ["temp/index.ts"],
+  "files": ["src/index.ts"],
   "exclude": ["node_modules"]
 }

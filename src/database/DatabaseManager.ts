@@ -4,24 +4,33 @@ import MassClient from "../Client";
 import { Logger } from "../logger/Logger";
 import ClientError from "../error/ClientError";
 import { ErrorCode } from "../error/ErrorCode";
+import { configDotenv } from "dotenv";
+import { EventEmitter } from "stream";
 
-export default class DatabaseManager {
+export default class DatabaseManager extends EventEmitter {
   private readonly client: MassClient;
   private readonly logger: Logger;
   public defaultPool: Pool;
   private readonly pools: Pool[] = [];
   public readonly name: string = "main";
 
-  // Only use on debug server !
-  private readonly defaultConnectOptions: ConnectionOptions = {
-    host: "localhost",
-    user: "root",
-    password: "root",
-  };
+  private readonly defaultConnectOptions: ConnectionOptions;
 
   constructor(client: MassClient) {
+    super();
     this.client = client;
     this.logger = new Logger({ label: "db-manager", printer: client.logPrinter });
+
+    configDotenv();
+    const { DB_HOST, DB_PORT, DB_USER, DB_PASS, DB_NAME } = process.env;
+
+    this.defaultConnectOptions = {
+      host: DB_HOST,
+      user: DB_USER,
+      password: DB_PASS,
+      port: parseInt(DB_PORT ?? "3306"),
+      database: DB_NAME,
+    };
   }
 
   async createSchema(): Promise<boolean> {
@@ -34,7 +43,7 @@ export default class DatabaseManager {
       await this.executeQuery("CREATE SCHEMA IF NOT EXISTS `bot`");
       this.logger.success("Created schema !");
     } catch (error) {
-      this.logger.error("", (error as Error) || (error as ClientError));
+      this.logger.error({ error: error });
       return false;
     }
     return true;
@@ -53,12 +62,16 @@ export default class DatabaseManager {
     this.logger.log("Creating conneciton...");
     try {
       this.defaultPool = createPool(connectionOptions ?? this.defaultConnectOptions);
+      await this.selectSchema();
       this.logger.success(`Created pool, ${this.defaultPool.threadId}`);
+      setTimeout(() => {
+        this.emit("database-connected");
+      }, 1000);
+      return true;
     } catch (error) {
-      this.logger.error("", error);
+      this.logger.error({ error: error });
       return false;
     }
-    return true;
   }
 
   async destroyAllConnection() {

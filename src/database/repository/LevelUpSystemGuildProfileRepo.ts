@@ -1,28 +1,50 @@
+import ClientError from "../../error/ClientError";
+import { ErrorCode } from "../../error/ErrorCode";
 import DatabaseManager from "../DatabaseManager";
 import { LevelUpSystemGuildProfileJSON } from "../model/LevelUpSystemGuildProfile";
 import { Repository } from "./constructor/Repository";
 
 export default class LevelUpSystemGuildProfileRepo extends Repository {
+  readonly createTableQuery: string = `
+      CREATE TABLE IF NOT EXISTS ${this.fullTableName}
+      (
+        id VARCHAR(64) NOT NULL,
+        guild_id VARCHAR(64) NOT NULL,
+        message_exp BIGINT DEFAULT 0,
+        voice_exp BIGINT DEFAULT 0,
+        milestone_id VARCHAR(64),
+        PRIMARY KEY (id, guild_id)
+      );
+    `;
+
   constructor(database: DatabaseManager) {
     super("level_up_guild_profile", database);
   }
 
   async createTable() {
-    const query = `
-      CREATE TABLE IF NOT EXISTS ?
+    try {
+      const query = `
+      CREATE TABLE IF NOT EXISTS ${this.fullTableName}
       (
-        id VARCHAR(64) PRIMARY KEY NOT NULL,
-        \`activate\` TINYINT NOT NULL DEFAULT 0,
-        log_channel_id VARCHAR(64),
-        rate LONGINT NOT NULL DEFAULT 1,
-        MILESTONES JSON
-      )
+        id VARCHAR(64) NOT NULL,
+        guild_id VARCHAR(64) NOT NULL,
+        message_exp BIGINT DEFAULT 0,
+        voice_exp BIGINT DEFAULT 0,
+        milestone_id VARCHAR(64),
+        PRIMARY KEY (id, guild_id)
+      );
     `;
 
-    const values = [this.fullTableName];
-    await this.executeQuery(query, values);
-
-    return true;
+      await this.executeQuery(query, []);
+      return await super.createTable();
+    } catch (error) {
+      this.database
+        .getLogger()
+        .error(
+          new ClientError(ErrorCode.EXECUTE_QUERY_FAILED, undefined, error as Error)
+        );
+      return false;
+    }
   }
 
   async get(id: string): Promise<LevelUpSystemGuildProfileJSON | undefined> {

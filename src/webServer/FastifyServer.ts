@@ -55,9 +55,8 @@ export default class FastifyServer {
 
       this.logger.success("Config loaded!");
     } catch (error) {
-      const err = error as Error;
-      this.logger.error("Loading config failed, using default settings!");
-      this.logger.error(err.message);
+      this.logger.error({ message: "Loading config failed, using default settings!" });
+      this.logger.error({ error: error });
     }
   }
 

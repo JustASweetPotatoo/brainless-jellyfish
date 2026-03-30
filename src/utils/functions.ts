@@ -19,7 +19,8 @@ import {
   User,
 } from "discord.js";
 import { searchMessageOptions } from "../interfaces/options";
-import { ClientError, ErrorCode } from "./error/ClientError";
+import ClientError from "../error/ClientError";
+import { ErrorCode } from "../error/ErrorCode";
 
 export function craftActionRowButtonComponents(
   components: RestOrArray<ButtonBuilder>
@@ -35,7 +36,8 @@ export async function getNumberOfMessage(
 ): Promise<Collection<string, Message<boolean>>> {
   let messageCollection = new Collection<string, Message>();
   let startMessage: Message | undefined;
-  if (before) startMessage = (await channel.messages.fetch({ before: before, limit: 1 })).first();
+  if (before)
+    startMessage = (await channel.messages.fetch({ before: before, limit: 1 })).first();
   else startMessage = (await channel.messages.fetch({ limit: 1 })).first();
   if (!startMessage) return messageCollection;
 
@@ -67,7 +69,11 @@ function setMessage(
 
   let userData = userDataCollection.get(message.author.id);
 
-  if (userData) userDataCollection.set(message.author.id, { user: userData.user, amount: userData.amount + 1 });
+  if (userData)
+    userDataCollection.set(message.author.id, {
+      user: userData.user,
+      amount: userData.amount + 1,
+    });
   else userDataCollection.set(message.author.id, { user: message.author, amount: 1 });
 }
 
@@ -112,40 +118,55 @@ export async function searchMessage(
       (options.substring && searchSubstringInMessage(message, options.substring));
 
     if (shouldInclude && message.id !== interactionMessageId) {
-      setMessage(message, bulkDeleteableMessageCollection, messageCollection, userDataCollection);
+      setMessage(
+        message,
+        bulkDeleteableMessageCollection,
+        messageCollection,
+        userDataCollection
+      );
     }
   });
 
   return { bulkDeleteableMessageCollection, messageCollection, userDataCollection };
 }
 
-export async function deleteMessages(options: searchMessageOptions, interaction: ChatInputCommandInteraction) {
+export async function deleteMessages(
+  options: searchMessageOptions,
+  interaction: ChatInputCommandInteraction
+) {
   var embed: EmbedBuilder = new EmbedBuilder({
     timestamp: Date.now(),
-    footer: { text: interaction.user.displayName, iconURL: interaction.user.avatarURL() ?? "" },
+    footer: {
+      text: interaction.user.displayName,
+      iconURL: interaction.user.avatarURL() ?? "",
+    },
   });
 
-  if (!interaction.channel) throw new ClientError("", ErrorCode.NO_TARGET_CHANNEL);
+  if (!interaction.channel) throw new ClientError(ErrorCode.NO_TARGET_CHANNEL);
   const targetChannel: TextBasedChannel = interaction.channel;
   const interactionMessage: Message<boolean> = await interaction.fetchReply();
 
   // Check if the channel is a TextChannel or a ThreadChannel
   if (!(targetChannel instanceof TextChannel || targetChannel instanceof ThreadChannel)) {
-    throw new ClientError("This command can only be used in text or thread channels.", ErrorCode.NO_TARGET_CHANNEL);
+    throw new ClientError(
+      ErrorCode.NO_TARGET_CHANNEL,
+      "This command can only be used in text or thread channels."
+    );
   }
 
   if (options.substring && options.substring.length < 3) {
-    embed.setTitle("The substring must have at least **3 characters**!").setColor(Colors.Yellow);
+    embed
+      .setTitle("The substring must have at least **3 characters**!")
+      .setColor(Colors.Yellow);
   } else {
-    const { bulkDeleteableMessageCollection, messageCollection, userDataCollection } = await searchMessage(
-      targetChannel,
-      options,
-      interactionMessage.id
-    );
+    const { bulkDeleteableMessageCollection, messageCollection, userDataCollection } =
+      await searchMessage(targetChannel, options, interactionMessage.id);
 
     // If there are messages to delete
     if (bulkDeleteableMessageCollection.size + messageCollection.size > 0) {
-      const messages: MessageResolvable[] = Array.from(bulkDeleteableMessageCollection.values());
+      const messages: MessageResolvable[] = Array.from(
+        bulkDeleteableMessageCollection.values()
+      );
       const deletedMessages = await targetChannel.bulkDelete(messages, true);
       messageCollection.forEach(async (message) => {
         if (message.deletable) {
@@ -161,9 +182,9 @@ export async function deleteMessages(options: searchMessageOptions, interaction:
 
       embed
         .setTitle(
-          `Đã xóa ${bulkDeleteableMessageCollection.size + messageCollection.size} tin nhắn từ kênh <#${
-            targetChannel.id
-          }>:`
+          `Đã xóa ${
+            bulkDeleteableMessageCollection.size + messageCollection.size
+          } tin nhắn từ kênh <#${targetChannel.id}>:`
         )
         .setDescription(table.join("\n"))
         .setColor(Colors.Green);
@@ -192,6 +213,9 @@ export function createEmbedWithTimestampAndCreateUser(
 ) {
   return new EmbedBuilder({
     timestamp: Date.now(),
-    footer: { text: interaction.user.displayName, iconURL: interaction.user.avatarURL() ?? "" },
+    footer: {
+      text: interaction.user.displayName,
+      iconURL: interaction.user.avatarURL() ?? "",
+    },
   });
 }

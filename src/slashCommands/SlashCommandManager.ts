@@ -34,7 +34,6 @@ export default class SlashCommandManager extends Module {
 
   protected async onSystemOperational(client: MassClient): Promise<any> {
     await this.getCommands();
-    await this.pushCommandToDiscordServer();
   }
 
   public async getCommands() {
@@ -69,13 +68,21 @@ export default class SlashCommandManager extends Module {
     this.logger.success(`Loaded total ${this.commands.size} commands`);
   }
 
-  private createCommandJSONBody() {
-    this.logger.log("Creating new (/) commands JSON body...");
-    this.logger.log("Clearing old data");
+  private craftCommandsJSON() {
+    this.logger.log("Crafting new (/) commands JSON...");
+    this.logger.log("Cleaning old data");
     this.slashCommandJSONBody = [];
-    this.commands.forEach((commandBuilder) =>
-      this.slashCommandJSONBody.push(commandBuilder.toJSON())
-    );
+
+    for (const [commandName, commandBuilder] of this.commands) {
+      try {
+        this.slashCommandJSONBody.push(commandBuilder.toJSON());
+      } catch (error) {
+        this.logger.error({
+          message: "Error on loading command " + commandBuilder.name,
+          error: error,
+        });
+      }
+    }
 
     this.logger.success(
       `Create completed, number of JSON body: ${this.slashCommandJSONBody.length}`
@@ -103,7 +110,7 @@ export default class SlashCommandManager extends Module {
   }
 
   async pushCommandToDiscordServer() {
-    if (this.client.mode === "debug") {
+    if (this.client.operationMode === "debug") {
       this.logger.warn(
         "Client is in test mode, skipping pushing (/) commands to discord server"
       );
@@ -115,7 +122,7 @@ export default class SlashCommandManager extends Module {
     const guilds = this.client.guilds.cache;
     let counter = 0;
 
-    this.createCommandJSONBody();
+    this.craftCommandsJSON();
 
     for (const [id, guild] of guilds) {
       await this.pushCommandToDirectGuild(guild);
@@ -183,6 +190,9 @@ export default class SlashCommandManager extends Module {
   }
 
   protected override async onGuildAvailable(guild: Guild): Promise<any> {
-    if (this.client.mode !== "debug") await this.pushCommandToDirectGuild(guild);
+    if (this.client.operationMode !== "debug" && guild.id == "1084323144870940772") {
+      this.craftCommandsJSON();
+      await this.pushCommandToDirectGuild(guild);
+    }
   }
 }

@@ -33,7 +33,7 @@ export default class ErrorHandler extends Module {
   handleClientError(data: ClientErrorData) {
     const error = this.identifyError(data.error);
 
-    data.logger.error(error.createMessage(true));
+    data.logger.error({ message: error.createMessage(true) });
   }
 
   async handleSlashCommandError(data: CommandErrorData) {
@@ -42,7 +42,7 @@ export default class ErrorHandler extends Module {
     if (data.interaction) {
       this.responseSlashCommandErrorInteraction(data.interaction, error);
     }
-    data.logger.error(error.createMessage(true));
+    data.logger.error({ message: error.createMessage(true) });
   }
 
   async responseSlashCommandErrorInteraction(

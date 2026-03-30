@@ -4,6 +4,18 @@ import UserLevelProfile, { UserLevelProfileJSON } from "../model/UserLevelProfil
 import { Repository } from "./constructor/Repository";
 
 export default class UserlevelProfileRepo extends Repository {
+  protected readonly createTableQuery: string = `
+        CREATE TABLE IF NOT EXISTS ${this.fullTableName}
+        (
+          id VARCHAR(64) NOT NULL,
+          guild_id VARCHAR(64) NOT NULL,
+          message_exp BIGINT DEFAULT 0,
+          voice_exp BIGINT DEFAULT 0,
+          milestone_id VARCHAR(64),
+          PRIMARY KEY (id, guild_id)
+        );
+    `;
+
   constructor(database: DatabaseManager) {
     super("user_level_profile", database);
   }

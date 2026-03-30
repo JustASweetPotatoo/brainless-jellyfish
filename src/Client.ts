@@ -24,9 +24,6 @@ export default class MassClient extends Client {
 
   public readonly operationMode: OperationMode = "default";
 
-  // Client Status
-  public readonly mode: OperationMode;
-
   // Client Services
   public readonly logger: Logger;
   public readonly logPrinter: LogPrinter;

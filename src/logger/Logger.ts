@@ -6,17 +6,32 @@ import MassClient from "../Client";
 export function getStringTimestamp(date?: Date): string {
   const newDate = date ?? new Date();
 
+  const days = newDate.getDay();
+  const months = newDate.getMonth();
+
   const hours = newDate.getHours();
   const seconds = newDate.getSeconds();
   const minutes = newDate.getMinutes();
 
-  const args = [
+  const inYearTime = [
+    `${days < 10 ? `0${days}` : days}`,
+    `${months < 10 ? `0${months}` : months}`,
+  ];
+
+  const inDayTime = [
     `${hours < 10 ? `0${hours}` : hours}`,
     `${minutes < 10 ? `0${minutes}` : minutes}`,
     `${seconds < 10 ? `0${seconds}` : seconds}`,
   ];
 
-  return args.join(":");
+  return `${inYearTime.join("/")} ${inDayTime.join(":")}`;
+}
+
+export interface PrintOptions {
+  readonly content: string;
+  readonly type: LogMessageType | LogMessageType.LOG;
+  noLabel?: boolean;
+  printToFile?: boolean;
 }
 
 export class LogPrinter {
@@ -65,7 +80,7 @@ export class LogPrinter {
    * @param content
    */
   public writeContent(content: string): boolean {
-    if (this.client.mode == "debug") {
+    if (this.client.operationMode == "debug") {
       this.writeToDebugFile(content);
       return true;
     } else {
@@ -91,7 +106,7 @@ export enum LogMessageType {
   OK = "ok  ",
   WARN = "warn",
   ERROR = "err ",
-  DEBUG = "dev "
+  DEBUG = "dev ",
 }
 
 let labelStringLength = 50;
@@ -105,21 +120,21 @@ export class Logger {
     this.printer = options.printer;
   }
 
-  print(
-    content: string,
-    type: LogMessageType | LogMessageType.LOG,
-    printToFile?: boolean
-  ) {
-    let infoLabel = `[${getStringTimestamp()} ${type.toUpperCase()}]: [${this.label.toUpperCase()}]`;
+  print(options: PrintOptions) {
+    let infoLabel = `${getStringTimestamp()} [${options.type.toUpperCase()}] [${this.label.toUpperCase()}]`;
     if (infoLabel.length >= labelStringLength) labelStringLength = infoLabel.length;
     if (infoLabel.length < labelStringLength)
       infoLabel += " ".repeat(labelStringLength - infoLabel.length);
 
-    const message = `${infoLabel} ${content}`;
+    if (options.noLabel) infoLabel = " ".repeat(infoLabel.length);
 
-    if (printToFile ?? true) this.printer.writeContent(message);
+    const message = `${infoLabel}: ${options.content
+      .split("\n")
+      .join(`\n>${" ".repeat(infoLabel.length)}`)}`;
 
-    switch (type) {
+    if (options.printToFile ?? true) this.printer.writeContent(message);
+
+    switch (options.type) {
       case LogMessageType.LOG:
         console.log(message);
         break;
@@ -142,7 +157,7 @@ export class Logger {
   }
 
   printMultiLines(messages: Array<{ content: string; type: LogMessageType }>) {
-    messages.forEach((data) => this.print(data.content, data.type));
+    messages.forEach((data) => this.print({ content: data.content, type: data.type }));
   }
 
   /**
@@ -150,45 +165,85 @@ export class Logger {
    * @param {string} message
    * @param {boolean} printToFile
    */
-  log(message: string, printToFile?: boolean) {
-    this.print(message, LogMessageType.LOG, printToFile);
+  log(message: string, noLabel?: boolean, printToFile?: boolean) {
+    this.print({
+      content: message,
+      type: LogMessageType.LOG,
+      noLabel: noLabel,
+      printToFile: printToFile,
+    });
   }
   /**
    *
    * @param {string} message
    * @param {boolean} printToFile
    */
-  info(message: string, printToFile?: boolean) {
-    this.print(message, LogMessageType.INFO, printToFile);
+  info(message: string, noLabel?: boolean, printToFile?: boolean) {
+    this.print({
+      content: message,
+      type: LogMessageType.INFO,
+      noLabel: noLabel,
+      printToFile: printToFile,
+    });
   }
   /**
    *
    * @param {string} message
    * @param {boolean} printToFile
    */
-  success(message: string, printToFile?: boolean) {
-    this.print(message, LogMessageType.OK, printToFile);
+  success(message: string, noLabel?: boolean, printToFile?: boolean) {
+    this.print({
+      content: message,
+      type: LogMessageType.OK,
+      noLabel: noLabel,
+      printToFile: printToFile,
+    });
   }
   /**
    *
    * @param {string} message
    * @param {boolean} printToFile
    */
-  warn(message: string, printToFile?: boolean) {
-    this.print(message, LogMessageType.WARN, printToFile);
-  }
-  /**
-   *
-   * @param {string} message
-   * @param {boolean} printToFile
-   */
-  error(message: string, error?: Error | any, printToFile?: boolean) {
-    const content = `${message}${error ? `\n${error?.message}\n${error?.stack}` : ""}`;
-    this.print(content, LogMessageType.ERROR, printToFile ?? true);
+  warn(message: string, noLabel?: boolean, printToFile?: boolean) {
+    this.print({
+      content: message,
+      type: LogMessageType.WARN,
+      noLabel: noLabel,
+      printToFile: printToFile,
+    });
   }
 
-  debug(message: string) {
+  error(error: Error | any): void;
+
+  error(
+    options:
+      | {
+          message?: string;
+          error?: Error | any;
+          noLabel?: boolean;
+          printToFile?: boolean;
+        }
+      | Error
+      | any
+  ) {
+    const content = `${options.message ?? ""}${
+      options.error ? `\n${options.error?.message}\n${options.error?.stack}` : ""
+    }`;
+    this.print({
+      content: content,
+      type: LogMessageType.ERROR,
+      noLabel: options.noLabel,
+      printToFile: options.printToFile ?? true,
+    });
+  }
+
+  debug(message: string, noLabel?: boolean) {
     const content = `${message}`;
-    this.print(content, LogMessageType.DEBUG, false);
+    this.print({
+      content: content,
+      type: LogMessageType.DEBUG,
+      noLabel: noLabel,
+      printToFile: false,
+    });
   }
 }

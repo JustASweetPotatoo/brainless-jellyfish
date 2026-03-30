@@ -38,7 +38,11 @@ export default class ModuleManager extends Module {
     return module;
   }
 
-  getRankSystemInstance(): UserLevelUpSystem {
+  getUserLevelUpSystem(): UserLevelUpSystem {
     return this.getModule("user-level-up-system") as UserLevelUpSystem;
+  }
+
+  getMessageEventHandler(): MessageEventLogger {
+    return this.getModule("message-event-logger") as MessageEventLogger;
   }
 }

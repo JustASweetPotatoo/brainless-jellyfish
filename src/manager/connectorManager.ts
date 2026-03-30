@@ -1,6 +1,6 @@
 import { Connection, createConnection } from "mysql";
-import SuwaClient from "../bot";
-import { Logger } from "../utils/Logger";
+import MassClient from "../Client";
+import { Logger } from "../logger/Logger";
 
 interface ConnectionConfig {
   host: string | "localhost";
@@ -10,7 +10,7 @@ interface ConnectionConfig {
 }
 
 class Connector {
-  private client: SuwaClient;
+  private client: MassClient;
   public readonly logger: Logger;
 
   private readonly defaultConfig: ConnectionConfig = {
@@ -22,9 +22,12 @@ class Connector {
   private config: ConnectionConfig;
   private rootConnection: Connection | undefined = undefined;
 
-  constructor(client: SuwaClient, config?: ConnectionConfig) {
+  constructor(client: MassClient, config?: ConnectionConfig) {
     this.client = client;
-    this.logger = new Logger("connection-manager", this.client.logSystem);
+    this.logger = new Logger({
+      label: "connection-manager",
+      printer: this.client.logPrinter,
+    });
     this.config = config ?? this.defaultConfig;
   }
 
@@ -46,7 +49,7 @@ class Connector {
 
       return conn;
     } catch (error) {
-      this.logger.error("Create connection failed !");
+      this.logger.error({ message: "Create connection failed !", error: error });
       throw error;
     }
   }
@@ -58,7 +61,7 @@ class Connector {
 
       connection.query(query, values, (err, results) => {
         if (err) {
-          this.logger.error(`Query execution failed: ${err}`);
+          this.logger.error({ message: `Query execution failed: ${err}` });
           return reject(err);
         }
         resolve(results);

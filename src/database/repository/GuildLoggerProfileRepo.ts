@@ -1,15 +1,12 @@
+import ClientError from "../../error/ClientError";
+import { ErrorCode } from "../../error/ErrorCode";
 import DatabaseManager from "../DatabaseManager";
 import GuildLoggerProfile from "../model/GuildLoggerProfile";
 import { Repository } from "./constructor/Repository";
 
 export default class GuildLoggerProfileRepo extends Repository {
-  constructor(database: DatabaseManager) {
-    super("guild_logger_profiles", database);
-  }
-
-  async createTable() {
-    const query = `
-        CREATE TABLE IF NOT EXISTS ?
+  protected readonly createTableQuery: string = `
+        CREATE TABLE IF NOT EXISTS ${this.fullTableName}
         (
             guild_id VARCHAR(64) PRIMARY KEY NOT NULL,
             message_logger_active INT NOT NULL DEFAULT 0,
@@ -22,9 +19,9 @@ export default class GuildLoggerProfileRepo extends Repository {
             moderation_log_channel_id VARCHAR(64)
         );
     `;
-    const values = [this.fullTableName];
-    await this.executeQuery(query, values);
-    return true;
+
+  constructor(database: DatabaseManager) {
+    super("guild_logger_profiles", database);
   }
 
   async create(data: GuildLoggerProfile): Promise<GuildLoggerProfile> {
