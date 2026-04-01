@@ -22,29 +22,33 @@ export default class AutoLink extends Module {
   }
 
   protected async onMessageCreate(message: Message<true>): Promise<any> {
-    if (!message.inGuild() || message.author.bot) return;
+    try {
+      if (!message.inGuild() || message.author.bot) return;
 
-    const extractedLink = extractFbLinkFromContent(message.content);
-    if (!extractedLink) return;
+      const extractedLink = extractFbLinkFromContent(message.content);
+      if (!extractedLink) return;
 
-    const convertedLink = this.convertLink(extractedLink);
-    const res = await fetch(convertedLink);
+      const convertedLink = this.convertLink(extractedLink);
+      const res = await fetch(convertedLink);
 
-    if (!res.ok) {
-      await message.reply({
-        embeds: [
-          new EmbedBuilder()
-            .setTitle("Dowload video unavalable !")
-            .setDescription(
-              `**This post is private or deleted !**\n *Please login to see (this post)[${extractedLink}]*`
-            )
-            .setColor(Colors.Yellow)
-            .setTimestamp(),
-        ],
-      });
-      return;
+      if (!res.ok) {
+        await message.reply({
+          embeds: [
+            new EmbedBuilder()
+              .setTitle("Dowload video unavalable !")
+              .setDescription(
+                `**This post is private or deleted !**\n *Please login to see (this post)[${extractedLink}]*`
+              )
+              .setColor(Colors.Yellow)
+              .setTimestamp(),
+          ],
+        });
+        return;
+      }
+
+      const htmlText = await (await fetch(convertedLink)).text();
+    } catch (error) {
+      this.logger.error(error);
     }
-
-    const htmlText = await (await fetch(convertedLink)).text();
   }
 }

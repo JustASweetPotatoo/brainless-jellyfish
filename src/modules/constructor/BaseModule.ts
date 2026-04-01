@@ -363,7 +363,8 @@ export default abstract class BaseModule extends EventEmitter {
   protected abstract onGuildMemberJoin(member: GuildMember): Promise<unknown>;
   protected abstract onGuildMemberRemove(member: GuildMember): Promise<unknown>;
   protected abstract onGuildMemberUpdate(
-    userEventData: UserGuildEvents
+    oldMember: GuildMember | PartialGuildMember,
+    newMember: GuildMember
   ): Promise<unknown>;
   protected abstract onGuildMemberAvailable(
     member: GuildMember | PartialGuildMember

@@ -29,8 +29,23 @@ const setMessageLogChannel = new ClientSlashCommandSubcommandBuilder()
     }
   });
 
+const setUserLogChannel = new ClientSlashCommandSubcommandBuilder()
+  .setName("user_channel")
+  .setDescription("Set the channel where any user update event triggered")
+  .addChannelOption(
+    new SlashCommandChannelOption()
+      .setName("channel")
+      .setDescription("Channel to set")
+      .addChannelTypes([ChannelType.GuildText])
+  )
+  .setExecutor(async (client, interaction) =>
+    client.moduleManager
+      .getUserEventManager()
+      .setChannelInteractionExecutor(interaction as ChatInputCommandInteraction)
+  );
+
 export default new ClientSlashCommandBuilder({
-  subcommands: [setMessageLogChannel],
+  subcommands: [setMessageLogChannel, setUserLogChannel],
 })
   .setName("log")
   .setDescription("Log for everything on your server")

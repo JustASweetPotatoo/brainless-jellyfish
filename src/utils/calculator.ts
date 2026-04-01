@@ -1,5 +1,5 @@
 import UserLevelProfile, {
-  UserLevelProfileJSON,
+  UserLevelProfileJson,
 } from "../database/model/UserLevelProfile";
 
 export function getRandomInt(min: number, max: number): number {
@@ -123,7 +123,7 @@ export function craftUserLevelProgressBar(percentage: number, level: number): st
   );
 }
 
-export interface UserlevelStatistic extends UserLevelProfileJSON {
+export interface UserlevelStatistic extends UserLevelProfileJson {
   percentage_progress: number;
 }
 

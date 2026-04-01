@@ -7,6 +7,8 @@ import MessageEventLogger from "./MessageEventHandler";
 import { ModuleOptions } from "./constructor/BaseModule";
 import UserLevelUpSystem from "./UserLevelUpSystem";
 import AutoLink from "./AutoLink";
+import ClientStatusManager from "./ClientStatusManager";
+import UserEventManager from "./UserEventManager";
 
 export default class ModuleManager extends Module {
   readonly discordEvents: Events[];
@@ -23,6 +25,8 @@ export default class ModuleManager extends Module {
       MessageEventLogger,
       UserLevelUpSystem,
       AutoLink,
+      ClientStatusManager,
+      UserEventManager,
     ];
 
     for (const ModuleClass of moduleClasses) {
@@ -44,5 +48,9 @@ export default class ModuleManager extends Module {
 
   getMessageEventHandler(): MessageEventLogger {
     return this.getModule("message-event-logger") as MessageEventLogger;
+  }
+
+  getUserEventManager(): UserEventManager {
+    return this.getModule("user-event-manager") as UserEventManager;
   }
 }

@@ -1,13 +1,7 @@
-export interface UserLevelProfileOptions {
-  readonly id: string;
-  readonly guildId: string;
+import { Repository } from "../repository/constructor/Repository";
+import { BaseModel } from "./constructor/BaseModel";
 
-  messageExp?: number;
-  voiceExp?: number;
-  milestoneId?: string;
-}
-
-export interface UserLevelProfileJSON {
+export interface UserLevelProfileJson {
   readonly id: string;
   readonly guild_id: string;
   message_exp: number;
@@ -15,7 +9,7 @@ export interface UserLevelProfileJSON {
   milestone_id: string;
 }
 
-export default class UserLevelProfile {
+export default class UserLevelProfile extends BaseModel<UserLevelProfileJson> {
   // Identification
   readonly id: string;
   readonly guildId: string;
@@ -27,25 +21,27 @@ export default class UserLevelProfile {
 
   cacheCount: number = 0;
 
-  constructor(options: UserLevelProfileOptions) {
+  constructor(options: UserLevelProfileJson) {
+    super(options);
+
     this.id = options.id;
-    this.guildId = options.guildId;
-    this.messageExp = options.messageExp ?? 0;
-    this.voiceExp = options.voiceExp ?? 0;
-    this.milestoneId = options.milestoneId ?? "";
+    this.guildId = options.guild_id;
+    this.messageExp = options.message_exp ?? 0;
+    this.voiceExp = options.voice_exp ?? 0;
+    this.milestoneId = options.milestone_id ?? "";
   }
 
-  static toThis(options: UserLevelProfileJSON) {
+  static toThis(options: UserLevelProfileJson) {
     return new UserLevelProfile({
       id: options.id,
-      guildId: options.guild_id,
-      messageExp: options.message_exp,
-      voiceExp: options.voice_exp,
-      milestoneId: options.milestone_id,
+      guild_id: options.guild_id,
+      message_exp: options.message_exp,
+      voice_exp: options.voice_exp,
+      milestone_id: options.milestone_id,
     });
   }
 
-  toJSON(): UserLevelProfileJSON {
+  toJSON(): UserLevelProfileJson {
     return {
       id: this.id,
       guild_id: this.guildId,

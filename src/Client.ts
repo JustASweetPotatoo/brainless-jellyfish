@@ -22,7 +22,7 @@ export default class MassClient extends Client {
   public readonly startAt: Date;
   public readonly botId: string = "1168430797599019022";
 
-  public readonly operationMode: OperationMode = "default";
+  public readonly operationMode: OperationMode = "debug";
 
   // Client Services
   public readonly logger: Logger;

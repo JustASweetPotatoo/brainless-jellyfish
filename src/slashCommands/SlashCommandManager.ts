@@ -33,7 +33,13 @@ export default class SlashCommandManager extends Module {
   }
 
   protected async onSystemOperational(client: MassClient): Promise<any> {
-    await this.getCommands();
+    try {
+      await this.getCommands();
+      this.craftCommandsJSON();
+      await this.pushCommandToDiscordServer();
+    } catch (error) {
+      this.client.errorHandler.handleClientError({ error: error, logger: this.logger });
+    }
   }
 
   public async getCommands() {
@@ -99,11 +105,7 @@ export default class SlashCommandManager extends Module {
       this.logger.success(`Pushed commands to guild ${guild.name}/${guild.id}`);
     } catch (error) {
       this.client.errorHandler.handleClientError({
-        error: new ClientError(
-          ErrorCode.LOAD_COMMAND_FAILED,
-          (error as Error).message,
-          error as Error
-        ),
+        error: new ClientError(ErrorCode.LOAD_COMMAND_FAILED, error),
         logger: this.logger,
       });
     }
@@ -140,22 +142,18 @@ export default class SlashCommandManager extends Module {
     try {
       await autoDeferReplyInteraction(interaction);
       const command = this.commands.get(interaction.commandName);
-      if (!command)
+      if (!command) {
         throw new ClientError(
           ErrorCode.EXECUTE_COMMAND_FAILED,
           `Can't find the command with name ${interaction.commandName}`
         );
+      }
 
-      const execute = command.getExecutor(interaction);
-      await execute(this.client, interaction);
+      await command.getExecutor(interaction)(this.client, interaction);
     } catch (error) {
       this.client.errorHandler.handleSlashCommandError({
         interaction: interaction,
-        error: new ClientError(
-          ErrorCode.EXECUTE_COMMAND_FAILED,
-          (error as Error).message,
-          error as Error
-        ),
+        error: error,
         logger: this.logger,
       });
     }
@@ -179,20 +177,20 @@ export default class SlashCommandManager extends Module {
       await autoCompleteExecutor(this.client, interaction);
     } catch (error) {
       this.client.errorHandler.handleClientError({
-        error: new ClientError(
-          ErrorCode.EXECUTE_COMMAND_FAILED,
-          (error as Error).message,
-          error as Error
-        ),
+        error: new ClientError(ErrorCode.EXECUTE_COMMAND_FAILED, error),
         logger: this.logger,
       });
     }
   }
 
   protected override async onGuildAvailable(guild: Guild): Promise<any> {
-    if (this.client.operationMode !== "debug" && guild.id == "1084323144870940772") {
-      this.craftCommandsJSON();
-      await this.pushCommandToDirectGuild(guild);
+    if (this.client.operationMode === "debug") {
+      if (guild.id == "1084323144870940772") {
+        await this.pushCommandToDirectGuild(guild);
+      }
+      return;
     }
+
+    await this.pushCommandToDirectGuild(guild);
   }
 }

@@ -12,10 +12,10 @@ import {
   TextChannel,
 } from "discord.js";
 import Module from "./constructor/Module";
-import GuildLoggerProfileRepo from "../database/repository/GuildLoggerProfileRepo";
+import GuildMessageLoggerConfigRepo from "../database/repository/logger/GuildMessageLoggerConfigRepo";
 import { ModuleOptions } from "./constructor/BaseModule";
 import { EMBED_DESCRIPTION_MAX_LENGTH } from "../utils/const";
-import GuildLoggerProfile from "../database/model/GuildLoggerProfile";
+import GuildMessageLoggerConfig from "../database/model/logger/GuildMessageLoggerConfig";
 import { autoDeferReply } from "../utils/functions";
 import { sendInteractionMessageReply } from "../utils/replier";
 
@@ -26,50 +26,48 @@ export default class MessageEventLogger extends Module {
     Events.MessageBulkDelete,
   ];
 
-  private readonly repo: GuildLoggerProfileRepo;
-  private readonly guildProfCache: Collection<string, GuildLoggerProfile> =
+  private readonly repo: GuildMessageLoggerConfigRepo;
+  private readonly configCache: Collection<string, GuildMessageLoggerConfig> =
     new Collection();
-  private readonly channelCache: Collection<
-    { guildId: string; channelId: string },
-    TextChannel
-  > = new Collection();
+  private readonly channelCache: Collection<string, TextChannel> = new Collection();
 
   constructor(options: ModuleOptions) {
     super("message-event-logger", options);
-    this.repo = new GuildLoggerProfileRepo(this.client.database);
+    this.repo = new GuildMessageLoggerConfigRepo(this.client.database);
   }
 
   private async initChannel(channleId: string, guild: Guild) {
-    let channelCache = this.channelCache.get({ channelId: channleId, guildId: guild.id });
+    let channelCache = this.channelCache.get(`${channleId}:${guild.id}`);
 
     if (!channelCache) {
       let fetchChannel = await guild.channels.fetch(channleId);
       if (!fetchChannel) return undefined;
-      this.channelCache.set(
-        { channelId: channleId, guildId: guild.id },
-        fetchChannel as TextChannel
-      );
+      this.channelCache.set(`${channleId}:${guild.id}`, fetchChannel as TextChannel);
     }
 
     return channelCache;
   }
 
-  private async initGuildProf(guildId: string) {
-    let guildProf = this.guildProfCache.get(guildId);
-    if (!guildProf) {
-      guildProf = new GuildLoggerProfile({ guildId: guildId });
-      guildProf = await this.repo.update(guildProf);
-      this.guildProfCache.set(guildId, guildProf);
-    }
+  private async initConfig(guild: Guild): Promise<GuildMessageLoggerConfig> {
+    let config = await this.repo.get(guild.id);
 
-    return guildProf;
+    if (!config) {
+      const json = await this.repo.get(guild.id);
+      if (json) config = new GuildMessageLoggerConfig(json);
+    }
+    if (!config) {
+      config = new GuildMessageLoggerConfig({ id: guild.id, active: false });
+      await this.repo.create(config);
+    }
+    this.configCache.set(guild.id, config);
+    return config;
   }
 
   private async check(guild: Guild): Promise<TextChannel | undefined> {
-    let prolfieCache = await this.initGuildProf(guild.id);
-    if (!prolfieCache.messageLoggerActive) return;
+    let prolfieCache = await this.initConfig(guild);
+    if (!prolfieCache.active) return;
 
-    return await this.initChannel(prolfieCache.messageLogChannelId!, guild);
+    return await this.initChannel(prolfieCache.channelId!, guild);
   }
 
   protected async onMessageUpdate(
@@ -223,11 +221,8 @@ export default class MessageEventLogger extends Module {
     let interaction = await this.autoReplyNotInGuildCommandInteraction(itrt);
     if (!interaction) return;
 
-    const guildProf = await this.initGuildProf(interaction.guild.id);
-
-    if (!guildProf.messageLoggerActive) {
-      guildProf.messageLoggerActive = true;
-    }
+    const config = await this.initConfig(interaction.guild);
+    config.active = true;
 
     let channelName = interaction.options.getString("name");
     let privateForEveryone = interaction.options.getBoolean("private", true);
@@ -249,32 +244,54 @@ export default class MessageEventLogger extends Module {
         : [],
     });
 
-    guildProf.messageLogChannelId = logChannel.id;
-    this.channelCache.set(
-      { guildId: logChannel.guildId, channelId: logChannel.id },
-      logChannel
-    );
-    this.guildProfCache.set(guildProf.guildId, guildProf);
-    await this.repo.update(guildProf);
+    config.channelId = logChannel.id;
+    this.channelCache.set(`${logChannel.guildId}:${logChannel.id}`, logChannel);
+    this.configCache.set(config.id, config);
+    await this.repo.update(config);
   }
 
   async setChannelCommandInteraction(itrt: ChatInputCommandInteraction) {
     let interaction = await this.autoReplyNotInGuildCommandInteraction(itrt);
     if (!interaction) return;
 
-    const guildProf = await this.initGuildProf(interaction.guild.id);
+    const config = await this.initConfig(interaction.guild);
+    if (!config.active) config.active = true;
 
-    if (!guildProf.messageLoggerActive) {
-      guildProf.messageLoggerActive = true;
+    if (config.channelId) {
+      this.channelCache.delete(`${config.channelId}:${config.id}`);
+      await sendInteractionMessageReply(interaction, {
+        embeds: [
+          {
+            title: "Operation Complete !",
+            description: `Record for message event in channel <#${config.channelId}> disabled`,
+            color: Colors.Green,
+            timestamp: new Date().toISOString(),
+          },
+        ],
+      });
+
+      config.channelId = undefined;
+    } else {
+      const channel = interaction.options.getChannel("channel", true, [
+        ChannelType.GuildText,
+      ]);
+
+      config.channelId = channel.id;
+      this.channelCache.set(`${config.channelId}:${config.id}`, channel);
+
+      await sendInteractionMessageReply(interaction, {
+        embeds: [
+          {
+            title: "Operation Complete !",
+            description: `Message events will now be recorded in the channel <#${channel.id}>`,
+            color: Colors.Green,
+            timestamp: new Date().toISOString(),
+          },
+        ],
+      });
     }
 
-    const channel = interaction.options.getChannel("channel", true, [
-      ChannelType.GuildText,
-    ]);
-
-    guildProf.messageLogChannelId = channel.id;
-    this.channelCache.set({ guildId: channel.guildId, channelId: channel.id }, channel);
-    this.guildProfCache.set(guildProf.guildId, guildProf);
-    await this.repo.update(guildProf);
+    this.configCache.set(config.id, config);
+    await this.repo.update(config);
   }
 }

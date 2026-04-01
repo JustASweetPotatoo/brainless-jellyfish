@@ -23,16 +23,17 @@ export default class ErrorHandler extends Module {
   }
 
   identifyError(error: ClientError | unknown): ClientError {
-    return error instanceof ClientError
-      ? error
-      : error instanceof Error
-      ? new ClientError(ErrorCode.UNKNOWN_ERROR, error.message, error)
-      : new ClientError(ErrorCode.UNKNOWN_ERROR, "An unknown error occurred");
+    if (error instanceof ClientError) {
+      return error;
+    } else if (error instanceof Error) {
+      return new ClientError(ErrorCode.UNKNOWN_ERROR, error);
+    } else {
+      return new ClientError(ErrorCode.UNKNOWN_ERROR);
+    }
   }
 
   handleClientError(data: ClientErrorData) {
     const error = this.identifyError(data.error);
-
     data.logger.error({ message: error.createMessage(true) });
   }
 
@@ -56,6 +57,8 @@ export default class ErrorHandler extends Module {
       interaction as ChatInputCommandInteraction
     );
 
+    const responseTime = interaction.createdTimestamp - Date.now();
+
     const embed = new EmbedBuilder({
       title: `An unexpected error occurred !`,
       description: `
@@ -69,8 +72,7 @@ export default class ErrorHandler extends Module {
       `,
       color: Colors.Red,
       timestamp: doneTimestamp,
-      // not done yet ${this.client.getStatus(interaction).latency}
-      footer: { text: `⏳ Ping to server: ms` },
+      footer: { text: `⏳ Response Time: ${responseTime} ms` },
       author: { name: "Command Error", iconURL: dangerIconUrl },
     });
 
@@ -88,6 +90,7 @@ export default class ErrorHandler extends Module {
     const doneTimestampBySeconds = Math.floor(doneTimestamp / 1000);
     const durationByMiliseconds = doneTimestamp - interaction.createdTimestamp;
     const buttonCustomId = interaction.customId;
+    const responseTime = Date.now() - interaction.createdTimestamp;
 
     const embed = new EmbedBuilder({
       title: `An unexpected error occurred !`,
@@ -103,7 +106,7 @@ export default class ErrorHandler extends Module {
       color: Colors.Red,
       timestamp: doneTimestamp,
       // not done yet ${this.client.getStatus(interaction).latency}
-      footer: { text: `⏳ Ping to server: ms` },
+      footer: { text: `⏳ Response Time: ${responseTime} ms` },
       author: { name: "Command Error", iconURL: dangerIconUrl },
     });
 

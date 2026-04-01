@@ -5,14 +5,13 @@ export default class ClientError extends Error {
   public readonly baseMessage: string;
   public readonly cause?: Error;
 
-  constructor(code: ErrorCode, message?: string, cause?: Error) {
-    super(message ?? "At");
+  constructor(code: ErrorCode, cause?: Error | ClientError | any, message?: string) {
+    super(message);
     this.code = code;
     this.cause = cause;
     this.baseMessage = ErrorMessage[code];
-
-    if (this.cause) {
-      this.stack += `\nCause by > ${this.cause.stack}`;
+    if (this.stack && cause) {
+      this.stack += `\nCause by > ${cause.stack ?? "No stack trace"}`;
     }
 
     Object.setPrototypeOf(this, ClientError.prototype);

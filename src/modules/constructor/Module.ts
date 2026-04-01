@@ -165,7 +165,10 @@ export default abstract class Module extends BaseModule {
     interaction: ModalSubmitInteraction
   ): Promise<any> {}
   protected async onGuildMemberJoin(member: GuildMember): Promise<any> {}
-  protected async onGuildMemberUpdate(userEventData: UserGuildEvents): Promise<any> {}
+  protected async onGuildMemberUpdate(
+    oldMember: GuildMember | PartialGuildMember,
+    newMember: GuildMember
+  ): Promise<any> {}
   protected async onGuildMemberLeave(member: GuildMember): Promise<any> {}
   protected async onMessageCreate(
     message:
