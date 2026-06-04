@@ -33,8 +33,8 @@ import {
   craftEmbedProgressBar,
   getRandomInt,
 } from "../utils/calculator";
-import LUSGuildProfile from "../database/model/LUSGuildProfile";
-import LUSGuildMilestone from "../database/model/LUSGuildMilestone";
+import LUSGuildProfile from "../database/model/RankProviderGuildProfile";
+import RankProviderMilestone from "../database/model/RankProviderMilestone";
 
 export interface UserVoiceState {
   readonly id: string;
@@ -44,11 +44,17 @@ export interface UserVoiceState {
   isOpenMic: boolean;
 }
 
-export default class UserLevelUpSystem extends Module {
-  readonly discordEvents: Events[] = [Events.MessageCreate, Events.VoiceStateUpdate];
-  private readonly channelCache: Collection<string, TextChannel> = new Collection();
-  private readonly guildCache: Collection<string, LUSGuildProfile> = new Collection();
-  private readonly userCache: Collection<string, UserLevelProfile> = new Collection();
+export default class MessageRankProvider extends Module {
+  readonly discordEvents: Events[] = [
+    Events.MessageCreate,
+    Events.VoiceStateUpdate,
+  ];
+  private readonly channelCache: Collection<string, TextChannel> =
+    new Collection();
+  private readonly guildCache: Collection<string, LUSGuildProfile> =
+    new Collection();
+  private readonly userCache: Collection<string, UserLevelProfile> =
+    new Collection();
 
   private readonly guildRegion: Collection<string, Locale> = new Collection();
 
@@ -115,7 +121,9 @@ export default class UserLevelUpSystem extends Module {
   }
 
   private async updateUserProfile(userProf: UserLevelProfile) {
-    if (userProf.cacheCount >= (this.client.operationMode == "debug" ? 3 : 10)) {
+    if (
+      userProf.cacheCount >= (this.client.operationMode == "debug" ? 3 : 10)
+    ) {
       userProf.cacheCount = 0;
       this.userCache.set(`${userProf.id}|${userProf.guildId}`, userProf);
       await this.userRepo.update(userProf);
@@ -129,7 +137,7 @@ export default class UserLevelUpSystem extends Module {
 
   // Channel access
   async createOrSetLogChannelInteractionExecutor(
-    interaction: ChatInputCommandInteraction<"cached">
+    interaction: ChatInputCommandInteraction<"cached">,
   ) {
     if (!interaction.command) return;
 
@@ -141,7 +149,8 @@ export default class UserLevelUpSystem extends Module {
         type: ChannelType.GuildText,
       };
 
-      const logChannel = await interaction.guild.channels.create(createChannelOptions);
+      const logChannel =
+        await interaction.guild.channels.create(createChannelOptions);
 
       guildProf.logChannelId = logChannel.id;
       this.channelCache.set(logChannel.id, logChannel);
@@ -166,7 +175,7 @@ export default class UserLevelUpSystem extends Module {
           embeds: [
             new EmbedBuilder({
               title: "Operation Incomplete !",
-              description: `Duplicate channel, please choose an another text channel instead !`,
+              description: `Duplicate channel, please choose another text channel instead !`,
               color: Colors.Yellow,
             }).setTimestamp(),
           ],
@@ -200,7 +209,7 @@ export default class UserLevelUpSystem extends Module {
    * @deprecated
    */
   async disableGuildSLashComdExecutor(
-    interaction: ChatInputCommandInteraction<"cached">
+    interaction: ChatInputCommandInteraction<"cached">,
   ) {
     const guildProfile = await this.initGuildProf(interaction.guild);
 
@@ -261,7 +270,10 @@ export default class UserLevelUpSystem extends Module {
     ];
 
     const embed = new EmbedBuilder({
-      author: { name: interaction.user.username, iconURL: interaction.user.avatarURL()! },
+      author: {
+        name: interaction.user.username,
+        iconURL: interaction.user.avatarURL()!,
+      },
       color: Colors.Blurple,
       fields: [
         {
@@ -287,7 +299,10 @@ export default class UserLevelUpSystem extends Module {
       // Filter
       if (message.author.bot) return;
 
-      let userProf = await this.initUserProf(message.author.id, message.guildId);
+      let userProf = await this.initUserProf(
+        message.author.id,
+        message.guildId,
+      );
 
       const oldLevel = calcLevel(userProf.messageExp);
       const newMessageExp = userProf.messageExp + calcExp(message.content);
@@ -297,14 +312,15 @@ export default class UserLevelUpSystem extends Module {
 
       let milestoneChanged: boolean = false;
       let leveUp: boolean = false;
-      let milestone: LUSGuildMilestone | undefined;
+      let milestone: RankProviderMilestone | undefined;
 
       if (oldLevel != newLevel) {
         leveUp = true;
         let addRole: Role | undefined;
 
         const newMilestone = guildProfile.milestones.find(
-          (milestone) => milestone.startAt <= newLevel && newLevel <= milestone.endAt
+          (milestone) =>
+            milestone.startAt <= newLevel && newLevel <= milestone.endAt,
         );
 
         if (newMilestone && newMilestone.id != userProf.milestoneId) {
@@ -337,7 +353,7 @@ export default class UserLevelUpSystem extends Module {
 
   protected async onVoiceStateUpdate(
     oldState: VoiceState,
-    newState: VoiceState
+    newState: VoiceState,
   ): Promise<any> {
     const guildProfile = await this.initGuildProf(newState.guild);
     if (!guildProfile) return;
@@ -365,7 +381,7 @@ export default class UserLevelUpSystem extends Module {
       if (!userState) return;
 
       const timeByMinutes = Math.floor(
-        (Date.now() - userState.joinTimestamp) / 1000 / 60
+        (Date.now() - userState.joinTimestamp) / 1000 / 60,
       );
 
       let userProf = await this.initUserProf(member.id, member.guild.id);

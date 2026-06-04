@@ -48,16 +48,17 @@ export default class ErrorHandler extends Module {
 
   async responseSlashCommandErrorInteraction(
     interaction: CommandInteraction | ChatInputCommandInteraction,
-    error: ClientError
+    err: ClientError | Error,
   ) {
     const doneTimestamp = Date.now();
     const doneTimestampBySeconds = Math.floor(doneTimestamp / 1000);
     const durationByMiliseconds = doneTimestamp - interaction.createdTimestamp;
     const commandName = ClientSlashCommandBuilder.getStackName(
-      interaction as ChatInputCommandInteraction
+      interaction as ChatInputCommandInteraction,
     );
 
     const responseTime = interaction.createdTimestamp - Date.now();
+    const error = new ClientError(ErrorCode.UNKNOWN_ERROR, err);
 
     const embed = new EmbedBuilder({
       title: `An unexpected error occurred !`,
@@ -84,7 +85,7 @@ export default class ErrorHandler extends Module {
 
   async responseButtonErrorInteraction(
     interaction: ButtonInteraction,
-    error: ClientError
+    error: ClientError,
   ) {
     const doneTimestamp = Date.now();
     const doneTimestampBySeconds = Math.floor(doneTimestamp / 1000);
@@ -110,7 +111,8 @@ export default class ErrorHandler extends Module {
       author: { name: "Command Error", iconURL: dangerIconUrl },
     });
 
-    if (!interaction.deferred) await interaction.deferReply({ ephemeral: true });
+    if (!interaction.deferred)
+      await interaction.deferReply({ ephemeral: true });
     if (!interaction.replied) await interaction.editReply({ embeds: [embed] });
   }
 }

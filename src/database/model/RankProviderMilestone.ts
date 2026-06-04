@@ -1,6 +1,6 @@
 import { BaseModel } from "./constructor/BaseModel";
 
-export interface LUSGuildMilestoneJson {
+export interface RankProviderMilestoneObj {
   readonly id: string;
   readonly guild_id: string;
   role_id?: string;
@@ -8,14 +8,14 @@ export interface LUSGuildMilestoneJson {
   end_at: number;
 }
 
-export default class LUSGuildMilestone extends BaseModel<LUSGuildMilestoneJson> {
+export default class RankProviderMilestone extends BaseModel<RankProviderMilestoneObj> {
   readonly id: string;
   readonly guildId: string;
   roleId?: string;
   startAt: number;
   endAt: number;
 
-  constructor(json: LUSGuildMilestoneJson) {
+  constructor(json: RankProviderMilestoneObj) {
     super(json);
 
     this.id = json.id;
@@ -25,7 +25,7 @@ export default class LUSGuildMilestone extends BaseModel<LUSGuildMilestoneJson> 
     this.endAt = json.end_at;
   }
 
-  toJSON(): LUSGuildMilestoneJson {
+  toJSON(): RankProviderMilestoneObj {
     return {
       id: this.id,
       guild_id: this.guildId,

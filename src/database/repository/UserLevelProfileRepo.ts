@@ -91,6 +91,48 @@ export default class UserlevelProfileRepo extends Repository<
     return profile;
   }
 
+  async updateByMessageLevel(profile: UserLevelProfile): Promise<UserLevelProfile> {
+    const obj = profile.toJSON();
+    
+    const query = `
+      UPDATE ${this.fullTableName}
+      SET
+        message_exp = ?,
+        milestone_id = ?
+      WHERE id = ? AND guild_id = ?;
+    `;
+
+    await this.executeQuery(query, [
+      obj.message_exp,
+      obj.milestone_id,
+      obj.id,
+      obj.guild_id,
+    ]);
+
+    return profile;
+  }
+
+    async updateByVoiceLevel(profile: UserLevelProfile): Promise<UserLevelProfile> {
+    const obj = profile.toJSON();
+    
+    const query = `
+      UPDATE ${this.fullTableName}
+      SET
+        voice_exp = ?,
+        milestone_id = ?
+      WHERE id = ? AND guild_id = ?;
+    `;
+
+    await this.executeQuery(query, [
+      obj.voice_exp,
+      obj.milestone_id,
+      obj.id,
+      obj.guild_id,
+    ]);
+
+    return profile;
+  }
+
   async getOderBy(
     guild_id: string,
     DESC: boolean = true

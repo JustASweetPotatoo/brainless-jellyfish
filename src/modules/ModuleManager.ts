@@ -5,10 +5,11 @@ import NoituManager from "./NoiTuManager";
 import ServerStatsManager from "./ServerStats";
 import MessageEventLogger from "./MessageEventHandler";
 import { ModuleOptions } from "./constructor/BaseModule";
-import UserLevelUpSystem from "./UserLevelUpSystem";
+import MessageRankProvider from "./MessageRankProviders";
 import AutoLink from "./AutoLink";
 import ClientStatusManager from "./ClientStatusManager";
 import UserEventManager from "./UserEventManager";
+import VoiceRankProvider from "./VoiceRankProvider";
 
 export default class ModuleManager extends Module {
   readonly discordEvents: Events[];
@@ -23,7 +24,7 @@ export default class ModuleManager extends Module {
       NoituManager,
       ServerStatsManager,
       MessageEventLogger,
-      UserLevelUpSystem,
+      MessageRankProvider,
       AutoLink,
       ClientStatusManager,
       UserEventManager,
@@ -38,12 +39,15 @@ export default class ModuleManager extends Module {
   }
 
   public getModule(name: string): Module | this {
-    const module = this.instances.find((module) => module.name === name) ?? this;
-    return module;
+    return this.instances.find((module) => module.name === name) ?? this;
   }
 
-  getUserLevelUpSystem(): UserLevelUpSystem {
-    return this.getModule("user-level-up-system") as UserLevelUpSystem;
+  getMessageRankProvider(): MessageRankProvider {
+    return this.getModule("message-rank-provider") as MessageRankProvider;
+  }
+
+  getVoiceRankProvider(): VoiceRankProvider {
+    return this.getModule("voice-rank-provider") as VoiceRankProvider;
   }
 
   getMessageEventHandler(): MessageEventLogger {
