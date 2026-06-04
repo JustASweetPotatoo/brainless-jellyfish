@@ -12,7 +12,7 @@ const set = new ClientSlashCommandSubcommandBuilder()
       .setRequired(true)
   )
   .setExecutor(async (client, interaction) => {
-    client.moduleManager.getUserLevelUpSystem();
+    client.moduleManager.getMessageRankProvider();
   });
 
 export default new ClientSlashCommandBuilder()
@@ -20,7 +20,7 @@ export default new ClientSlashCommandBuilder()
   .setDescription("Check rank")
   .setExecutor(async (client, interaction) =>
     client.moduleManager
-      .getUserLevelUpSystem()
+      .getMessageRankProvider()
       .getUserRank(interaction as ChatInputCommandInteraction<"cached">)
   )
   .addUserOption(

@@ -1,10 +1,12 @@
 import DatabaseManager from "../DatabaseManager";
-import LUSGuildProfile, { LUSGuildProfileJson } from "../model/LUSGuildProfile";
+import LUSGuildProfile, {
+  RankProviderGuildProfileJson,
+} from "../model/RankProviderGuildProfile";
 import { Repository } from "./constructor/Repository";
 
 export default class LUSGuildConfigRepo extends Repository<
   LUSGuildProfile,
-  LUSGuildProfileJson
+  RankProviderGuildProfileJson
 > {
   protected readonly model = LUSGuildProfile;
 

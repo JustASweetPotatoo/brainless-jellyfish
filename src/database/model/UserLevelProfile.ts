@@ -4,9 +4,9 @@ import { BaseModel } from "./constructor/BaseModel";
 export interface UserLevelProfileJson {
   readonly id: string;
   readonly guild_id: string;
-  message_exp: number;
-  voice_exp: number;
-  milestone_id: string;
+  message_exp?: number;
+  voice_exp?: number;
+  milestone_id?: string;
 }
 
 export default class UserLevelProfile extends BaseModel<UserLevelProfileJson> {

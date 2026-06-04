@@ -1,23 +1,25 @@
 import { Collection } from "discord.js";
 import { BaseModel } from "./constructor/BaseModel";
-import LUSGuildMilestone, { LUSGuildMilestoneJson } from "./LUSGuildMilestone";
+import RankProviderMilestone, {
+  RankProviderMilestoneObj,
+} from "./RankProviderMilestone";
 
-export interface LUSGuildProfileJson {
+export interface RankProviderGuildProfileJson {
   readonly id: string;
   active?: boolean;
   log_channel_id?: string;
   rate?: number;
-  milestones?: LUSGuildMilestoneJson[];
+  milestones?: RankProviderMilestoneObj[];
 }
 
-export default class LUSGuildProfile extends BaseModel<LUSGuildProfileJson> {
+export default class LUSGuildProfile extends BaseModel<RankProviderGuildProfileJson> {
   readonly id: string;
   active: boolean;
   logChannelId?: string;
   rate: number = 1;
-  milestones: Collection<string, LUSGuildMilestone> = new Collection();
+  milestones: Collection<string, RankProviderMilestone> = new Collection();
 
-  constructor(json: LUSGuildProfileJson) {
+  constructor(json: RankProviderGuildProfileJson) {
     super(json);
 
     this.id = json.id;
@@ -26,13 +28,13 @@ export default class LUSGuildProfile extends BaseModel<LUSGuildProfileJson> {
     this.rate = json.rate ?? 1;
     if (json.milestones) {
       for (const milestoneJson of json.milestones) {
-        const milestone = LUSGuildMilestone.fromJSON(milestoneJson);
+        const milestone = RankProviderMilestone.fromJSON(milestoneJson);
         this.milestones.set(milestone.id, milestone);
       }
     }
   }
 
-  toJSON(): LUSGuildProfileJson {
+  toJSON(): RankProviderGuildProfileJson {
     return {
       id: this.id,
       active: this.active,

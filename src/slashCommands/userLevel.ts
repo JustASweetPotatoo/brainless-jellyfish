@@ -11,7 +11,7 @@ const setChannel = new ClientSlashCommandSubcommandBuilder()
   .setName("set")
   .setDescription("Set log channel for level system")
   .setExecutor(async (client, interaction) => {
-    const module = client.moduleManager.getUserLevelUpSystem();
+    const module = client.moduleManager.getMessageRankProvider();
     await module.createOrSetLogChannelInteractionExecutor(
       interaction as ChatInputCommandInteraction<"cached">
     );
@@ -29,7 +29,7 @@ const getRank = new ClientSlashCommandSubcommandBuilder()
   .setDescription("Check user rank")
   .setExecutor(async (client, interaction) =>
     client.moduleManager
-      .getUserLevelUpSystem()
+      .getMessageRankProvider()
       .getUserRank(interaction as ChatInputCommandInteraction<"cached">)
   )
   .addUserOption(
@@ -44,7 +44,7 @@ const addBLackListRole = new ClientSlashCommandSubcommandBuilder()
   .setDescription("Add role to blacklist from level system")
   .setExecutor(async (client, interaction) =>
     client.moduleManager
-      .getUserLevelUpSystem()
+      .getMessageRankProvider()
       .createOrSetLogChannelInteractionExecutor(
         interaction as ChatInputCommandInteraction<"cached">
       )
