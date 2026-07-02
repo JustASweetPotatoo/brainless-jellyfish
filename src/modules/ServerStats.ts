@@ -7,14 +7,17 @@ import {
   Message,
 } from "discord.js";
 
-import Module from "./constructor/Module";
+import ClientModule from "./core/ClientModule";
 import MassClient from "../Client";
-import { ModuleOptions } from "./constructor/BaseModule";
+import { ModuleOptions } from "./core/Module";
 
 import FastifyServer, { PathListenerType } from "../webServer/FastifyServer";
 
-export default class ServerStatsManager extends Module {
-  readonly discordEvents: Events[] = [Events.MessageCreate, Events.InteractionCreate];
+export default class ServerStatsManager extends ClientModule {
+  readonly discordEvents: Events[] = [
+    Events.MessageCreate,
+    Events.InteractionCreate,
+  ];
 
   private systemTimeseconds = Math.floor(Date.now() / 1000);
   private systemTimeMinutes = Math.floor(Date.now() / 1000 / 60);
@@ -54,7 +57,7 @@ export default class ServerStatsManager extends Module {
             JSON.stringify({
               timeseconds: this.systemTimeseconds,
               value: nodeData ?? 0,
-            })
+            }),
           );
         }, 1000);
 
@@ -62,7 +65,7 @@ export default class ServerStatsManager extends Module {
           this.logger.info(`Socket closed: ${request.ip}`);
           clearInterval(interval);
         });
-      }
+      },
     );
 
     await this.fastifyServer.registerWebListener(
@@ -82,7 +85,7 @@ export default class ServerStatsManager extends Module {
               guildId: "811939594882777128",
               timeseconds: this.systemTimeseconds,
               rate: nodeData ?? 0,
-            })
+            }),
           );
         }, 1000);
 
@@ -90,7 +93,7 @@ export default class ServerStatsManager extends Module {
           this.logger.info(`Socket closed: ${request.ip}`);
           clearInterval(interval);
         });
-      }
+      },
     );
   }
 
@@ -104,7 +107,7 @@ export default class ServerStatsManager extends Module {
   // ================= DISCORD EVENTS =================
 
   protected async onButtonInteractionCreate(
-    interaction: ButtonInteraction
+    interaction: ButtonInteraction,
   ): Promise<any> {
     const second = Math.floor(interaction.createdTimestamp / 1000);
     const rate = this.interactionRate.get(second) ?? 0;
@@ -112,7 +115,7 @@ export default class ServerStatsManager extends Module {
   }
 
   protected async onSlashCommandInteractionCreate(
-    interaction: CommandInteraction | ChatInputCommandInteraction
+    interaction: CommandInteraction | ChatInputCommandInteraction,
   ): Promise<any> {
     const second = Math.floor(interaction.createdTimestamp / 1000);
     const rate = this.interactionRate.get(second) ?? 0;

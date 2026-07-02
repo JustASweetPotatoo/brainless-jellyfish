@@ -1,10 +1,11 @@
-import GuildLevelProviderProfile from "../database/model/RankProviderGuildProfile";
-import UserLevelProfile from "../database/model/UserLevelProfile";
-import GuildLevelProviderProfileRepo from "../database/repository/LUSGuildConfigRepo";
-import UserlevelProfileRepo from "../database/repository/UserLevelProfileRepo";
-import { getRandomInt } from "../utils/calculator";
-import { ModuleOptions } from "./constructor/BaseModule";
-import Module from "./constructor/Module";
+import GuildLevelProviderProfile from "../../database/model/RankProviderGuildProfile";
+import UserLevelProfile from "../../database/model/UserLevelProfile";
+import GuildLevelProviderProfileRepo from "../../database/repository/LevelProviderGuildConfigRepo";
+import UserlevelProfileRepo from "../../database/repository/UserLevelProfileRepo";
+import { getRandomInt } from "../../utils/calculator";
+import { ModuleOptions } from "../core/Module";
+import { On } from "../core/decorators";
+import ClientModule from "../core/ClientModule";
 import { Collection, Events, GuildMember, VoiceState } from "discord.js";
 
 export interface UserVoiceSession {
@@ -23,8 +24,7 @@ export enum UserVoiceChannelAction {
   LEAVE,
 }
 
-export default class VoiceRankProvider extends Module {
-  readonly discordEvents: Events[] = [Events.VoiceStateUpdate];
+export default class VoiceLevelProvider extends ClientModule {
   private readonly cache: Collection<string, GuildLevelProviderProfile> =
     new Collection();
   private readonly userCache: Collection<string, UserLevelProfile> =
@@ -35,7 +35,7 @@ export default class VoiceRankProvider extends Module {
     new Collection();
 
   constructor(options: ModuleOptions) {
-    super("voice-rank-provider", options);
+    super("voice-level-provider", options);
 
     this.guildRepo = new GuildLevelProviderProfileRepo(options.client.database);
     this.userRepo = new UserlevelProfileRepo(options.client.database);
@@ -175,6 +175,7 @@ export default class VoiceRankProvider extends Module {
     this.sessions.set(session.id, session);
   }
 
+  @On(Events.VoiceServerUpdate)
   protected async onVoiceStateUpdate(
     oldState: VoiceState,
     newState: VoiceState,

@@ -11,11 +11,11 @@ export default class GuildMessageLoggerConfigRepo extends Repository<
   protected readonly model = GuildMessageLoggerConfig;
 
   protected readonly createTableQuery = `
-  CREATE TABLE IF NOT EXISTS ${this.fullTableName} (
-    id VARCHAR(32) PRIMARY KEY,
-    channel_id VARCHAR(32),
-    active BOOLEAN NOT NULL
-  )
+    CREATE TABLE IF NOT EXISTS ${this.fullTableName} (
+      id VARCHAR(32) PRIMARY KEY,
+      channel_id VARCHAR(32),
+      active BOOLEAN NOT NULL
+    )
   `;
 
   constructor(database: DatabaseManager) {

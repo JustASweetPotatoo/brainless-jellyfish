@@ -1,9 +1,9 @@
 import { Events } from "discord.js";
-import Module from "./constructor/Module";
-import { ModuleOptions } from "./constructor/BaseModule";
+import ClientModule from "./core/ClientModule";
+import { ModuleOptions } from "./core/Module";
 import MassClient from "../Client";
 
-export default class ClientStatusManager extends Module {
+export default class ClientStatusManager extends ClientModule {
   readonly discordEvents: Events[] = [];
 
   constructor(opts: ModuleOptions) {
@@ -21,7 +21,5 @@ export default class ClientStatusManager extends Module {
     // }, 1000);
   }
 
-  protected async onSystemOperational(client: MassClient): Promise<any> {
-    return undefined;
-  }
+  protected async onSystemOperational(client: MassClient): Promise<any> {}
 }

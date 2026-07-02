@@ -1,6 +1,8 @@
 import { Collection } from "discord.js";
 import DatabaseManager from "../DatabaseManager";
-import UserLevelProfile, { UserLevelProfileJson } from "../model/UserLevelProfile";
+import UserLevelProfile, {
+  UserLevelProfileJson,
+} from "../model/UserLevelProfile";
 import { Repository } from "./constructor/Repository";
 
 export default class UserlevelProfileRepo extends Repository<
@@ -22,10 +24,13 @@ export default class UserlevelProfileRepo extends Repository<
   `;
 
   constructor(database: DatabaseManager) {
-    super("user_level_profile", database);
+    super("level_user_profile", database);
   }
 
-  async get(options: { id: string; guildId: string }): Promise<UserLevelProfile> {
+  async get(options: {
+    id: string;
+    guildId: string;
+  }): Promise<UserLevelProfile> {
     const query = `
       SELECT * FROM ${this.fullTableName}
       WHERE id = ? AND guild_id = ?
@@ -40,7 +45,10 @@ export default class UserlevelProfileRepo extends Repository<
     return this.create(options);
   }
 
-  async create(options: { id: string; guildId: string }): Promise<UserLevelProfile> {
+  async create(options: {
+    id: string;
+    guildId: string;
+  }): Promise<UserLevelProfile> {
     const newProfile = new UserLevelProfile({
       id: options.id,
       guild_id: options.guildId,
@@ -91,9 +99,11 @@ export default class UserlevelProfileRepo extends Repository<
     return profile;
   }
 
-  async updateByMessageLevel(profile: UserLevelProfile): Promise<UserLevelProfile> {
+  async updateByMessageLevel(
+    profile: UserLevelProfile,
+  ): Promise<UserLevelProfile> {
     const obj = profile.toJSON();
-    
+
     const query = `
       UPDATE ${this.fullTableName}
       SET
@@ -112,9 +122,11 @@ export default class UserlevelProfileRepo extends Repository<
     return profile;
   }
 
-    async updateByVoiceLevel(profile: UserLevelProfile): Promise<UserLevelProfile> {
+  async updateByVoiceLevel(
+    profile: UserLevelProfile,
+  ): Promise<UserLevelProfile> {
     const obj = profile.toJSON();
-    
+
     const query = `
       UPDATE ${this.fullTableName}
       SET
@@ -135,7 +147,7 @@ export default class UserlevelProfileRepo extends Repository<
 
   async getOderBy(
     guild_id: string,
-    DESC: boolean = true
+    DESC: boolean = true,
   ): Promise<Collection<string, UserLevelProfile>> {
     const query = `
       SELECT * FROM ${this.fullTableName}
@@ -146,7 +158,7 @@ export default class UserlevelProfileRepo extends Repository<
     const rows = await this.executeQuery(query, [guild_id]);
     const collection = new Collection<string, UserLevelProfile>();
     rows.forEach((row) =>
-      collection.set(row.id, new UserLevelProfile(row as UserLevelProfileJson))
+      collection.set(row.id, new UserLevelProfile(row as UserLevelProfileJson)),
     );
 
     return collection;

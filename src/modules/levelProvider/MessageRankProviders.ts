@@ -14,27 +14,25 @@ import {
   TextChannel,
   VoiceState,
 } from "discord.js";
-import Module from "./constructor/Module";
-import { ModuleOptions } from "./constructor/BaseModule";
+import ClientModule from "../core/ClientModule";
+import { ModuleOptions } from "../core/Module";
 import {
   sendInteractionMessageReply,
   sendTemporatyInteractionMessageReply,
-} from "../utils/replier";
-import LUSGuildConfigRepo from "../database/repository/LUSGuildConfigRepo";
+} from "../../utils/replier";
+import LevelProviderGuildConfigRepo from "../../database/repository/LevelProviderGuildConfigRepo";
 
-import UserLevelProfile, {
-  UserLevelProfileJson,
-} from "../database/model/UserLevelProfile";
-import UserlevelProfileRepo from "../database/repository/UserLevelProfileRepo";
+import UserLevelProfile from "../../database/model/UserLevelProfile";
+import UserlevelProfileRepo from "../../database/repository/UserLevelProfileRepo";
 import {
   calcExp,
   calcLevel,
   calcPercentageOfProgress,
   craftEmbedProgressBar,
   getRandomInt,
-} from "../utils/calculator";
-import LUSGuildProfile from "../database/model/RankProviderGuildProfile";
-import RankProviderMilestone from "../database/model/RankProviderMilestone";
+} from "../../utils/calculator";
+import LUSGuildProfile from "../../database/model/RankProviderGuildProfile";
+import RankProviderMilestone from "../../database/model/RankProviderMilestone";
 
 export interface UserVoiceState {
   readonly id: string;
@@ -44,7 +42,7 @@ export interface UserVoiceState {
   isOpenMic: boolean;
 }
 
-export default class MessageRankProvider extends Module {
+export default class MessageLevelProvider extends ClientModule {
   readonly discordEvents: Events[] = [
     Events.MessageCreate,
     Events.VoiceStateUpdate,
@@ -62,13 +60,13 @@ export default class MessageRankProvider extends Module {
     new Collection();
 
   //
-  readonly guildRepo: LUSGuildConfigRepo;
+  readonly guildRepo: LevelProviderGuildConfigRepo;
   readonly userRepo: UserlevelProfileRepo;
 
   constructor(options: ModuleOptions) {
-    super("user-level-up-system", options);
+    super("message-level-provider", options);
 
-    this.guildRepo = new LUSGuildConfigRepo(this.client.database);
+    this.guildRepo = new LevelProviderGuildConfigRepo(this.client.database);
     this.userRepo = new UserlevelProfileRepo(this.client.database);
 
     let intervalCounter = 0;

@@ -1,12 +1,14 @@
 #danger
 .env
-test.ts
-test.js
 package-lock.json
 
+#ignore
 node_modules
 .VSCodeCounter
 temp
 src/logs
 debug.*
 dev.*
+*.test
+test.*
+test

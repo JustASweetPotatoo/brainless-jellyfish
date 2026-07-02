@@ -7,15 +7,15 @@ import {
   Events,
 } from "discord.js";
 
-import Module from "./constructor/Module";
+import ClientModule from "./core/ClientModule";
 import ClientError from "../error/ClientError";
 import { ErrorCode } from "../error/ErrorCode";
 import { ClientErrorData, CommandErrorData } from "../error/interface";
 import { dangerIconUrl } from "../access/icon";
 import ClientSlashCommandBuilder from "../slashCommandBuilder/SlashCommandBuilder";
-import { ModuleOptions } from "./constructor/BaseModule";
+import { ModuleOptions } from "./core/Module";
 
-export default class ErrorHandler extends Module {
+export default class ErrorHandler extends ClientModule {
   readonly discordEvents: Events[] = [Events.ClientReady];
 
   constructor(options: ModuleOptions) {

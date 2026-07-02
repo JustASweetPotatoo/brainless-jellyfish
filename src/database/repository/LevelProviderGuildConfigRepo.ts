@@ -1,14 +1,14 @@
 import DatabaseManager from "../DatabaseManager";
-import LUSGuildProfile, {
-  RankProviderGuildProfileJson,
+import LevelProviderGuildProfile, {
+  LevelProviderGuildProfileJson,
 } from "../model/RankProviderGuildProfile";
 import { Repository } from "./constructor/Repository";
 
-export default class LUSGuildConfigRepo extends Repository<
-  LUSGuildProfile,
-  RankProviderGuildProfileJson
+export default class LevelProviderGuildConfigRepo extends Repository<
+  LevelProviderGuildProfile,
+  LevelProviderGuildProfileJson
 > {
-  protected readonly model = LUSGuildProfile;
+  protected readonly model = LevelProviderGuildProfile;
 
   protected readonly createTableQuery = `
     CREATE TABLE IF NOT EXISTS ${this.fullTableName} (
@@ -21,10 +21,12 @@ export default class LUSGuildConfigRepo extends Repository<
   `;
 
   constructor(database: DatabaseManager) {
-    super("level_up_system_guild_profile", database);
+    super("level_guild_config", database);
   }
 
-  async create(data: LUSGuildProfile): Promise<LUSGuildProfile> {
+  async create(
+    data: LevelProviderGuildProfile,
+  ): Promise<LevelProviderGuildProfile> {
     const json = data.toJSON();
 
     const query = `
@@ -44,7 +46,9 @@ export default class LUSGuildConfigRepo extends Repository<
     return data;
   }
 
-  async update(data: LUSGuildProfile): Promise<LUSGuildProfile> {
+  async update(
+    data: LevelProviderGuildProfile,
+  ): Promise<LevelProviderGuildProfile> {
     const json = data.toJSON();
 
     const query = `
@@ -76,7 +80,7 @@ export default class LUSGuildConfigRepo extends Repository<
     return true;
   }
 
-  async get(id: string): Promise<LUSGuildProfile | null> {
+  async get(id: string): Promise<LevelProviderGuildProfile | null> {
     const query = `SELECT * FROM ${this.fullTableName} WHERE id = ? LIMIT 1`;
 
     const row = (await this.executeQuery(query, [id])).at(0);

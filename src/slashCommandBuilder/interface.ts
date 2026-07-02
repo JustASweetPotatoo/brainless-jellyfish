@@ -10,7 +10,7 @@ import ClientSlashCommandSubcommandGroupBuilder from "./SlashCommandSubcommandGr
 export interface SlashCommandExecuteFunction {
   (
     client: MassClient,
-    interaction: CommandInteraction | ChatInputCommandInteraction
+    interaction: CommandInteraction<"cached">,
   ): Promise<void>;
 }
 
@@ -30,7 +30,8 @@ export type CommandInteractionType =
 
 export interface ClientSlashCommandBuilderOptions {
   subcommands?: Array<
-    ClientSlashCommandSubcommandBuilder | ClientSlashCommandSubcommandGroupBuilder
+    | ClientSlashCommandSubcommandBuilder
+    | ClientSlashCommandSubcommandGroupBuilder
   >;
 }
 
@@ -45,8 +46,7 @@ export interface InteractionDeferReplyOptions {
   fetchReply?: boolean;
 }
 
-
-export interface AutocompleteExecuteOption  {
-  readonly name: string
-  readonly func: AutocompleteExecutor
+export interface AutocompleteExecuteOption {
+  readonly name: string;
+  readonly func: AutocompleteExecutor;
 }

@@ -9,13 +9,15 @@ import {
   Message,
   TextChannel,
 } from "discord.js";
-import Module from "./constructor/Module";
+import Module from "./core/Module";
 
 import noituDictionary from "../access/noituDictionary.json";
 import MassClient from "../Client";
-import { ModuleOptions } from "./constructor/BaseModule";
+import { ModuleOptions } from "./core/Module";
 import NoituGuildConfig from "../database/model/noituGuildConfig";
 import NoituChannelConfig from "../database/model/noituChannelConfig";
+import { On } from "./core/decorators";
+import ClientModule from "./core/ClientModule";
 
 export enum NoituCreateChannelEvent {
   SUCCESS,
@@ -42,8 +44,9 @@ export enum NoituMessageCreateEvent {
   CHANNEL_CONFIG_NOT_FOUND = 10,
 }
 
-export default class NoituManager extends Module {
-  readonly name: string = "noitu-manager";
+export default class NoituManager extends ClientModule<"noitu-manager"> {
+  static override readonly name = "noitu-manager";
+
   readonly discordEvents: Events[] = [
     Events.ClientReady,
     Events.MessageCreate,
@@ -53,8 +56,10 @@ export default class NoituManager extends Module {
 
   private readonly guildConfigCollection: Collection<string, NoituGuildConfig> =
     new Collection();
-  private readonly guildChannelConfigCollection: Collection<string, NoituChannelConfig> =
-    new Collection();
+  private readonly guildChannelConfigCollection: Collection<
+    string,
+    NoituChannelConfig
+  > = new Collection();
   private readonly channels: Collection<string, TextChannel> = new Collection();
 
   private readonly wordDictionary: { [key: string]: { [key2: string]: {} } } =
@@ -64,6 +69,7 @@ export default class NoituManager extends Module {
     super("noitu-manager", options);
   }
 
+  @On(Events.ClientReady)
   protected async onClientReady(client: MassClient): Promise<any> {
     // debug
     const debugChannel = this.client.guilds.cache
@@ -73,16 +79,15 @@ export default class NoituManager extends Module {
       this.channels.set(debugChannel?.id, debugChannel);
       this.guildChannelConfigCollection.set(
         debugChannel.id,
-        new NoituChannelConfig(debugChannel.id, debugChannel.guildId)
+        new NoituChannelConfig(debugChannel.id, debugChannel.guildId),
       );
     }
   }
 
   async createChannel(
-    interaction: ChatInputCommandInteraction | CommandInteraction
+    interaction: ChatInputCommandInteraction<"cached">,
   ): Promise<NoituCreateChannelEvent> {
-    if (!this.isChatInputGuildCommandInteraction(interaction))
-      return NoituCreateChannelEvent.FAILURE;
+    if (!interaction.inGuild()) return NoituCreateChannelEvent.FAILURE;
 
     try {
       const guild = interaction.guild;
@@ -91,7 +96,7 @@ export default class NoituManager extends Module {
       const channel = await guild.channels.create({ name: channelName });
       this.guildChannelConfigCollection.set(
         guild.id,
-        new NoituChannelConfig(channel.id, guild.id)
+        new NoituChannelConfig(channel.id, guild.id),
       );
       return NoituCreateChannelEvent.SUCCESS;
     } catch (error) {
@@ -104,7 +109,7 @@ export default class NoituManager extends Module {
   }
 
   async setChannel(
-    interaction: ChatInputCommandInteraction<"cached">
+    interaction: ChatInputCommandInteraction<"cached">,
   ): Promise<NoituSetChannelEvent> {
     if (!this.isChatInputGuildCommandInteraction(interaction))
       return NoituSetChannelEvent.NOT_GUILD_COMMAND_INTERACTION;
@@ -115,7 +120,7 @@ export default class NoituManager extends Module {
       this.channels.set(targetChannel.id, targetChannel);
       this.guildChannelConfigCollection.set(
         interaction.guild.id,
-        new NoituChannelConfig(targetChannel.id, interaction.guild.id)
+        new NoituChannelConfig(targetChannel.id, interaction.guild.id),
       );
       return NoituSetChannelEvent.SUCCESS;
     } else {
@@ -123,12 +128,13 @@ export default class NoituManager extends Module {
     }
   }
 
-  protected override async onGuildCreate(guild: Guild): Promise<any> {
+  @On(Events.GuildCreate)
+  protected async onGuildCreate(guild: Guild): Promise<any> {
     const guildConfig: NoituGuildConfig = new NoituGuildConfig(guild.id);
     this.guildConfigCollection.set(guild.id, guildConfig);
   }
 
-  protected override async onGuildDelete(guild: Guild): Promise<any> {
+  protected async onGuildDelete(guild: Guild): Promise<any> {
     this.guildConfigCollection.delete(guild.id);
     this.channels
       .filter((channel) => channel.guildId === guild.id)
@@ -137,10 +143,13 @@ export default class NoituManager extends Module {
       });
   }
 
-  protected override async onMessageCreate(message: Message<true>) {
+  @On(Events.MessageCreate)
+  protected async onMessageCreate(message: Message<true>) {
     const response = this.messageCreateAction(message);
     const embedBuilder = new EmbedBuilder().setTimestamp();
-    const channelConfig = this.guildChannelConfigCollection.get(message.channelId);
+    const channelConfig = this.guildChannelConfigCollection.get(
+      message.channelId,
+    );
 
     switch (response) {
       case NoituMessageCreateEvent.SUCCESS:
@@ -150,7 +159,9 @@ export default class NoituManager extends Module {
         embedBuilder
           .setTitle("Error on executing event MessageCreate")
           .setColor(Colors.Red);
-        this.client.messageReplier.sendMessage(message, { embeds: [embedBuilder] });
+        this.client.messageReplier.sendMessage(message, {
+          embeds: [embedBuilder],
+        });
         return;
     }
 
@@ -159,7 +170,9 @@ export default class NoituManager extends Module {
       .setColor(Colors.Red);
 
     if (embedBuilder.toJSON().title) {
-      this.client.messageReplier.sendMessage(message, { embeds: [embedBuilder] });
+      this.client.messageReplier.sendMessage(message, {
+        embeds: [embedBuilder],
+      });
     }
   }
 
@@ -173,7 +186,10 @@ export default class NoituManager extends Module {
     if (message.content.startsWith("!") || message.content.endsWith("!"))
       return NoituMessageCreateEvent.IS_STARTSWITH_PREFIX;
 
-    if (message.author.id == channelConfig.lastUserId && !channelConfig.continuously)
+    if (
+      message.author.id == channelConfig.lastUserId &&
+      !channelConfig.continuously
+    )
       return NoituMessageCreateEvent.IS_THE_LAST_USER;
 
     const usedWordlist = channelConfig.usedWordlist.split("/");
@@ -195,7 +211,10 @@ export default class NoituManager extends Module {
     channelConfig.lastPhrase = message.content;
     channelConfig.counter += 1;
 
-    if (channelConfig.counter >= channelConfig.resetAt && channelConfig.resetAt != -1) {
+    if (
+      channelConfig.counter >= channelConfig.resetAt &&
+      channelConfig.resetAt != -1
+    ) {
       channelConfig.resetCounter();
       return NoituMessageCreateEvent.COUNTER_MAX_REACHED;
     }

@@ -8,8 +8,8 @@ import {
   Message,
   MessageReplyOptions,
 } from "discord.js";
-import Module from "./constructor/Module";
-import { ModuleOptions } from "./constructor/BaseModule";
+import ClientModule from "./core/ClientModule";
+import { ModuleOptions } from "./core/Module";
 
 export type SendTemporatyTargetOptions =
   | ChatInputCommandInteraction
@@ -22,7 +22,7 @@ export type SendTemporatyMessageOptions =
   | InteractionReplyOptions
   | MessageReplyOptions;
 
-export default class MessageReplier extends Module {
+export default class MessageReplier extends ClientModule {
   readonly discordEvents: never[] = [];
 
   constructor(options: ModuleOptions) {
@@ -32,7 +32,7 @@ export default class MessageReplier extends Module {
   async sendMessage(
     target: SendTemporatyTargetOptions,
     options: SendTemporatyMessageOptions,
-    timeout?: number
+    timeout?: number,
   ) {
     try {
       let replyMessage: Message | InteractionResponse;
@@ -51,7 +51,10 @@ export default class MessageReplier extends Module {
 
       if (timeout) setTimeout(async () => await replyMessage.delete(), timeout);
     } catch (error) {
-      this.client.errorHandler.handleClientError({ error: error, logger: this.logger });
+      this.client.errorHandler.handleClientError({
+        error: error,
+        logger: this.logger,
+      });
     }
   }
 }

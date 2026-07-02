@@ -6,12 +6,15 @@ import {
   OmitPartialGroupDMChannel,
   PartialMessage,
 } from "discord.js";
-import Module from "./constructor/Module";
-import { ModuleOptions } from "./constructor/BaseModule";
+import ClientModule from "./core/ClientModule";
+import { ModuleOptions } from "./core/Module";
 import { extractFbLinkFromContent } from "../utils/autoLink";
 
-export default class AutoLink extends Module {
-  readonly discordEvents: Events[] = [Events.MessageCreate, Events.VoiceStateUpdate];
+export default class AutoLink extends ClientModule {
+  readonly discordEvents: Events[] = [
+    Events.MessageCreate,
+    Events.VoiceStateUpdate,
+  ];
 
   constructor(options: ModuleOptions) {
     super("auto-link", options);
@@ -37,7 +40,7 @@ export default class AutoLink extends Module {
             new EmbedBuilder()
               .setTitle("Dowload video unavalable !")
               .setDescription(
-                `**This post is private or deleted !**\n *Please login to see (this post)[${extractedLink}]*`
+                `**This post is private or deleted !**\n *Please login to see (this post)[${extractedLink}]*`,
               )
               .setColor(Colors.Yellow)
               .setTimestamp(),

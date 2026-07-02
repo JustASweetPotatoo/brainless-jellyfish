@@ -10,8 +10,8 @@ import {
   TextChannel,
   User,
 } from "discord.js";
-import Module from "./constructor/Module";
-import { ModuleOptions } from "./constructor/BaseModule";
+import ClientModule from "./core/ClientModule";
+import { ModuleOptions } from "./core/Module";
 import GuilUserLoggerConfigRepo from "../database/repository/logger/GuilUserLoggerConfigRepo";
 import GuilUserLoggerConfig from "../database/model/logger/GuildUserLoggerConfig";
 import { autoDeferReplyInteraction } from "../slashCommandBuilder/function";
@@ -26,13 +26,14 @@ export type UserUpdateEvents =
   | "roleAdded"
   | "roleRemoved";
 
-export default class UserEventManager extends Module {
+export default class UserEventManager extends ClientModule {
   readonly discordEvents: Events[] = [Events.GuildMemberUpdate];
 
   private readonly repo: GuilUserLoggerConfigRepo;
   private readonly guildConfigCache: Collection<string, GuilUserLoggerConfig> =
     new Collection();
-  private readonly channeCache: Collection<string, TextChannel> = new Collection();
+  private readonly channeCache: Collection<string, TextChannel> =
+    new Collection();
 
   constructor(options: ModuleOptions) {
     super("user-event-manager", options);
@@ -71,7 +72,7 @@ export default class UserEventManager extends Module {
 
   private memberUpdateEventFilter(
     oldMember: GuildMember,
-    newMember: GuildMember
+    newMember: GuildMember,
   ): UserUpdateEvents {
     if (oldMember.user.username != newMember.user.username) return "username";
     if (oldMember.displayName != newMember.displayName) return "displayName";
@@ -82,18 +83,23 @@ export default class UserEventManager extends Module {
       return "displayAvatar";
     if (oldMember.nickname != newMember.nickname) return "nickname";
     if (oldMember.roles.cache.size != newMember.roles.cache.size) {
-      if (oldMember.roles.cache.size < newMember.roles.cache.size) return "roleAdded";
+      if (oldMember.roles.cache.size < newMember.roles.cache.size)
+        return "roleAdded";
       else return "roleRemoved";
     }
 
     return "username";
   }
 
-  async setChannelInteractionExecutor(interaction: ChatInputCommandInteraction) {
+  async setChannelInteractionExecutor(
+    interaction: ChatInputCommandInteraction,
+  ) {
     await autoDeferReplyInteraction(interaction);
 
     if (!interaction.inCachedGuild()) {
-      await interaction.editReply({ content: "The command cannot be used here!" });
+      await interaction.editReply({
+        content: "The command cannot be used here!",
+      });
       return;
     }
 
@@ -129,12 +135,14 @@ export default class UserEventManager extends Module {
 
   protected async onGuildMemberUpdate(
     oldMember: GuildMember,
-    newMember: GuildMember
+    newMember: GuildMember,
   ): Promise<any> {
     const guild = oldMember.guild;
     const guildProf = await this.initConfig(guild);
 
-    let channel = this.channeCache.get(`${guildProf.channelId ?? ""}:${guild.id}`);
+    let channel = this.channeCache.get(
+      `${guildProf.channelId ?? ""}:${guild.id}`,
+    );
 
     if (!channel) {
       channel = guild.channels.cache.get(guildProf.channelId!) as TextChannel;
@@ -160,7 +168,7 @@ export default class UserEventManager extends Module {
           .setDescription(
             `**Before: **${oldMember.user.username ?? "None"}\n**After: **${
               newMember.user.username ?? "None"
-            }`
+            }`,
           );
         break;
       case "displayName":
@@ -169,7 +177,7 @@ export default class UserEventManager extends Module {
           .setDescription(
             `**Before: **${oldMember.displayName ?? "None"}\n**After: **${
               newMember.displayName ?? "None"
-            }`
+            }`,
           )
           .setThumbnail(newMember.user.displayAvatarURL());
         break;
@@ -179,7 +187,7 @@ export default class UserEventManager extends Module {
           .setDescription(
             `**Before: **${oldMember.nickname ?? "None"}\n**After: **${
               newMember.nickname ?? "None"
-            }`
+            }`,
           )
           .setThumbnail(newMember.user.displayAvatarURL());
         break;

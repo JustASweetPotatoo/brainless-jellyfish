@@ -1,3 +1,4 @@
+import { calcLevel, getTotalExpToReachLevel } from "../../utils/calculator";
 import { Repository } from "../repository/constructor/Repository";
 import { BaseModel } from "./constructor/BaseModel";
 
@@ -49,5 +50,41 @@ export default class UserLevelProfile extends BaseModel<UserLevelProfileJson> {
       voice_exp: this.voiceExp,
       milestone_id: this.milestoneId,
     };
+  }
+
+  getVoiceLevel() {
+    return calcLevel(this.voiceExp);
+  }
+
+  getMessageLevel() {
+    return calcLevel(this.voiceExp);
+  }
+
+  getCacheId() {
+    return this.id + "|" + this.guildId;
+  }
+
+  addLevel(typeText: boolean, amount: number) {
+    let newLevel =
+      calcLevel(typeText ? this.messageExp : this.voiceExp) + amount;
+    if (newLevel < 0) newLevel = 0;
+
+    if (typeText) {
+      this.messageExp = getTotalExpToReachLevel(newLevel);
+      return newLevel;
+    } else {
+      this.voiceExp = getTotalExpToReachLevel(newLevel);
+      return newLevel;
+    }
+  }
+
+  addExp(typeText: boolean, amount: number) {
+    if (typeText) {
+      this.messageExp = amount;
+      return this.messageExp;
+    } else {
+      this.voiceExp = amount;
+      return this.voiceExp;
+    }
   }
 }

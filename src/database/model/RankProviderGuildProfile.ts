@@ -4,7 +4,7 @@ import RankProviderMilestone, {
   RankProviderMilestoneObj,
 } from "./RankProviderMilestone";
 
-export interface RankProviderGuildProfileJson {
+export interface LevelProviderGuildProfileJson {
   readonly id: string;
   active?: boolean;
   log_channel_id?: string;
@@ -12,14 +12,14 @@ export interface RankProviderGuildProfileJson {
   milestones?: RankProviderMilestoneObj[];
 }
 
-export default class LUSGuildProfile extends BaseModel<RankProviderGuildProfileJson> {
+export default class LUSGuildProfile extends BaseModel<LevelProviderGuildProfileJson> {
   readonly id: string;
   active: boolean;
   logChannelId?: string;
   rate: number = 1;
   milestones: Collection<string, RankProviderMilestone> = new Collection();
 
-  constructor(json: RankProviderGuildProfileJson) {
+  constructor(json: LevelProviderGuildProfileJson) {
     super(json);
 
     this.id = json.id;
@@ -34,7 +34,7 @@ export default class LUSGuildProfile extends BaseModel<RankProviderGuildProfileJ
     }
   }
 
-  toJSON(): RankProviderGuildProfileJson {
+  toJSON(): LevelProviderGuildProfileJson {
     return {
       id: this.id,
       active: this.active,

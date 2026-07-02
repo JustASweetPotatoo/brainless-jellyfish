@@ -1,7 +1,7 @@
 import path from "path";
 import * as fs from "fs";
 
-import Module from "../modules/constructor/Module";
+import ClientModule from "../modules/core/ClientModule";
 import {
   AutocompleteInteraction,
   ChatInputCommandInteraction,
@@ -16,17 +16,21 @@ import ClientSlashCommandBuilder from "../slashCommandBuilder/SlashCommandBuilde
 import ClientError from "../error/ClientError";
 import { ErrorCode } from "../error/ErrorCode";
 import { autoDeferReplyInteraction } from "../slashCommandBuilder/function";
-import { ModuleOptions } from "../modules/constructor/BaseModule";
+import { ModuleOptions } from "../modules/core/Module";
 import MassClient from "../Client";
 
-export default class SlashCommandManager extends Module {
+export default class SlashCommandManager extends ClientModule {
   readonly name: string = "slash-command-manager";
-  readonly discordEvents: Events[] = [Events.GuildAvailable, Events.InteractionCreate];
+  readonly discordEvents: Events[] = [
+    Events.GuildAvailable,
+    Events.InteractionCreate,
+  ];
 
   private readonly workDir: string = path.join(__dirname, "./");
   private readonly commands: Collection<string, ClientSlashCommandBuilder> =
     new Collection();
-  private slashCommandJSONBody: Array<RESTPostAPIApplicationCommandsJSONBody> = [];
+  private slashCommandJSONBody: Array<RESTPostAPIApplicationCommandsJSONBody> =
+    [];
 
   constructor(options: ModuleOptions) {
     super("slash-command-manager", options);
@@ -38,7 +42,10 @@ export default class SlashCommandManager extends Module {
       this.craftCommandsJSON();
       await this.pushCommandToDiscordServer();
     } catch (error) {
-      this.client.errorHandler.handleClientError({ error: error, logger: this.logger });
+      this.client.errorHandler.handleClientError({
+        error: error,
+        logger: this.logger,
+      });
     }
   }
 
@@ -51,7 +58,9 @@ export default class SlashCommandManager extends Module {
       try {
         const absolutePath = path.join(this.workDir, file);
         if (!fs.existsSync(absolutePath)) {
-          this.logger.warn(`File name ${file} doesn't exist in folder ${this.workDir}`);
+          this.logger.warn(
+            `File name ${file} doesn't exist in folder ${this.workDir}`,
+          );
           return;
         }
 
@@ -67,7 +76,10 @@ export default class SlashCommandManager extends Module {
           this.logger.warn(`File at ${absolutePath} is not command buider !`);
         }
       } catch (error) {
-        this.client.errorHandler.handleClientError({ error: error, logger: this.logger });
+        this.client.errorHandler.handleClientError({
+          error: error,
+          logger: this.logger,
+        });
       }
     }
 
@@ -91,7 +103,7 @@ export default class SlashCommandManager extends Module {
     }
 
     this.logger.success(
-      `Create completed, number of JSON body: ${this.slashCommandJSONBody.length}`
+      `Create completed, number of JSON body: ${this.slashCommandJSONBody.length}`,
     );
 
     return this.slashCommandJSONBody;
@@ -99,7 +111,10 @@ export default class SlashCommandManager extends Module {
 
   private async pushCommandToDirectGuild(guild: Guild) {
     try {
-      const route = Routes.applicationGuildCommands(this.client.botId, guild.id);
+      const route = Routes.applicationGuildCommands(
+        this.client.botId,
+        guild.id,
+      );
       await this.client.rest.put(route, { body: this.slashCommandJSONBody });
 
       this.logger.success(`Pushed commands to guild ${guild.name}/${guild.id}`);
@@ -114,7 +129,7 @@ export default class SlashCommandManager extends Module {
   async pushCommandToDiscordServer() {
     if (this.client.operationMode === "debug") {
       this.logger.warn(
-        "Client is in test mode, skipping pushing (/) commands to discord server"
+        "Client is in test mode, skipping pushing (/) commands to discord server",
       );
       return;
     }
@@ -132,12 +147,14 @@ export default class SlashCommandManager extends Module {
     }
 
     this.logger.success(
-      `Total ${counter} guilds is loaded with ${this.commands.size} commands`
+      `Total ${counter} guilds is loaded with ${this.commands.size} commands`,
     );
   }
 
   protected override async onSlashCommandInteractionCreate(
-    interaction: CommandInteraction | ChatInputCommandInteraction
+    interaction:
+      | CommandInteraction<"cached">
+      | ChatInputCommandInteraction<"cached">,
   ): Promise<any> {
     try {
       await autoDeferReplyInteraction(interaction);
@@ -145,7 +162,7 @@ export default class SlashCommandManager extends Module {
       if (!command) {
         throw new ClientError(
           ErrorCode.EXECUTE_COMMAND_FAILED,
-          `Can't find the command with name ${interaction.commandName}`
+          `Can't find the command with name ${interaction.commandName}`,
         );
       }
 
@@ -160,14 +177,14 @@ export default class SlashCommandManager extends Module {
   }
 
   protected override async onAutoCompleteInteractionCreate(
-    interaction: AutocompleteInteraction
+    interaction: AutocompleteInteraction,
   ): Promise<any> {
     const command = this.commands.get(interaction.commandName);
 
     if (!command)
       throw new ClientError(
         ErrorCode.EXECUTE_COMMAND_FAILED,
-        `Can't find the command with name ${interaction.commandName}`
+        `Can't find the command with name ${interaction.commandName}`,
       );
 
     try {
