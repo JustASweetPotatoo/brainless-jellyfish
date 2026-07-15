@@ -14,7 +14,7 @@ const setChannel = new ClientSlashCommandSubcommandBuilder()
   .setDescription("Set up a notification channel when a user levels up")
   .setExecutor(async (client, interaction) =>
     client.moduleManager
-      .get("")
+      .get("guild-level-manager")
       .changeLogChannel(interaction as ChatInputCommandInteraction),
   )
   .addChannelOption(
@@ -30,7 +30,7 @@ const getRank = new ClientSlashCommandSubcommandBuilder()
   .setDescription("Check your level or someone else's")
   .setExecutor(async (client, interaction) =>
     client.moduleManager
-      .getModule("")
+      .get("message-level-provider")
       .getUserRank(interaction as ChatInputCommandInteraction<"cached">),
   )
   .addUserOption(
@@ -55,7 +55,9 @@ const active = new ClientSlashCommandSubcommandBuilder()
       return;
     }
 
-    client.moduleManager.
+    await client.moduleManager
+      .get("guild-level-manager")
+      .activeGuild(interaction as ChatInputCommandInteraction);
   });
 
 // const addBLackListRole = new ClientSlashCommandSubcommandBuilder()
@@ -86,7 +88,7 @@ const active = new ClientSlashCommandSubcommandBuilder()
 //   });
 
 export default new ClientSlashCommandBuilder({
-  subcommands: [setChannel, getRank],
+  subcommands: [setChannel, getRank, active],
 })
   .setName("level")
   .setDescription("Check user level");

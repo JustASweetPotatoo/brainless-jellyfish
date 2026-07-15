@@ -3,22 +3,16 @@ import {
   ChatInputCommandInteraction,
   Collection,
   CommandInteraction,
-  Events,
   Message,
 } from "discord.js";
 
 import ClientModule from "./core/ClientModule";
 import MassClient from "../Client";
-import { ModuleOptions } from "./core/Module";
+import { ModuleOptions } from "./core/BaseModule";
 
 import FastifyServer, { PathListenerType } from "../webServer/FastifyServer";
 
-export default class ServerStatsManager extends ClientModule {
-  readonly discordEvents: Events[] = [
-    Events.MessageCreate,
-    Events.InteractionCreate,
-  ];
-
+export default class ServerStatsManager extends ClientModule<"server-stats-manager"> {
   private systemTimeseconds = Math.floor(Date.now() / 1000);
   private systemTimeMinutes = Math.floor(Date.now() / 1000 / 60);
 
@@ -31,7 +25,7 @@ export default class ServerStatsManager extends ClientModule {
   private readonly fastifyServer: FastifyServer;
 
   constructor(options: ModuleOptions) {
-    super("server-stats-manager", options);
+    super(options);
 
     this.fastifyServer = new FastifyServer(options.client);
 
@@ -101,11 +95,10 @@ export default class ServerStatsManager extends ClientModule {
     await this.registerWebListeners();
     await this.fastifyServer.open();
 
-    this.logger.success("Fastify server running at http://0.0.0.0:3000");
+    this.logger.ok("Fastify server running at http://0.0.0.0:3000");
   }
 
   // ================= DISCORD EVENTS =================
-
   protected async onButtonInteractionCreate(
     interaction: ButtonInteraction,
   ): Promise<any> {
@@ -142,7 +135,6 @@ export default class ServerStatsManager extends ClientModule {
       const newGuildData = new Collection<number, number>();
       newGuildData.set(this.systemTimeMinutes, 1);
 
-      // ✅ FIX BUG (trước bạn ghi nhầm)
       this.messageRatePerMin.set(message.guildId, newGuildData);
     } else {
       const rate = guildData2.get(this.systemTimeMinutes) ?? 0;

@@ -18,7 +18,7 @@ export abstract class BaseRepository<TModel, TJSON> {
 
 export abstract class Repository<
   TModel extends BaseModel<TJSON>,
-  TJSON
+  TJSON,
 > extends BaseRepository<TModel, TJSON> {
   protected readonly database: DatabaseManager;
   protected readonly pool: Pool;
@@ -51,7 +51,7 @@ export abstract class Repository<
   async createTable(): Promise<boolean> {
     try {
       await this.executeQuery(this.createTableQuery);
-      this.database.getLogger().success(`Table ${this.tableName} created`);
+      this.database.getLogger().ok(`Table ${this.tableName} created`);
       return true;
     } catch (err) {
       this.database.getLogger().error(err);
@@ -77,7 +77,7 @@ export abstract class Repository<
     const rows = await this.executeQuery(
       `SELECT * FROM ${this.fullTableName} ORDER BY ${String(column)} ${
         desc ? "DESC" : "ASC"
-      }`
+      }`,
     );
 
     return this.mapRows(rows as TJSON[]);

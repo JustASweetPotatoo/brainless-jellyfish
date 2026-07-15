@@ -9,7 +9,6 @@ import {
   MessageReplyOptions,
 } from "discord.js";
 import ClientModule from "./core/ClientModule";
-import { ModuleOptions } from "./core/Module";
 
 export type SendTemporatyTargetOptions =
   | ChatInputCommandInteraction
@@ -22,12 +21,8 @@ export type SendTemporatyMessageOptions =
   | InteractionReplyOptions
   | MessageReplyOptions;
 
-export default class MessageReplier extends ClientModule {
+export default class MessageReplier extends ClientModule<"message-replier"> {
   readonly discordEvents: never[] = [];
-
-  constructor(options: ModuleOptions) {
-    super("message-replier", options);
-  }
 
   async sendMessage(
     target: SendTemporatyTargetOptions,

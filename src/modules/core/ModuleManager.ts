@@ -1,33 +1,26 @@
 import ClientModule from "./ClientModule";
-import { moduleRegistry } from "../moduleRegistry";
-import MassClient from "../../Client";
+import { moduleRegistry } from "./moduleRegistry";
 
-export type ModuleUnion = InstanceType<
-  (typeof moduleRegistry)[keyof typeof moduleRegistry]
->;
+type Registry = typeof moduleRegistry;
 
 export type ModuleMap = {
-  [K in InstanceType<
-    (typeof moduleRegistry)[keyof typeof moduleRegistry]
-  >["name"]]: Extract<ModuleUnion, { name: K }>;
+  [K in keyof Registry as InstanceType<Registry[K]> extends {
+    name: infer N extends string;
+  }
+    ? N
+    : never]: InstanceType<Registry[K]>;
 };
 
 export default class ModuleManager extends ClientModule<"module-manager"> {
-  protected onClientReady(client: MassClient): Promise<any> {
-    throw new Error("Method not implemented.");
-  }
-  private instances = new Map<string, ClientModule>();
+  private readonly instances = new Map<
+    keyof ModuleMap,
+    ModuleMap[keyof ModuleMap]
+  >();
 
-  constructor(options: any) {
-    super("module-manager", options);
-  }
-
-  public loadModules() {
-    for (const key in moduleRegistry) {
-      const ModuleClass = moduleRegistry[key as keyof typeof moduleRegistry];
-
-      const instance = new ModuleClass({ client: this.client });
-
+  public loadModules(): void {
+    const moduleOptions = { client: this.client };
+    for (const Module of Object.values(moduleRegistry)) {
+      const instance = new Module(moduleOptions);
       this.instances.set(instance.name, instance);
     }
 
@@ -35,14 +28,10 @@ export default class ModuleManager extends ClientModule<"module-manager"> {
   }
 
   public get<K extends keyof ModuleMap>(name: K): ModuleMap[K] {
-    const mod = this.instances.get(name);
-
-    if (!mod) throw new Error(`Module not found: ${name}`);
-
-    return mod as ModuleMap[K];
-  }
-
-  public has(name: string): boolean {
-    return this.instances.has(name);
+    const module = this.instances.get(name);
+    if (!module) {
+      throw new Error(`Module "${name}" was not found.`);
+    }
+    return module as ModuleMap[K];
   }
 }

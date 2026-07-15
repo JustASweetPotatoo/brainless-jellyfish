@@ -13,16 +13,9 @@ import { ErrorCode } from "../error/ErrorCode";
 import { ClientErrorData, CommandErrorData } from "../error/interface";
 import { dangerIconUrl } from "../access/icon";
 import ClientSlashCommandBuilder from "../slashCommandBuilder/SlashCommandBuilder";
-import { ModuleOptions } from "./core/Module";
 
-export default class ErrorHandler extends ClientModule {
-  readonly discordEvents: Events[] = [Events.ClientReady];
-
-  constructor(options: ModuleOptions) {
-    super("error-handler", options);
-  }
-
-  identifyError(error: ClientError | unknown): ClientError {
+export default class ErrorHandler extends ClientModule<"error-handler"> {
+  parseError(error: ClientError | unknown): ClientError {
     if (error instanceof ClientError) {
       return error;
     } else if (error instanceof Error) {
@@ -33,16 +26,7 @@ export default class ErrorHandler extends ClientModule {
   }
 
   handleClientError(data: ClientErrorData) {
-    const error = this.identifyError(data.error);
-    data.logger.error({ message: error.createMessage(true) });
-  }
-
-  async handleSlashCommandError(data: CommandErrorData) {
-    const error = this.identifyError(data.error);
-
-    if (data.interaction) {
-      this.responseSlashCommandErrorInteraction(data.interaction, error);
-    }
+    const error = this.parseError(data.error);
     data.logger.error({ message: error.createMessage(true) });
   }
 

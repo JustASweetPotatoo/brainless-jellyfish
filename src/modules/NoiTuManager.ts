@@ -9,14 +9,12 @@ import {
   Message,
   TextChannel,
 } from "discord.js";
-import Module from "./core/Module";
 
 import noituDictionary from "../access/noituDictionary.json";
 import MassClient from "../Client";
-import { ModuleOptions } from "./core/Module";
 import NoituGuildConfig from "../database/model/noituGuildConfig";
 import NoituChannelConfig from "../database/model/noituChannelConfig";
-import { On } from "./core/decorators";
+import { Module, On } from "./core/decorators";
 import ClientModule from "./core/ClientModule";
 
 export enum NoituCreateChannelEvent {
@@ -44,8 +42,9 @@ export enum NoituMessageCreateEvent {
   CHANNEL_CONFIG_NOT_FOUND = 10,
 }
 
+@Module("noitu-manager")
 export default class NoituManager extends ClientModule<"noitu-manager"> {
-  static override readonly name = "noitu-manager";
+  static readonly moduleName = "noitu-manager";
 
   readonly discordEvents: Events[] = [
     Events.ClientReady,
@@ -64,10 +63,6 @@ export default class NoituManager extends ClientModule<"noitu-manager"> {
 
   private readonly wordDictionary: { [key: string]: { [key2: string]: {} } } =
     noituDictionary;
-
-  constructor(options: ModuleOptions) {
-    super("noitu-manager", options);
-  }
 
   @On(Events.ClientReady)
   protected async onClientReady(client: MassClient): Promise<any> {
@@ -111,9 +106,6 @@ export default class NoituManager extends ClientModule<"noitu-manager"> {
   async setChannel(
     interaction: ChatInputCommandInteraction<"cached">,
   ): Promise<NoituSetChannelEvent> {
-    if (!this.isChatInputGuildCommandInteraction(interaction))
-      return NoituSetChannelEvent.NOT_GUILD_COMMAND_INTERACTION;
-
     const targetChannel = interaction.options.getChannel("channel", true);
 
     if (targetChannel instanceof TextChannel) {

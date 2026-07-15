@@ -34,14 +34,15 @@ export default class LevelProviderGuildConfigRepo extends Repository<
         (id, active, log_channel_id, rate, milestones)
       VALUES (?, ?, ?, ?, ?)
     `;
-
-    await this.executeQuery(query, [
+    const values = [
       json.id,
       json.active,
       json.log_channel_id,
       json.rate,
       JSON.stringify(json.milestones),
-    ]);
+    ];
+
+    await this.executeQuery(query, values);
 
     return data;
   }

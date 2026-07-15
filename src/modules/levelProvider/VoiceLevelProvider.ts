@@ -3,8 +3,7 @@ import UserLevelProfile from "../../database/model/UserLevelProfile";
 import GuildLevelProviderProfileRepo from "../../database/repository/LevelProviderGuildConfigRepo";
 import UserlevelProfileRepo from "../../database/repository/UserLevelProfileRepo";
 import { getRandomInt } from "../../utils/calculator";
-import { ModuleOptions } from "../core/Module";
-import { On } from "../core/decorators";
+import { On, Repository } from "../core/decorators";
 import ClientModule from "../core/ClientModule";
 import { Collection, Events, GuildMember, VoiceState } from "discord.js";
 
@@ -24,22 +23,19 @@ export enum UserVoiceChannelAction {
   LEAVE,
 }
 
-export default class VoiceLevelProvider extends ClientModule {
+export default class VoiceLevelProvider extends ClientModule<"voice-level-provider"> {
   private readonly cache: Collection<string, GuildLevelProviderProfile> =
     new Collection();
   private readonly userCache: Collection<string, UserLevelProfile> =
     new Collection();
+
+  @Repository()
   private readonly guildRepo: GuildLevelProviderProfileRepo;
+  @Repository()
   private readonly userRepo: UserlevelProfileRepo;
+
   private readonly sessions: Collection<string, UserVoiceSession> =
     new Collection();
-
-  constructor(options: ModuleOptions) {
-    super("voice-level-provider", options);
-
-    this.guildRepo = new GuildLevelProviderProfileRepo(options.client.database);
-    this.userRepo = new UserlevelProfileRepo(options.client.database);
-  }
 
   private classifyState(
     oldState: VoiceState,

@@ -41,7 +41,10 @@ export class LogPrinter {
   private readonly fileName: string;
 
   // debug
-  private readonly useFilePath = path.join(path.join(__dirname, "../logs"), "debug.txt");
+  private readonly useFilePath = path.join(
+    path.join(__dirname, "../logs"),
+    "debug.txt",
+  );
 
   constructor(client: MassClient) {
     this.client = client;
@@ -62,7 +65,7 @@ export class LogPrinter {
         this.logCurrentFilePath,
         `Start with node version: ${
           process.version
-        }\nStart Timestamp: ${getStringTimestamp(this.client.startAt)}\n`
+        }\nStart Timestamp: ${getStringTimestamp(this.client.startAt)}\n`,
       );
     }
   }
@@ -122,7 +125,8 @@ export class Logger {
 
   print(options: PrintOptions) {
     let infoLabel = `${getStringTimestamp()} [${options.type.toUpperCase()}] [${this.label.toUpperCase()}]`;
-    if (infoLabel.length >= labelStringLength) labelStringLength = infoLabel.length;
+    if (infoLabel.length >= labelStringLength)
+      labelStringLength = infoLabel.length;
     if (infoLabel.length < labelStringLength)
       infoLabel += " ".repeat(labelStringLength - infoLabel.length);
 
@@ -157,7 +161,9 @@ export class Logger {
   }
 
   printMultiLines(messages: Array<{ content: string; type: LogMessageType }>) {
-    messages.forEach((data) => this.print({ content: data.content, type: data.type }));
+    messages.forEach((data) =>
+      this.print({ content: data.content, type: data.type }),
+    );
   }
 
   /**
@@ -191,7 +197,7 @@ export class Logger {
    * @param {string} message
    * @param {boolean} printToFile
    */
-  success(message: string, noLabel?: boolean, printToFile?: boolean) {
+  ok(message: string, noLabel?: boolean, printToFile?: boolean) {
     this.print({
       content: message,
       type: LogMessageType.OK,
@@ -224,10 +230,12 @@ export class Logger {
           printToFile?: boolean;
         }
       | Error
-      | any
+      | any,
   ) {
     const content = `${options.message ?? ""}${
-      options.error ? `\n${options.error?.message}\n${options.error?.stack}` : ""
+      options.error
+        ? `\n${options.error?.message}\n${options.error?.stack}`
+        : ""
     }`;
     this.print({
       content: content,

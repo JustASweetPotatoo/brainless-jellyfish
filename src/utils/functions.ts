@@ -273,3 +273,16 @@ export function getPermissionNames(
       )?.[0] ?? String(perm),
   );
 }
+
+export type KebabCase<S extends string> =
+  S extends `${infer First}${infer Rest}`
+    ? Rest extends Uncapitalize<Rest>
+      ? `${Lowercase<First>}${KebabCase<Rest>}`
+      : `${Lowercase<First>}-${KebabCase<Rest>}`
+    : S;
+
+export function kebabCase<T extends string>(str: T): KebabCase<T> {
+  return str
+    .replace(/([a-z0-9])([A-Z])/g, "$1-$2")
+    .toLowerCase() as KebabCase<T>;
+}

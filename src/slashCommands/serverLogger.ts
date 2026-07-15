@@ -20,13 +20,13 @@ const setMessageLogChannel = new ClientSlashCommandSubcommandBuilder()
     const itrt = interaction as ChatInputCommandInteraction<"cached">;
 
     const channel = itrt.options.getChannel("channel", false, [ChannelType.GuildText]);
-    const handler = client.moduleManager.getMessageEventHandler();
+    // const handler = client.moduleManager.getMessageEventHandler();
 
-    if (channel) {
-      await handler.setChannelCommandInteraction(itrt);
-    } else {
-      await handler.createChannelCommandInteraction(itrt);
-    }
+    // if (channel) {
+    //   await handler.setChannelCommandInteraction(itrt);
+    // } else {
+    //   await handler.createChannelCommandInteraction(itrt);
+    // }
   });
 
 const setUserLogChannel = new ClientSlashCommandSubcommandBuilder()
@@ -38,11 +38,11 @@ const setUserLogChannel = new ClientSlashCommandSubcommandBuilder()
       .setDescription("Channel to set")
       .addChannelTypes([ChannelType.GuildText])
   )
-  .setExecutor(async (client, interaction) =>
-    client.moduleManager
-      .getUserEventManager()
-      .setChannelInteractionExecutor(interaction as ChatInputCommandInteraction)
-  );
+  // .setExecutor(async (client, interaction) =>
+  //   client.moduleManager
+  //     .getUserEventManager()
+  //     .setChannelInteractionExecutor(interaction as ChatInputCommandInteraction)
+  // );
 
 export default new ClientSlashCommandBuilder({
   subcommands: [setMessageLogChannel, setUserLogChannel],

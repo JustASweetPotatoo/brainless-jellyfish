@@ -1,5 +1,9 @@
 import path from "path";
-import Fastify, { FastifyInstance, FastifyRequest, RouteShorthandMethod } from "fastify";
+import Fastify, {
+  FastifyInstance,
+  FastifyRequest,
+  RouteShorthandMethod,
+} from "fastify";
 import MassClient from "../Client";
 import { Logger } from "../logger/Logger";
 import { readConfigFile } from "../utils/readConfig";
@@ -53,9 +57,11 @@ export default class FastifyServer {
       const loaded = await readConfigFile(this.configFileName);
       this.config = loaded as FastifyConfig;
 
-      this.logger.success("Config loaded!");
+      this.logger.ok("Config loaded!");
     } catch (error) {
-      this.logger.error({ message: "Loading config failed, using default settings!" });
+      this.logger.error({
+        message: "Loading config failed, using default settings!",
+      });
       this.logger.error({ error: error });
     }
   }
@@ -64,7 +70,7 @@ export default class FastifyServer {
     path: string,
     opts: RouteShorthandOptions,
     type: PathListenerType,
-    handler: FastifyGetRequestHandler
+    handler: FastifyGetRequestHandler,
   ) {
     if (!this.websocketRegisted) {
       await this.instance.register(websocket);
@@ -90,8 +96,8 @@ export default class FastifyServer {
 
     this.logger.info("Route tree:\n" + this.instance.printRoutes());
 
-    this.logger.success(
-      `Server running at http://${this.config.host}:${this.config.port}`
+    this.logger.ok(
+      `Server running at http://${this.config.host}:${this.config.port}`,
     );
   }
 

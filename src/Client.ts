@@ -1,7 +1,7 @@
 import { Client, Events, GatewayIntentBits, version } from "discord.js";
 
 import { Logger, LogPrinter } from "./logger/Logger";
-import ModuleManager from "./modules/ModuleManager";
+import ModuleManager from "./modules/core/ModuleManager";
 import ErrorHandler from "./modules/ErrorHandler";
 import SlashCommandManager from "./slashCommands/SlashCommandManager";
 import ClientError from "./error/ClientError";
@@ -22,7 +22,7 @@ export default class MassClient extends Client {
   public readonly startAt: Date;
   public readonly botId: string = "1168430797599019022";
 
-  public readonly operationMode: OperationMode = "debug";
+  public readonly operationMode: OperationMode;
 
   // Client Services
   public readonly logger: Logger;
@@ -47,8 +47,9 @@ export default class MassClient extends Client {
         GatewayIntentBits.GuildVoiceStates,
       ],
     });
+    this.operationMode = operationMode;
 
-    this.setMaxListeners(100);
+    this.setMaxListeners(1000);
 
     this.startAt = new Date();
     this.logPrinter = new LogPrinter(this);
@@ -64,7 +65,7 @@ export default class MassClient extends Client {
   }
 
   private async clientReadyAction() {
-    this.logger.success(`Client ready, logged in as ${this.user?.tag}`);
+    this.logger.ok(`Client ready, logged in as ${this.user?.tag}`);
   }
 
   override async login(token?: string): Promise<string> {
@@ -77,7 +78,7 @@ export default class MassClient extends Client {
 
     this.moduleManager.loadModules();
 
-    this.emit("system-operational");
+    this.emit("system-operational", this);
 
     return super.login(token);
   }

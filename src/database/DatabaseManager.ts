@@ -53,7 +53,7 @@ export default class DatabaseManager extends EventEmitter {
       await this.executeQuery(
         `CREATE SCHEMA IF NOT EXISTS \`${this.defaultConnectOptions.database}\``,
       );
-      this.logger.success(`Created schema with name ${this.name}`);
+      this.logger.ok(`Created schema with name ${this.name}`);
     } catch (error) {
       this.logger.error({ error: error });
       return false;
@@ -82,7 +82,7 @@ export default class DatabaseManager extends EventEmitter {
       );
       await this.createSchema();
       await this.selectSchema();
-      this.logger.success(`Created pool, ${this.defaultPool.threadId}`);
+      this.logger.ok(`Created pool, ${this.defaultPool.threadId}`);
 
       this.emit("database-connected");
       return true;
@@ -95,7 +95,7 @@ export default class DatabaseManager extends EventEmitter {
   async destroyAllConnection() {
     this.logger.log("Destroying all connection...");
     await this.defaultPool?.end();
-    this.logger.success("All connection and pool closed.");
+    this.logger.ok("All connection and pool closed.");
   }
 
   public async executeQuery(

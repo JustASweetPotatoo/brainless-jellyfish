@@ -15,7 +15,7 @@ import {
   User,
 } from "discord.js";
 import ClientModule from "../core/ClientModule";
-import { ModuleOptions } from "../core/Module";
+import { ModuleOptions } from "../core/BaseModule";
 
 import GuildLevelProviderProfile from "../../database/model/RankProviderGuildProfile";
 import UserLevelProfile from "../../database/model/UserLevelProfile";
@@ -31,8 +31,10 @@ import {
 import RankProviderMilestone from "../../database/model/RankProviderMilestone";
 import { autoDeferReply } from "../../utils/functions";
 import { sendInteractionMessageReply } from "../../utils/replier";
+import { On } from "../core/decorators";
 
 export enum MessageLevelProviderEvents {
+  GUILD_ACTIVE = "guildActive",
   LOG_CHANNEL_CHANGE = "logChannelChange",
   USER_LEVEL_ADD = "userLevelAdd",
   USER_EXP_ADD = "userExpAdd",
@@ -50,9 +52,10 @@ export interface UserLevelAddOptions {
   amount: number;
 }
 
-export default class MessageLevelProvider extends ClientModule {
+export default class MessageLevelProvider extends ClientModule<"message-level-provider"> {
   readonly discordEvents: Events[] = [Events.MessageCreate];
   readonly moduleEvents: MessageLevelProviderEvents[] = [
+    MessageLevelProviderEvents.GUILD_ACTIVE,
     MessageLevelProviderEvents.LOG_CHANNEL_CHANGE,
     MessageLevelProviderEvents.USER_LEVEL_ADD,
     MessageLevelProviderEvents.USER_EXP_ADD,
@@ -70,11 +73,14 @@ export default class MessageLevelProvider extends ClientModule {
   readonly userRepo: UserlevelProfileRepo;
 
   constructor(options: ModuleOptions) {
-    super("message-rank-provider", options);
+    super(options);
 
     this.moduleEvents.forEach((event) =>
-      this.client.on(event, (...args: any) => {
+      this.on(event, (...args: any) => {
         switch (event) {
+          case MessageLevelProviderEvents.GUILD_ACTIVE:
+            (this.onGuildActive.bind(this) as Function)(...args);
+            break;
           case MessageLevelProviderEvents.LOG_CHANNEL_CHANGE:
             (this.onLogChannelChange.bind(this) as Function)(...args);
             break;
@@ -141,15 +147,16 @@ export default class MessageLevelProvider extends ClientModule {
     await interaction.editReply(interactionReplyPayload);
   }
 
+  private async onGuildActive(guildProfile: GuildLevelProviderProfile) {
+    await this.updateGuildProfile(guildProfile);
+  }
+
   private async onLogChannelChange(
-    oldChannelId: string | undefined,
-    newChannelId: string,
-    guildId: string,
+    guildProfile: GuildLevelProviderProfile,
+    oldChannelId: string,
   ) {
-    const guildProfile = await this.getGuildProfile(guildId);
-    guildProfile.logChannelId = newChannelId;
-    this.channelCache.delete(`${oldChannelId}|${guildId}`);
-    this.updateGuildProfile(guildProfile).catch(this.handleError);
+    this.channelCache.delete(`${oldChannelId}|${guildProfile.id}`);
+    this.updateGuildProfile(guildProfile).catch(this.handleClientError);
   }
 
   private async onUserLevelAdd(options: UserLevelAddOptions) {
@@ -166,12 +173,12 @@ export default class MessageLevelProvider extends ClientModule {
 
   private async updateUserProfile(profile: UserLevelProfile) {
     this.userProfileCache.set(profile.getCacheId(), profile);
-    await this.userRepo.update(profile).catch(this.handleError);
+    await this.userRepo.update(profile).catch(this.handleClientError);
   }
 
   private async updateGuildProfile(profile: GuildLevelProviderProfile) {
     this.guildProfileCache.set(profile.id, profile);
-    await this.guildRepo.update(profile).catch(this.handleError);
+    await this.guildRepo.update(profile).catch(this.handleClientError);
   }
 
   private async getGuildProfile(
@@ -279,7 +286,7 @@ export default class MessageLevelProvider extends ClientModule {
       }
 
       this.sendLevelUpNotification(member, newLevel, newMilestone).catch(
-        this.handleError,
+        this.handleClientError,
       );
     }
 
@@ -373,6 +380,7 @@ export default class MessageLevelProvider extends ClientModule {
     await sendInteractionMessageReply(interaction, { embeds: [embed] });
   }
 
+  @On(Events.MessageCreate)
   protected async onMessageCreate(message: Message<boolean>): Promise<any> {
     const member = message.member;
     if (!member || member.user.bot) return;

@@ -15,7 +15,7 @@ const userLeveUpChannel = new ClientSlashCommandSubcommandBuilder()
   )
   .setExecutor(async (client, interaction) =>
     client.moduleManager
-      .getMessageLevelProvider()
+      .get( "message-level-provider")
       .changeLogChannel(interaction as ChatInputCommandInteraction),
   );
 
