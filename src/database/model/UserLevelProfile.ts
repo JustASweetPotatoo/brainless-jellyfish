@@ -1,5 +1,4 @@
 import { calcLevel, getTotalExpToReachLevel } from "../../utils/calculator";
-import { Repository } from "../repository/constructor/Repository";
 import { BaseModel } from "./constructor/BaseModel";
 
 export interface UserLevelProfileJson {
@@ -8,6 +7,7 @@ export interface UserLevelProfileJson {
   message_exp?: number;
   voice_exp?: number;
   milestone_id?: string;
+  channel_blacklist?: string[]
 }
 
 export default class UserLevelProfile extends BaseModel<UserLevelProfileJson> {
@@ -22,6 +22,9 @@ export default class UserLevelProfile extends BaseModel<UserLevelProfileJson> {
 
   cacheCount: number = 0;
 
+  // Blacklisting
+  channelBlacklist: string[];
+
   constructor(options: UserLevelProfileJson) {
     super(options);
 
@@ -30,6 +33,7 @@ export default class UserLevelProfile extends BaseModel<UserLevelProfileJson> {
     this.messageExp = options.message_exp ?? 0;
     this.voiceExp = options.voice_exp ?? 0;
     this.milestoneId = options.milestone_id ?? "";
+    this.channelBlacklist = options.channel_blacklist ?? [];
   }
 
   static toThis(options: UserLevelProfileJson) {
@@ -39,6 +43,7 @@ export default class UserLevelProfile extends BaseModel<UserLevelProfileJson> {
       message_exp: options.message_exp,
       voice_exp: options.voice_exp,
       milestone_id: options.milestone_id,
+      channel_blacklist: options.channel_blacklist,
     });
   }
 
@@ -49,6 +54,7 @@ export default class UserLevelProfile extends BaseModel<UserLevelProfileJson> {
       message_exp: this.messageExp,
       voice_exp: this.voiceExp,
       milestone_id: this.milestoneId,
+      channel_blacklist: this.channelBlacklist
     };
   }
 
@@ -65,8 +71,7 @@ export default class UserLevelProfile extends BaseModel<UserLevelProfileJson> {
   }
 
   addLevel(typeText: boolean, amount: number) {
-    let newLevel =
-      calcLevel(typeText ? this.messageExp : this.voiceExp) + amount;
+    let newLevel = calcLevel(typeText ? this.messageExp : this.voiceExp) + amount;
     if (newLevel < 0) newLevel = 0;
 
     if (typeText) {

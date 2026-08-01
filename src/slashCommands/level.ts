@@ -1,6 +1,7 @@
 import {
   ChannelType,
   ChatInputCommandInteraction,
+  MessageFlags,
   PermissionFlagsBits,
   SlashCommandChannelOption,
   SlashCommandUserOption,
@@ -8,14 +9,13 @@ import {
 import ClientSlashCommandBuilder from "../slashCommandBuilder/SlashCommandBuilder";
 import ClientSlashCommandSubcommandBuilder from "../slashCommandBuilder/SlashCommandSubcommandBuilder";
 import { autoDeferReply, getPermissionName } from "../utils/functions";
+import { autoDeferReplyInteraction } from "../slashCommandBuilder/function";
 
 const setChannel = new ClientSlashCommandSubcommandBuilder()
   .setName("set-channel")
   .setDescription("Set up a notification channel when a user levels up")
   .setExecutor(async (client, interaction) =>
-    client.moduleManager
-      .get("guild-level-manager")
-      .changeLogChannel(interaction as ChatInputCommandInteraction),
+    client.moduleManager.get("guild-level-manager").changeLogChannel(interaction as ChatInputCommandInteraction),
   )
   .addChannelOption(
     new SlashCommandChannelOption()
@@ -33,12 +33,7 @@ const getRank = new ClientSlashCommandSubcommandBuilder()
       .get("message-level-provider")
       .getUserRank(interaction as ChatInputCommandInteraction<"cached">),
   )
-  .addUserOption(
-    new SlashCommandUserOption()
-      .setName("target")
-      .setDescription("Member to check")
-      .setRequired(false),
-  );
+  .addUserOption(new SlashCommandUserOption().setName("target").setDescription("Member to check").setRequired(false));
 
 const active = new ClientSlashCommandSubcommandBuilder()
   .setName("active")
@@ -46,18 +41,36 @@ const active = new ClientSlashCommandSubcommandBuilder()
   .setExecutor(async (client, interaction) => {
     await autoDeferReply(interaction, { ephemeral: true });
 
-    if (
-      !interaction.member.permissions.has(PermissionFlagsBits.Administrator)
-    ) {
+    if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
       await interaction.editReply({
         content: `You don't have permission ${getPermissionName(PermissionFlagsBits.Administrator)} to use this command !`,
       });
       return;
     }
 
-    await client.moduleManager
-      .get("guild-level-manager")
-      .activeGuild(interaction as ChatInputCommandInteraction);
+    await client.moduleManager.get("guild-level-manager").activeGuild(interaction as ChatInputCommandInteraction);
+  });
+
+const addIgnored = new ClientSlashCommandSubcommandBuilder()
+  .setName("ignored")
+  .setDescription("Add to ignored list the channel or user to block")
+  .addChannelOption(
+    new SlashCommandChannelOption()
+      .setName("channel")
+      .setDescription("Channel to ignored")
+      .addChannelTypes([
+        ChannelType.GuildText,
+        ChannelType.GuildVoice,
+        ChannelType.GuildForum,
+        ChannelType.PublicThread,
+        ChannelType.PrivateThread,
+      ]),
+  )
+  .addUserOption(new SlashCommandUserOption().setName("member").setDescription("Member to ignored"))
+  .setExecutor(async (client, interaction) => {
+    await autoDeferReplyInteraction(interaction, { flags: [MessageFlags.Ephemeral] });
+
+    
   });
 
 // const addBLackListRole = new ClientSlashCommandSubcommandBuilder()
@@ -78,17 +91,8 @@ const active = new ClientSlashCommandSubcommandBuilder()
 //       .setRequired(true),
 //   );
 
-// const activate = new ClientSlashCommandSubcommandBuilder()
-//   .setName("activate")
-//   .setDescription("Activate User Level Module")
-//   .setExecutor(async (client, interaction) => {
-//     // client.moduleManager
-//     //   .getRankSystemInstance()
-//     //   .activateGuild(interaction as ChatInputCommandInteraction<"cached">)
-//   });
-
 export default new ClientSlashCommandBuilder({
-  subcommands: [setChannel, getRank, active],
+  subcommands: [setChannel, getRank, active, addIgnored],
 })
   .setName("level")
   .setDescription("Check user level");
