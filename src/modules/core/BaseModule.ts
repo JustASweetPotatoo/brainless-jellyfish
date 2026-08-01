@@ -10,7 +10,6 @@ import {
   MessageFlags,
   ContainerBuilder,
   SectionBuilder,
-  TextDisplayBuilder,
   ButtonBuilder,
   ButtonStyle,
   ActionRowBuilder,
@@ -19,14 +18,17 @@ import {
 
 import MassClient from "../../Client";
 import { Logger } from "../../logger/Logger";
-import { EVENT_KEY, On, REPOSITORIES_KEY, REPOSITORY_KEY } from "./decorators";
+import { EVENT_KEY, REPOSITORIES_KEY, REPOSITORY_KEY } from "./decorators";
 import { EventEmitter } from "node:events";
 import { kebabCase } from "../../utils/functions";
 import DatabaseManager from "../../database/DatabaseManager";
 import ClientError from "../../error/ClientError";
 import { ErrorCode } from "../../error/ErrorCode";
-import { dangerIconUrl } from "../../access/icon";
+import { dangerIconUrl } from "../../assets/icon";
 import ClientSlashCommandBuilder from "../../slashCommandBuilder/SlashCommandBuilder";
+import ModuleManager from "./ModuleManager";
+import { Repository } from "../../database/repository/constructor/Repository";
+import { BaseModel } from "../../database/model/constructor/BaseModel";
 
 export interface ModuleOptions {
   client: MassClient;
@@ -38,23 +40,22 @@ export interface ModuleConstructor<T extends string = string> {
 
 type AnyFn = (...args: any[]) => any;
 
-export type ErrorInteractionType =
-  | ChatInputCommandInteraction
-  | ButtonInteraction
-  | ModalSubmitInteraction;
+export type ErrorInteractionType = ChatInputCommandInteraction | ButtonInteraction | ModalSubmitInteraction;
 
-export default abstract class BaseModule<
-  TName extends string,
-> extends EventEmitter {
+export default abstract class BaseModule<TName extends string> extends EventEmitter {
   public readonly name: TName;
   public readonly logger: Logger;
   protected readonly client: MassClient;
 
+  /**
+   * @description Event default is 1
+   */
+  private readonly count: { event: number; repo: number } = { event: 1, repo: 1 };
+
   constructor(options: ModuleOptions) {
     super();
 
-    const ctor = this.constructor as typeof BaseModule &
-      ModuleConstructor<TName>;
+    const ctor = this.constructor as typeof BaseModule & ModuleConstructor<TName>;
 
     if (!ctor.moduleName) {
       ctor.moduleName = kebabCase(ctor.name) as TName;
@@ -70,45 +71,47 @@ export default abstract class BaseModule<
 
     this.client.on("load-modules-complete", () => this.registerEvents());
     this.on("module-events-loaded", this.loadDatabase.bind(this));
+    this.on("database-loaded", () => {
+      this.logger.info(`Total ${this.count.event} events and ${this.count.repo} repositories.`);
+    });
   }
 
-  private async loadDatabase(): Promise<this> {
+  private async loadDatabase<
+    TJSON,
+    TMODEL extends BaseModel<TJSON>,
+    R extends Repository<TMODEL, TJSON>,
+  >(): Promise<this> {
     let proto = Object.getPrototypeOf(this);
-    let repositoryCount = 0;
 
     while (proto && proto !== BaseModule.prototype) {
-      const repositories =
-        (Reflect.getOwnMetadata(REPOSITORIES_KEY, proto) as PropertyKey[]) ??
-        [];
+      const repositories = (Reflect.getOwnMetadata(REPOSITORIES_KEY, proto) as PropertyKey[]) ?? [];
 
       for (const propertyKey of repositories) {
-        const RepoClass = Reflect.getMetadata(
-          REPOSITORY_KEY,
-          proto,
-          propertyKey as string | symbol,
-        ) as new (db: DatabaseManager) => unknown;
+        const RepoClass = Reflect.getMetadata(REPOSITORY_KEY, proto, propertyKey as string | symbol) as new (
+          db: DatabaseManager,
+        ) => unknown;
 
-        (this as any)[propertyKey] = new RepoClass(this.client.database);
+        const repo: R = new RepoClass(this.client.database) as R;
 
-        repositoryCount++;
+        (this as any)[propertyKey] = repo;
+
+        await repo.createTable();
+
+        this.count.repo++;
       }
 
       proto = Object.getPrototypeOf(proto);
     }
 
-    this.logger.info(`Loaded ${repositoryCount} repositories`);
+    this.emit("database-loaded");
 
     return this;
   }
 
   public registerEvents(): this {
     let proto = Object.getPrototypeOf(this);
-    let eventCount = 1;
 
-    this.client.on(
-      Events.InteractionCreate,
-      (interaction) => void this.onInteractionCreate(interaction),
-    );
+    this.client.on(Events.InteractionCreate, (interaction) => void this.onInteractionCreate(interaction));
 
     while (proto && proto !== BaseModule.prototype) {
       for (const key of Object.getOwnPropertyNames(proto)) {
@@ -124,14 +127,13 @@ export default abstract class BaseModule<
           void this.execute(event, handler, ...args);
         });
 
-        eventCount++;
+        this.count.event++;
       }
 
       proto = Object.getPrototypeOf(proto);
     }
 
     this.emit("module-events-loaded", this);
-    this.logger.info(`Loaded total ${eventCount} events`);
 
     return this;
   }
@@ -165,31 +167,22 @@ export default abstract class BaseModule<
         this.handleSlashCommandInteractionError(error, interaction),
       );
 
-    if (interaction.isButton())
-      return this.onButtonInteractionCreate(interaction);
+    if (interaction.isButton()) return this.onButtonInteractionCreate(interaction);
 
-    if (interaction.isModalSubmit())
-      return this.onModalSubmitInteractionCreate(interaction);
+    if (interaction.isModalSubmit()) return this.onModalSubmitInteractionCreate(interaction);
 
-    if (interaction.isAutocomplete())
-      return this.onAutoCompleteInteractionCreate(interaction);
+    if (interaction.isAutocomplete()) return this.onAutoCompleteInteractionCreate(interaction);
   }
 
-  protected abstract onButtonInteractionCreate(
-    interaction: ButtonInteraction,
-  ): Promise<any>;
+  protected abstract onButtonInteractionCreate(interaction: ButtonInteraction): Promise<any>;
 
   protected abstract onSlashCommandInteractionCreate(
     interaction: CommandInteraction | ChatInputCommandInteraction,
   ): Promise<any>;
 
-  protected abstract onModalSubmitInteractionCreate(
-    interaction: ModalSubmitInteraction,
-  ): Promise<any>;
+  protected abstract onModalSubmitInteractionCreate(interaction: ModalSubmitInteraction): Promise<any>;
 
-  protected abstract onAutoCompleteInteractionCreate(
-    interaction: AutocompleteInteraction,
-  ): Promise<any>;
+  protected abstract onAutoCompleteInteractionCreate(interaction: AutocompleteInteraction): Promise<any>;
 
   protected handleClientError(error: any) {
     this.client.errorHandler.handleClientError({
@@ -208,9 +201,10 @@ export default abstract class BaseModule<
     }
   }
 
-  protected handleSlashCommandInteractionError<
-    TInteraction extends Interaction,
-  >(error: any, interaction: TInteraction) {
+  protected handleSlashCommandInteractionError<TInteraction extends Interaction>(
+    error: any,
+    interaction: TInteraction,
+  ) {
     if (interaction instanceof ChatInputCommandInteraction) {
       const err = this.parseError(error);
       this.responseSlashCommandErrorInteraction(interaction, error);
@@ -218,10 +212,7 @@ export default abstract class BaseModule<
     }
   }
 
-  async responseInteractionError(
-    error: Error | ClientError | any,
-    interaction: ErrorInteractionType,
-  ) {
+  async responseInteractionError(error: Error | ClientError | any, interaction: ErrorInteractionType) {
     const releaseTimestamp = Date.now();
     const releaseTimestampInSec = Math.floor(releaseTimestamp / 1000);
     const durationInMs = releaseTimestamp - interaction.createdTimestamp;
@@ -229,9 +220,7 @@ export default abstract class BaseModule<
     let customId = undefined;
 
     if (interaction instanceof ChatInputCommandInteraction) {
-      const commandName = ClientSlashCommandBuilder.getStackName(
-        interaction as ChatInputCommandInteraction,
-      );
+      const commandName = ClientSlashCommandBuilder.getStackName(interaction as ChatInputCommandInteraction);
 
       customId = commandName + " type Command";
     }
@@ -248,8 +237,7 @@ export default abstract class BaseModule<
       .setLabel("Delete")
       .setStyle(ButtonStyle.Danger)
       .setCustomId("global-delete");
-    const actionRowBuilder =
-      new ActionRowBuilder<ButtonBuilder>().addComponents([deleteButton]);
+    const actionRowBuilder = new ActionRowBuilder<ButtonBuilder>().addComponents([deleteButton]);
     const container = new ContainerBuilder()
       .addSectionComponents(new SectionBuilder())
       .addActionRowComponents([actionRowBuilder]);
@@ -289,9 +277,7 @@ export default abstract class BaseModule<
     const doneTimestamp = Date.now();
     const doneTimestampBySeconds = Math.floor(doneTimestamp / 1000);
     const durationByMiliseconds = doneTimestamp - interaction.createdTimestamp;
-    const commandName = ClientSlashCommandBuilder.getStackName(
-      interaction as ChatInputCommandInteraction,
-    );
+    const commandName = ClientSlashCommandBuilder.getStackName(interaction as ChatInputCommandInteraction);
 
     const responseTime = interaction.createdTimestamp - Date.now();
     const error = new ClientError(ErrorCode.UNKNOWN_ERROR, err);
@@ -321,10 +307,7 @@ export default abstract class BaseModule<
     throw err;
   }
 
-  async responseButtonErrorInteraction(
-    interaction: ButtonInteraction,
-    error: ClientError,
-  ) {
+  async responseButtonErrorInteraction(interaction: ButtonInteraction, error: ClientError) {
     const doneTimestamp = Date.now();
     const doneTimestampBySeconds = Math.floor(doneTimestamp / 1000);
     const durationByMiliseconds = doneTimestamp - interaction.createdTimestamp;
@@ -349,8 +332,9 @@ export default abstract class BaseModule<
       author: { name: "Command Error", iconURL: dangerIconUrl },
     });
 
-    if (!interaction.deferred)
-      await interaction.deferReply({ ephemeral: true });
+    if (!interaction.deferred) await interaction.deferReply({ ephemeral: true });
     if (!interaction.replied) await interaction.editReply({ embeds: [embed] });
   }
+
+  protected getManager = (): ModuleManager => this.client.moduleManager;
 }

@@ -16,10 +16,7 @@ import {
 } from "discord.js";
 import ClientModule from "../core/ClientModule";
 import { ModuleOptions } from "../core/Module";
-import {
-  sendInteractionMessageReply,
-  sendTemporatyInteractionMessageReply,
-} from "../../utils/replier";
+import { sendInteractionMessageReply, sendTemporatyInteractionMessageReply } from "../../utils/replier";
 import LevelProviderGuildConfigRepo from "../../database/repository/LevelProviderGuildConfigRepo";
 
 import UserLevelProfile from "../../database/model/UserLevelProfile";
@@ -31,7 +28,7 @@ import {
   craftEmbedProgressBar,
   getRandomInt,
 } from "../../utils/calculator";
-import LUSGuildProfile from "../../database/model/RankProviderGuildProfile";
+import RankProviderGuildProfile from "../../database/model/RankProviderGuildProfile";
 import RankProviderMilestone from "../../database/model/RankProviderMilestone";
 
 export interface UserVoiceState {
@@ -43,21 +40,14 @@ export interface UserVoiceState {
 }
 
 export default class MessageLevelProvider extends ClientModule {
-  readonly discordEvents: Events[] = [
-    Events.MessageCreate,
-    Events.VoiceStateUpdate,
-  ];
-  private readonly channelCache: Collection<string, TextChannel> =
-    new Collection();
-  private readonly guildCache: Collection<string, LUSGuildProfile> =
-    new Collection();
-  private readonly userCache: Collection<string, UserLevelProfile> =
-    new Collection();
+  readonly discordEvents: Events[] = [Events.MessageCreate, Events.VoiceStateUpdate];
+  private readonly channelCache: Collection<string, TextChannel> = new Collection();
+  private readonly guildCache: Collection<string, RankProviderGuildProfile> = new Collection();
+  private readonly userCache: Collection<string, UserLevelProfile> = new Collection();
 
   private readonly guildRegion: Collection<string, Locale> = new Collection();
 
-  readonly userVoiceStateCollection: Collection<string, UserVoiceState> =
-    new Collection();
+  readonly userVoiceStateCollection: Collection<string, UserVoiceState> = new Collection();
 
   //
   readonly guildRepo: LevelProviderGuildConfigRepo;
@@ -91,11 +81,11 @@ export default class MessageLevelProvider extends ClientModule {
     }, 60 * 1000);
   }
 
-  private async initGuildProf(guild: Guild): Promise<LUSGuildProfile> {
+  private async initGuildProf(guild: Guild): Promise<RankProviderGuildProfile> {
     let guildProf = await this.guildRepo.get(guild.id);
 
     if (!guildProf) {
-      const newProf = new LUSGuildProfile({
+      const newProf = new RankProviderGuildProfile({
         id: guild.id,
       });
       await this.guildRepo.create(newProf);
@@ -119,9 +109,7 @@ export default class MessageLevelProvider extends ClientModule {
   }
 
   private async updateUserProfile(userProf: UserLevelProfile) {
-    if (
-      userProf.cacheCount >= (this.client.operationMode == "debug" ? 3 : 10)
-    ) {
+    if (userProf.cacheCount >= (this.client.operationMode == "debug" ? 3 : 10)) {
       userProf.cacheCount = 0;
       this.userCache.set(`${userProf.id}|${userProf.guildId}`, userProf);
       await this.userRepo.update(userProf);
@@ -134,9 +122,7 @@ export default class MessageLevelProvider extends ClientModule {
   }
 
   // Channel access
-  async createOrSetLogChannelInteractionExecutor(
-    interaction: ChatInputCommandInteraction<"cached">,
-  ) {
+  async createOrSetLogChannelInteractionExecutor(interaction: ChatInputCommandInteraction<"cached">) {
     if (!interaction.command) return;
 
     let guildProf = await this.initGuildProf(interaction.guild);
@@ -147,8 +133,7 @@ export default class MessageLevelProvider extends ClientModule {
         type: ChannelType.GuildText,
       };
 
-      const logChannel =
-        await interaction.guild.channels.create(createChannelOptions);
+      const logChannel = await interaction.guild.channels.create(createChannelOptions);
 
       guildProf.logChannelId = logChannel.id;
       this.channelCache.set(logChannel.id, logChannel);
@@ -206,9 +191,7 @@ export default class MessageLevelProvider extends ClientModule {
    *
    * @deprecated
    */
-  async disableGuildSLashComdExecutor(
-    interaction: ChatInputCommandInteraction<"cached">,
-  ) {
+  async disableGuildSLashComdExecutor(interaction: ChatInputCommandInteraction<"cached">) {
     const guildProfile = await this.initGuildProf(interaction.guild);
 
     guildProfile.active = !guildProfile.active;
@@ -218,9 +201,7 @@ export default class MessageLevelProvider extends ClientModule {
       embeds: [
         new EmbedBuilder({
           title: "Operation Complete !",
-          description: `${
-            guildProfile.active ? "Disabled" : "Enabled"
-          } Message Emiiter !`,
+          description: `${guildProfile.active ? "Disabled" : "Enabled"} Message Emiiter !`,
           color: Colors.Green,
         }).setTimestamp(),
       ],
@@ -297,10 +278,7 @@ export default class MessageLevelProvider extends ClientModule {
       // Filter
       if (message.author.bot) return;
 
-      let userProf = await this.initUserProf(
-        message.author.id,
-        message.guildId,
-      );
+      let userProf = await this.initUserProf(message.author.id, message.guildId);
 
       const oldLevel = calcLevel(userProf.messageExp);
       const newMessageExp = userProf.messageExp + calcExp(message.content);
@@ -317,8 +295,7 @@ export default class MessageLevelProvider extends ClientModule {
         let addRole: Role | undefined;
 
         const newMilestone = guildProfile.milestones.find(
-          (milestone) =>
-            milestone.startAt <= newLevel && newLevel <= milestone.endAt,
+          (milestone) => milestone.startAt <= newLevel && newLevel <= milestone.endAt,
         );
 
         if (newMilestone && newMilestone.id != userProf.milestoneId) {
@@ -334,11 +311,7 @@ export default class MessageLevelProvider extends ClientModule {
       if (milestone && channel instanceof TextChannel) {
         const embed = new EmbedBuilder({
           title: `Bạn đã đạt level ${newLevel}`,
-          description: `${
-            milestoneChanged
-              ? `\n*Bạn đã đạt được thành tựu:**<@&${milestone?.roleId}***`
-              : undefined
-          }`,
+          description: `${milestoneChanged ? `\n*Bạn đã đạt được thành tựu:**<@&${milestone?.roleId}***` : undefined}`,
           color: Colors.Blurple,
         });
 
@@ -349,10 +322,7 @@ export default class MessageLevelProvider extends ClientModule {
     }
   }
 
-  protected async onVoiceStateUpdate(
-    oldState: VoiceState,
-    newState: VoiceState,
-  ): Promise<any> {
+  protected async onVoiceStateUpdate(oldState: VoiceState, newState: VoiceState): Promise<any> {
     const guildProfile = await this.initGuildProf(newState.guild);
     if (!guildProfile) return;
 
@@ -378,9 +348,7 @@ export default class MessageLevelProvider extends ClientModule {
 
       if (!userState) return;
 
-      const timeByMinutes = Math.floor(
-        (Date.now() - userState.joinTimestamp) / 1000 / 60,
-      );
+      const timeByMinutes = Math.floor((Date.now() - userState.joinTimestamp) / 1000 / 60);
 
       let userProf = await this.initUserProf(member.id, member.guild.id);
       userProf.voiceExp += getRandomInt(25, 35) * timeByMinutes;

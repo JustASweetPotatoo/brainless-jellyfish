@@ -10,7 +10,7 @@ import {
   TextChannel,
 } from "discord.js";
 
-import noituDictionary from "../access/noituDictionary.json";
+import noituDictionary from "../assets/noituDictionary.json";
 import MassClient from "../Client";
 import NoituGuildConfig from "../database/model/noituGuildConfig";
 import NoituChannelConfig from "../database/model/noituChannelConfig";
@@ -46,30 +46,18 @@ export enum NoituMessageCreateEvent {
 export default class NoituManager extends ClientModule<"noitu-manager"> {
   static readonly moduleName = "noitu-manager";
 
-  readonly discordEvents: Events[] = [
-    Events.ClientReady,
-    Events.MessageCreate,
-    Events.GuildCreate,
-    Events.GuildDelete,
-  ];
+  readonly discordEvents: Events[] = [Events.ClientReady, Events.MessageCreate, Events.GuildCreate, Events.GuildDelete];
 
-  private readonly guildConfigCollection: Collection<string, NoituGuildConfig> =
-    new Collection();
-  private readonly guildChannelConfigCollection: Collection<
-    string,
-    NoituChannelConfig
-  > = new Collection();
+  private readonly guildConfigCollection: Collection<string, NoituGuildConfig> = new Collection();
+  private readonly guildChannelConfigCollection: Collection<string, NoituChannelConfig> = new Collection();
   private readonly channels: Collection<string, TextChannel> = new Collection();
 
-  private readonly wordDictionary: { [key: string]: { [key2: string]: {} } } =
-    noituDictionary;
+  private readonly wordDictionary: { [key: string]: { [key2: string]: {} } } = noituDictionary;
 
   @On(Events.ClientReady)
   protected async onClientReady(client: MassClient): Promise<any> {
     // debug
-    const debugChannel = this.client.guilds.cache
-      .get("811939594882777128")
-      ?.channels.cache.get("1439476287163994212");
+    const debugChannel = this.client.guilds.cache.get("811939594882777128")?.channels.cache.get("1439476287163994212");
     if (debugChannel && debugChannel instanceof TextChannel) {
       this.channels.set(debugChannel?.id, debugChannel);
       this.guildChannelConfigCollection.set(
@@ -79,9 +67,7 @@ export default class NoituManager extends ClientModule<"noitu-manager"> {
     }
   }
 
-  async createChannel(
-    interaction: ChatInputCommandInteraction<"cached">,
-  ): Promise<NoituCreateChannelEvent> {
+  async createChannel(interaction: ChatInputCommandInteraction<"cached">): Promise<NoituCreateChannelEvent> {
     if (!interaction.inGuild()) return NoituCreateChannelEvent.FAILURE;
 
     try {
@@ -89,10 +75,7 @@ export default class NoituManager extends ClientModule<"noitu-manager"> {
       const channelName = interaction.options.getString("name", true);
 
       const channel = await guild.channels.create({ name: channelName });
-      this.guildChannelConfigCollection.set(
-        guild.id,
-        new NoituChannelConfig(channel.id, guild.id),
-      );
+      this.guildChannelConfigCollection.set(guild.id, new NoituChannelConfig(channel.id, guild.id));
       return NoituCreateChannelEvent.SUCCESS;
     } catch (error) {
       this.client.errorHandler.handleClientError({
@@ -103,9 +86,7 @@ export default class NoituManager extends ClientModule<"noitu-manager"> {
     }
   }
 
-  async setChannel(
-    interaction: ChatInputCommandInteraction<"cached">,
-  ): Promise<NoituSetChannelEvent> {
+  async setChannel(interaction: ChatInputCommandInteraction<"cached">): Promise<NoituSetChannelEvent> {
     const targetChannel = interaction.options.getChannel("channel", true);
 
     if (targetChannel instanceof TextChannel) {
@@ -139,27 +120,21 @@ export default class NoituManager extends ClientModule<"noitu-manager"> {
   protected async onMessageCreate(message: Message<true>) {
     const response = this.messageCreateAction(message);
     const embedBuilder = new EmbedBuilder().setTimestamp();
-    const channelConfig = this.guildChannelConfigCollection.get(
-      message.channelId,
-    );
+    const channelConfig = this.guildChannelConfigCollection.get(message.channelId);
 
     switch (response) {
       case NoituMessageCreateEvent.SUCCESS:
         message.react("✅");
         break;
       case NoituMessageCreateEvent.ERROR:
-        embedBuilder
-          .setTitle("Error on executing event MessageCreate")
-          .setColor(Colors.Red);
+        embedBuilder.setTitle("Error on executing event MessageCreate").setColor(Colors.Red);
         this.client.messageReplier.sendMessage(message, {
           embeds: [embedBuilder],
         });
         return;
     }
 
-    embedBuilder
-      .setTitle(channelConfig?.switchMessage(response) ?? null)
-      .setColor(Colors.Red);
+    embedBuilder.setTitle(channelConfig?.switchMessage(response) ?? null).setColor(Colors.Red);
 
     if (embedBuilder.toJSON().title) {
       this.client.messageReplier.sendMessage(message, {
@@ -178,35 +153,24 @@ export default class NoituManager extends ClientModule<"noitu-manager"> {
     if (message.content.startsWith("!") || message.content.endsWith("!"))
       return NoituMessageCreateEvent.IS_STARTSWITH_PREFIX;
 
-    if (
-      message.author.id == channelConfig.lastUserId &&
-      !channelConfig.continuously
-    )
+    if (message.author.id == channelConfig.lastUserId && !channelConfig.continuously)
       return NoituMessageCreateEvent.IS_THE_LAST_USER;
 
     const usedWordlist = channelConfig.usedWordlist.split("/");
-    if (
-      usedWordlist.find((phrase) => phrase == channelConfig.lastPhrase) &&
-      !channelConfig.repeat
-    )
+    if (usedWordlist.find((phrase) => phrase == channelConfig.lastPhrase) && !channelConfig.repeat)
       return NoituMessageCreateEvent.IS_REPEATED;
 
     const args = message.content.split(" ");
 
-    if (!this.wordDictionary[args[0]])
-      return NoituMessageCreateEvent.INCORRECT_STARTING_WORD;
+    if (!this.wordDictionary[args[0]]) return NoituMessageCreateEvent.INCORRECT_STARTING_WORD;
 
-    if (this.wordDictionary[args[0]][message.content])
-      return NoituMessageCreateEvent.INCORRECT_PHRASE;
+    if (this.wordDictionary[args[0]][message.content]) return NoituMessageCreateEvent.INCORRECT_PHRASE;
 
     channelConfig.lastUserId = message.author.id;
     channelConfig.lastPhrase = message.content;
     channelConfig.counter += 1;
 
-    if (
-      channelConfig.counter >= channelConfig.resetAt &&
-      channelConfig.resetAt != -1
-    ) {
+    if (channelConfig.counter >= channelConfig.resetAt && channelConfig.resetAt != -1) {
       channelConfig.resetCounter();
       return NoituMessageCreateEvent.COUNTER_MAX_REACHED;
     }

@@ -12,7 +12,6 @@ import {
   CommandInteraction,
   Events,
   Guild,
-  Interaction,
   REST,
   RESTPostAPIApplicationCommandsJSONBody,
   Routes,
@@ -21,24 +20,18 @@ import ClientSlashCommandBuilder from "../slashCommandBuilder/SlashCommandBuilde
 import ClientError from "../error/ClientError";
 import { ErrorCode } from "../error/ErrorCode";
 import { autoDeferReplyInteraction } from "../slashCommandBuilder/function";
-import MassClient from "../Client";
 import { On } from "../modules/core/decorators";
 import { ModuleOptions } from "../modules/core/BaseModule";
 
 export default class SlashCommandManager extends ClientModule<"slash-command-manager"> {
-  readonly discordEvents: Events[] = [
-    Events.GuildAvailable,
-    Events.InteractionCreate,
-  ];
+  readonly discordEvents: Events[] = [Events.GuildAvailable, Events.InteractionCreate];
 
   private readonly guildLoaded = new Collection<string, string>();
   private rest: REST;
 
   private readonly workDir: string = path.join(__dirname, "./");
-  private readonly commands: Collection<string, ClientSlashCommandBuilder> =
-    new Collection();
-  private slashCommandJSONBody: Array<RESTPostAPIApplicationCommandsJSONBody> =
-    [];
+  private readonly commands: Collection<string, ClientSlashCommandBuilder> = new Collection();
+  private slashCommandJSONBody: Array<RESTPostAPIApplicationCommandsJSONBody> = [];
 
   constructor(options: ModuleOptions) {
     super(options);
@@ -48,7 +41,6 @@ export default class SlashCommandManager extends ClientModule<"slash-command-man
   protected async onSystemOperational(): Promise<any> {
     try {
       await this.getCommands();
-      this.craftBody();
       await this.registerCommands();
     } catch (error) {
       this.handleClientError(error);
@@ -64,9 +56,7 @@ export default class SlashCommandManager extends ClientModule<"slash-command-man
       try {
         const absolutePath = path.join(this.workDir, file);
         if (!fs.existsSync(absolutePath)) {
-          this.logger.warn(
-            `File name ${file} doesn't exist in folder ${this.workDir}`,
-          );
+          this.logger.warn(`File name ${file} doesn't exist in folder ${this.workDir}`);
           return;
         }
 
@@ -107,25 +97,27 @@ export default class SlashCommandManager extends ClientModule<"slash-command-man
       }
     }
 
-    this.logger.ok(
-      `Crafting complete, command JSON body count: ${this.slashCommandJSONBody.length}`,
-    );
+    this.logger.ok(`Crafting complete, command JSON body count: ${this.slashCommandJSONBody.length}`);
 
     return this.slashCommandJSONBody;
   }
 
-  private async registerCommandsToGuild(guild: Guild) {
+  async registerCommandsToGuild(guild: Guild) {
     const route = Routes.applicationGuildCommands(this.client.botId, guild.id);
-    await this.rest.put(route, { body: this.slashCommandJSONBody });
+    if (!this.rest) {
+      this.rest = new REST({ version: "10" }).setToken(process.env.TOKEN ?? "");
+    }
 
+    if (this.slashCommandJSONBody.length == 0) {
+      this.craftBody();
+    }
+    await this.rest.put(route, { body: this.slashCommandJSONBody });
     this.logger.ok(`Pushed commands to guild ${guild.name}/${guild.id}`);
   }
 
   async registerCommands() {
     if (this.client.operationMode === "debug") {
-      this.logger.warn(
-        "Client in development mode, skipping register (/) commands to regular server",
-      );
+      this.logger.warn("Client in development mode, skipping register (/) commands to regular server");
       return;
     }
 
@@ -147,15 +139,11 @@ export default class SlashCommandManager extends ClientModule<"slash-command-man
       }
     }
 
-    this.logger.ok(
-      `Total ${counter} guilds is loaded with ${this.commands.size} commands`,
-    );
+    this.logger.ok(`Total ${counter} guilds is loaded with ${this.commands.size} commands`);
   }
 
   protected override async onSlashCommandInteractionCreate(
-    interaction:
-      | CommandInteraction<"cached">
-      | ChatInputCommandInteraction<"cached">,
+    interaction: CommandInteraction<"cached"> | ChatInputCommandInteraction<"cached">,
   ): Promise<any> {
     await autoDeferReplyInteraction(interaction);
     const command = this.commands.get(interaction.commandName);
@@ -169,9 +157,7 @@ export default class SlashCommandManager extends ClientModule<"slash-command-man
     await command.getExecutor(interaction)(this.client, interaction);
   }
 
-  protected override async onAutoCompleteInteractionCreate(
-    interaction: AutocompleteInteraction,
-  ): Promise<any> {
+  protected override async onAutoCompleteInteractionCreate(interaction: AutocompleteInteraction): Promise<any> {
     const command = this.commands.get(interaction.commandName);
 
     if (!command)
@@ -195,16 +181,12 @@ export default class SlashCommandManager extends ClientModule<"slash-command-man
 
   @On(Events.GuildAvailable)
   protected async onGuildAvailable(guild: Guild): Promise<any> {
-    if (
-      this.client.operationMode === "debug" &&
-      guild.id == "1084323144870940772"
-    ) {
-      await this.registerCommandsToGuild(guild);
+    if (this.client.operationMode === "debug") {
       return;
     }
 
     if (this.guildLoaded.has(guild.id)) {
-      this.logger.info(`Guild ${guild.name}/${guild.id} already loaded`);
+      this.logger.warn(`Guild ${guild.name}/${guild.id} already loaded`);
       return;
     }
 

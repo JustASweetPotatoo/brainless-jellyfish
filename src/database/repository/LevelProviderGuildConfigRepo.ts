@@ -1,12 +1,10 @@
 import DatabaseManager from "../DatabaseManager";
-import LevelProviderGuildProfile, {
-  LevelProviderGuildProfileJson,
-} from "../model/RankProviderGuildProfile";
+import LevelProviderGuildProfile, { RankProviderGuildProfileJson } from "../model/RankProviderGuildProfile";
 import { Repository } from "./constructor/Repository";
 
 export default class LevelProviderGuildConfigRepo extends Repository<
   LevelProviderGuildProfile,
-  LevelProviderGuildProfileJson
+  RankProviderGuildProfileJson
 > {
   protected readonly model = LevelProviderGuildProfile;
 
@@ -16,6 +14,7 @@ export default class LevelProviderGuildConfigRepo extends Repository<
       active BOOLEAN NOT NULL DEFAULT false,
       log_channel_id VARCHAR(64),
       rate DOUBLE DEFAULT 1,
+      type TINYINT DEFAULT 1,
       milestones JSON
     );
   `;
@@ -24,32 +23,22 @@ export default class LevelProviderGuildConfigRepo extends Repository<
     super("level_guild_config", database);
   }
 
-  async create(
-    data: LevelProviderGuildProfile,
-  ): Promise<LevelProviderGuildProfile> {
+  async create(data: LevelProviderGuildProfile): Promise<LevelProviderGuildProfile> {
     const json = data.toJSON();
 
     const query = `
       INSERT INTO ${this.fullTableName}
-        (id, active, log_channel_id, rate, milestones)
-      VALUES (?, ?, ?, ?, ?)
+        (id, active, log_channel_id, rate, type, milestones)
+      VALUES (?, ?, ?, ?, ?, ?)
     `;
-    const values = [
-      json.id,
-      json.active,
-      json.log_channel_id,
-      json.rate,
-      JSON.stringify(json.milestones),
-    ];
+    const values = [json.id, json.active, json.log_channel_id, json.rate, JSON.stringify(json.milestones)];
 
     await this.executeQuery(query, values);
 
     return data;
   }
 
-  async update(
-    data: LevelProviderGuildProfile,
-  ): Promise<LevelProviderGuildProfile> {
+  async update(data: LevelProviderGuildProfile): Promise<LevelProviderGuildProfile> {
     const json = data.toJSON();
 
     const query = `
@@ -58,6 +47,7 @@ export default class LevelProviderGuildConfigRepo extends Repository<
         active = ?,
         log_channel_id = ?,
         rate = ?,
+        type = ?,
         milestones = ?
       WHERE id = ?
     `;
@@ -66,6 +56,7 @@ export default class LevelProviderGuildConfigRepo extends Repository<
       json.active,
       json.log_channel_id,
       json.rate,
+      json.type,
       JSON.stringify(json.milestones),
       json.id,
     ]);
@@ -93,6 +84,7 @@ export default class LevelProviderGuildConfigRepo extends Repository<
       active: !!row.active,
       log_channel_id: row.log_channel_id,
       rate: row.rate,
+      type: row.type,
       milestones: row.milestones ?? [],
     });
   }

@@ -1,18 +1,16 @@
 import {
+  AttachmentBuilder,
   ChannelType,
   ChatInputCommandInteraction,
   Collection,
   Colors,
-  CommandInteraction,
   EmbedBuilder,
   Events,
   GuildMember,
   InteractionEditReplyOptions,
   Message,
-  MessagePayload,
   Role,
   TextChannel,
-  User,
 } from "discord.js";
 import ClientModule from "../core/ClientModule";
 import { ModuleOptions } from "../core/BaseModule";
@@ -27,11 +25,13 @@ import {
   calcPercentageOfProgress,
   craftEmbedProgressBar,
   getRandomInt,
+  getTotalExpToReachLevel,
 } from "../../utils/calculator";
 import RankProviderMilestone from "../../database/model/RankProviderMilestone";
 import { autoDeferReply } from "../../utils/functions";
 import { sendInteractionMessageReply } from "../../utils/replier";
 import { On } from "../core/decorators";
+import generateRankCard from "../../utils/rankCard";
 
 export enum MessageLevelProviderEvents {
   GUILD_ACTIVE = "guildActive",
@@ -63,10 +63,7 @@ export default class MessageLevelProvider extends ClientModule<"message-level-pr
   ];
 
   private readonly channelCache: Collection<string, TextChannel>;
-  private readonly guildProfileCache: Collection<
-    string,
-    GuildLevelProviderProfile
-  >;
+  private readonly guildProfileCache: Collection<string, GuildLevelProviderProfile>;
   private readonly userProfileCache: Collection<string, UserLevelProfile>;
 
   readonly guildRepo: GuildLevelProviderProfileRepo;
@@ -107,18 +104,11 @@ export default class MessageLevelProvider extends ClientModule<"message-level-pr
 
     await autoDeferReply(interaction, { ephemeral: true });
 
-    const channel = interaction.options.getChannel("channel", true, [
-      ChannelType.GuildText,
-    ]);
+    const channel = interaction.options.getChannel("channel", true, [ChannelType.GuildText]);
 
     const guildProfile = await this.getGuildProfile(interaction.guildId);
 
-    this.emit(
-      MessageLevelProviderEvents.LOG_CHANNEL_CHANGE,
-      guildProfile.logChannelId,
-      channel.id,
-      guildProfile.id,
-    );
+    this.emit(MessageLevelProviderEvents.LOG_CHANNEL_CHANGE, guildProfile.logChannelId, channel.id, guildProfile.id);
 
     const changeChannelEmbed = new EmbedBuilder({
       title: "Thao tác thành công!",
@@ -139,9 +129,7 @@ export default class MessageLevelProvider extends ClientModule<"message-level-pr
     });
 
     const interactionReplyPayload: InteractionEditReplyOptions = {
-      embeds: [
-        guildProfile.logChannelId ? changeChannelEmbed : setChannelEmbed,
-      ],
+      embeds: [guildProfile.logChannelId ? changeChannelEmbed : setChannelEmbed],
     };
 
     await interaction.editReply(interactionReplyPayload);
@@ -151,10 +139,7 @@ export default class MessageLevelProvider extends ClientModule<"message-level-pr
     await this.updateGuildProfile(guildProfile);
   }
 
-  private async onLogChannelChange(
-    guildProfile: GuildLevelProviderProfile,
-    oldChannelId: string,
-  ) {
+  private async onLogChannelChange(guildProfile: GuildLevelProviderProfile, oldChannelId: string) {
     this.channelCache.delete(`${oldChannelId}|${guildProfile.id}`);
     this.updateGuildProfile(guildProfile).catch(this.handleClientError);
   }
@@ -181,9 +166,7 @@ export default class MessageLevelProvider extends ClientModule<"message-level-pr
     await this.guildRepo.update(profile).catch(this.handleClientError);
   }
 
-  private async getGuildProfile(
-    guildId: string,
-  ): Promise<GuildLevelProviderProfile> {
+  private async getGuildProfile(guildId: string): Promise<GuildLevelProviderProfile> {
     let guildProfile = this.guildProfileCache.get(guildId);
     if (!guildProfile) guildProfile = (await this.guildRepo.get(guildId))!;
     if (!guildProfile) {
@@ -195,9 +178,7 @@ export default class MessageLevelProvider extends ClientModule<"message-level-pr
   }
 
   private async getUserProfile(member: GuildMember) {
-    let userProfile = this.userProfileCache.get(
-      `${member.id}|${member.guild.id}`,
-    );
+    let userProfile = this.userProfileCache.get(`${member.id}|${member.guild.id}`);
     if (!userProfile)
       userProfile = await this.userRepo.get({
         id: member.id,
@@ -218,12 +199,9 @@ export default class MessageLevelProvider extends ClientModule<"message-level-pr
     const contentSplitedLength = messageContent.split(" ").length; // 1
     const contentLenght = messageContent.length; // 1
 
-    const ratio_1 =
-      contentLenght > contentMaxLength ? 1.0 : contentLenght / contentMaxLength;
+    const ratio_1 = contentLenght > contentMaxLength ? 1.0 : contentLenght / contentMaxLength;
     const ratio_2 =
-      contentSplitedLength > contentSplitedMaxLenght
-        ? 1.0
-        : contentSplitedLength / contentSplitedMaxLenght;
+      contentSplitedLength > contentSplitedMaxLenght ? 1.0 : contentSplitedLength / contentSplitedMaxLenght;
 
     const ratio = (ratio_1 + 2 * ratio_2) / 2;
     const final = ratio / 2 < 0.5 ? 0.5 : ratio / 2;
@@ -231,9 +209,7 @@ export default class MessageLevelProvider extends ClientModule<"message-level-pr
     return Math.ceil(getRandomInt(25, 35) * final);
   }
 
-  private async getLogChannel(
-    member: GuildMember,
-  ): Promise<TextChannel | undefined> {
+  private async getLogChannel(member: GuildMember): Promise<TextChannel | undefined> {
     const guildProfile = await this.getGuildProfile(member.guild.id);
 
     if (!guildProfile.logChannelId) return;
@@ -241,9 +217,7 @@ export default class MessageLevelProvider extends ClientModule<"message-level-pr
     const channelCacheId = `${guildProfile.logChannelId}|${member.guild.id}`;
     let channel = this.channelCache.get(channelCacheId);
     if (!channel) {
-      const fetchedChannel = member.guild.channels.cache.get(
-        guildProfile.logChannelId,
-      );
+      const fetchedChannel = member.guild.channels.cache.get(guildProfile.logChannelId);
 
       if (!(fetchedChannel instanceof TextChannel)) {
         this.logger.warn(
@@ -258,10 +232,7 @@ export default class MessageLevelProvider extends ClientModule<"message-level-pr
     return channel;
   }
 
-  private async onUserLevelUp(
-    member: GuildMember,
-    profile: UserLevelProfile,
-  ): Promise<any> {
+  private async onUserLevelUp(member: GuildMember, profile: UserLevelProfile): Promise<any> {
     const guildProfile = await this.getGuildProfile(member.guild.id);
 
     const newLevel = calcLevel(profile.messageExp);
@@ -269,8 +240,7 @@ export default class MessageLevelProvider extends ClientModule<"message-level-pr
     let addRole: Role | undefined;
 
     const newMilestone = guildProfile.milestones.find(
-      (milestone) =>
-        milestone.startAt <= newLevel && newLevel <= milestone.endAt,
+      (milestone) => milestone.startAt <= newLevel && newLevel <= milestone.endAt,
     );
 
     if (newMilestone && newMilestone.id != profile.milestoneId) {
@@ -285,19 +255,13 @@ export default class MessageLevelProvider extends ClientModule<"message-level-pr
         member.roles.add(addRole).catch((e) => this.logger.error(e));
       }
 
-      this.sendLevelUpNotification(member, newLevel, newMilestone).catch(
-        this.handleClientError,
-      );
+      this.sendLevelUpNotification(member, newLevel, newMilestone).catch(this.handleClientError);
     }
 
     await this.updateUserProfile(profile);
   }
 
-  private async sendLevelUpNotification(
-    member: GuildMember,
-    newLevel: number,
-    newMilestone: RankProviderMilestone,
-  ) {
+  private async sendLevelUpNotification(member: GuildMember, newLevel: number, newMilestone: RankProviderMilestone) {
     const channel = await this.getLogChannel(member);
 
     if (channel) {
@@ -306,9 +270,7 @@ export default class MessageLevelProvider extends ClientModule<"message-level-pr
         description: `${
           newMilestone
             ? `\n*Bạn đã đạt được thành tựu:${
-                newMilestone.roleId
-                  ? `**<@&${newMilestone.roleId}**`
-                  : "Vai trò không xác định !"
+                newMilestone.roleId ? `**<@&${newMilestone.roleId}**` : "Vai trò không xác định !"
               }*`
             : undefined
         }`,
@@ -323,61 +285,72 @@ export default class MessageLevelProvider extends ClientModule<"message-level-pr
     let target = interaction.options.getMember("member");
     if (!target) target = interaction.member;
 
-    let profile = await this.userRepo.get({
-      id: interaction.user.id,
-      guildId: interaction.guildId,
-    });
+    let guildProfile = await this.getGuildProfile(target.guild.id);
 
-    if (!profile)
-      profile = await this.userRepo.create({
-        id: interaction.user.id,
-        guildId: interaction.guildId,
-      });
+    if (!guildProfile.active) return;
+
+    let profile = await this.getUserProfile(target);
 
     const messageLevel = calcLevel(profile.messageExp);
     const voiceLevel = calcLevel(profile.voiceExp);
 
-    const firstCol: string[] = [
-      `:bust_in_silhouette: **Message Level:**`,
-      `:chart_with_upwards_trend: **Progress:**`,
-      ` `,
-      `:bust_in_silhouette: **Voice Level:**`,
-      `:chart_with_upwards_trend: **Progress:**`,
-      ` `,
-      `:trophy: **Milestone:**`,
-    ];
+    if (guildProfile.type == 1) {
+      const firstCol: string[] = [
+        `:bust_in_silhouette: **Message Level:**`,
+        `:chart_with_upwards_trend: **Progress:**`,
+        ` `,
+        `:bust_in_silhouette: **Voice Level:**`,
+        `:chart_with_upwards_trend: **Progress:**`,
+        ` `,
+        `:trophy: **Milestone:**`,
+      ];
 
-    const secondCol: string[] = [
-      `***${messageLevel} (${profile.messageExp} exp)***`,
-      craftEmbedProgressBar(calcPercentageOfProgress(profile.voiceExp)),
-      ` `,
-      `***${voiceLevel} (${profile.voiceExp} exp)***`,
-      craftEmbedProgressBar(calcPercentageOfProgress(profile.voiceExp)),
-      ` `,
-      `***${"No data"}***`,
-    ];
+      const secondCol: string[] = [
+        `***${messageLevel} (${profile.messageExp} exp)***`,
+        craftEmbedProgressBar(calcPercentageOfProgress(profile.messageExp)),
+        ` `,
+        `***${voiceLevel} (${profile.voiceExp} exp)***`,
+        craftEmbedProgressBar(calcPercentageOfProgress(profile.voiceExp)),
+        ` `,
+        `***${"No data"}***`,
+      ];
 
-    const embed = new EmbedBuilder({
-      author: {
-        name: interaction.user.username,
-        iconURL: interaction.user.avatarURL()!,
-      },
-      color: Colors.Blurple,
-      fields: [
-        {
-          name: "Info",
-          value: firstCol.join("\n"),
-          inline: true,
+      const embed = new EmbedBuilder({
+        author: {
+          name: interaction.user.username,
+          iconURL: interaction.user.avatarURL()!,
         },
-        {
-          name: "Value",
-          value: secondCol.join("\n"),
-          inline: true,
-        },
-      ],
-    }).setTimestamp();
+        color: Colors.Blurple,
+        fields: [
+          {
+            name: "Info",
+            value: firstCol.join("\n"),
+            inline: true,
+          },
+          {
+            name: "Value",
+            value: secondCol.join("\n"),
+            inline: true,
+          },
+        ],
+      }).setTimestamp();
 
-    await sendInteractionMessageReply(interaction, { embeds: [embed] });
+      await sendInteractionMessageReply(interaction, { embeds: [embed] });
+    } else {
+      const buffer = await generateRankCard({
+        username: target.user.displayName,
+        level: messageLevel,
+        xp: profile.messageExp,
+        maxXp: getTotalExpToReachLevel(messageLevel + 1),
+        avatarUrl: target.user.avatarURL() ?? "",
+        totalXp: profile.messageExp,
+        badgeName: undefined,
+      });
+
+      const attachment = new AttachmentBuilder(buffer, { name: `${target.id}/${new Date().getTime()}.png` });
+
+      await interaction.editReply({ files: [attachment] });
+    }
   }
 
   @On(Events.MessageCreate)
@@ -391,8 +364,7 @@ export default class MessageLevelProvider extends ClientModule<"message-level-pr
     let userProfile = await this.getUserProfile(member);
 
     const oldLevel = calcLevel(userProfile.messageExp);
-    const newMessageExp =
-      userProfile.messageExp + this.contentToExp(message.content);
+    const newMessageExp = userProfile.messageExp + this.contentToExp(message.content);
     const newLevel = calcLevel(newMessageExp);
     userProfile.messageExp = newMessageExp;
 

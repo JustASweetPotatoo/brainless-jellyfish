@@ -18,7 +18,19 @@ export function On(event: Events): MethodDecorator {
   };
 }
 
-import "reflect-metadata";
+export const SLASHCOMMAND_KEY = Symbol("slashcommand");
+
+/**
+ * 
+ * @deprecated Command feature not worked yet
+ */
+export function SlashCommand(): PropertyDecorator {
+  return (target, propertyKey) => {
+    const type = Reflect.getMetadata("design:type", target, propertyKey);
+
+    Reflect.defineMetadata(SLASHCOMMAND_KEY, { type }, target, propertyKey);
+  };
+}
 
 export const REPOSITORY_KEY = Symbol("repository");
 export const REPOSITORIES_KEY = Symbol("repositories");
@@ -27,11 +39,7 @@ export type RepositoryConstructor<T = any> = new (...args: any[]) => T;
 
 export function Repository(): PropertyDecorator {
   return (target, propertyKey) => {
-    const type = Reflect.getMetadata(
-      "design:type",
-      target,
-      propertyKey,
-    ) as RepositoryConstructor;
+    const type = Reflect.getMetadata("design:type", target, propertyKey) as RepositoryConstructor;
 
     if (!type) {
       throw new Error(
@@ -42,8 +50,7 @@ export function Repository(): PropertyDecorator {
 
     Reflect.defineMetadata(REPOSITORY_KEY, type, target, propertyKey);
 
-    const repositories =
-      (Reflect.getOwnMetadata(REPOSITORIES_KEY, target) as PropertyKey[]) ?? [];
+    const repositories = (Reflect.getOwnMetadata(REPOSITORIES_KEY, target) as PropertyKey[]) ?? [];
 
     if (!repositories.includes(propertyKey)) {
       repositories.push(propertyKey);

@@ -12,15 +12,13 @@ export type SendTemporatyInteractionMessageInteractionType =
   | CommandInteraction
   | ButtonInteraction
   | ModalSubmitInteraction;
-  
-export type SendTemporatyInteractionMessageOptions =
-  | InteractionEditReplyOptions
-  | InteractionReplyOptions;
+
+export type SendTemporatyInteractionMessageOptions = InteractionEditReplyOptions | InteractionReplyOptions;
 
 export async function sendTemporatyInteractionMessageReply(
   interaction: SendTemporatyInteractionMessageInteractionType,
   options?: SendTemporatyInteractionMessageOptions,
-  timeout: number = 5000
+  timeout: number = 5000,
 ) {
   const replyMessage = interaction.deferred
     ? await interaction.editReply(options as InteractionEditReplyOptions)
@@ -44,7 +42,7 @@ export async function sendTemporatyInteractionMessageReply(
 export async function sendTemporatyMessageReply(
   message: Message,
   messageReplyOtions: MessageReplyOptions,
-  timeout: number = 5000
+  timeout: number = 5000,
 ) {
   const replyMessage = await message.reply(messageReplyOtions);
   setTimeout(async () => (replyMessage.deletable ? replyMessage.delete() : ""), timeout);
@@ -52,7 +50,7 @@ export async function sendTemporatyMessageReply(
 
 export async function sendInteractionMessageReply(
   interaction: SendTemporatyInteractionMessageInteractionType,
-  options?: SendTemporatyInteractionMessageOptions
+  options?: SendTemporatyInteractionMessageOptions,
 ) {
   if (interaction.deferred) {
     return await interaction.editReply(options as InteractionEditReplyOptions);

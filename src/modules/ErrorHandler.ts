@@ -1,18 +1,15 @@
-import {
-  ButtonInteraction,
-  ChatInputCommandInteraction,
-  Colors,
-  CommandInteraction,
-  EmbedBuilder,
-  Events,
-} from "discord.js";
+import dotenv from "dotenv";
+
+import { ButtonInteraction, ChatInputCommandInteraction, Colors, CommandInteraction, EmbedBuilder } from "discord.js";
 
 import ClientModule from "./core/ClientModule";
 import ClientError from "../error/ClientError";
 import { ErrorCode } from "../error/ErrorCode";
-import { ClientErrorData, CommandErrorData } from "../error/interface";
-import { dangerIconUrl } from "../access/icon";
+import { ClientErrorData } from "../error/interface";
+import { dangerIconUrl } from "../assets/icon";
 import ClientSlashCommandBuilder from "../slashCommandBuilder/SlashCommandBuilder";
+
+dotenv.config();
 
 export default class ErrorHandler extends ClientModule<"error-handler"> {
   parseError(error: ClientError | unknown): ClientError {
@@ -37,9 +34,7 @@ export default class ErrorHandler extends ClientModule<"error-handler"> {
     const doneTimestamp = Date.now();
     const doneTimestampBySeconds = Math.floor(doneTimestamp / 1000);
     const durationByMiliseconds = doneTimestamp - interaction.createdTimestamp;
-    const commandName = ClientSlashCommandBuilder.getStackName(
-      interaction as ChatInputCommandInteraction,
-    );
+    const commandName = ClientSlashCommandBuilder.getStackName(interaction as ChatInputCommandInteraction);
 
     const responseTime = interaction.createdTimestamp - Date.now();
     const error = new ClientError(ErrorCode.UNKNOWN_ERROR, err);
@@ -67,10 +62,7 @@ export default class ErrorHandler extends ClientModule<"error-handler"> {
     });
   }
 
-  async responseButtonErrorInteraction(
-    interaction: ButtonInteraction,
-    error: ClientError,
-  ) {
+  async responseButtonErrorInteraction(interaction: ButtonInteraction, error: ClientError) {
     const doneTimestamp = Date.now();
     const doneTimestampBySeconds = Math.floor(doneTimestamp / 1000);
     const durationByMiliseconds = doneTimestamp - interaction.createdTimestamp;
@@ -95,8 +87,7 @@ export default class ErrorHandler extends ClientModule<"error-handler"> {
       author: { name: "Command Error", iconURL: dangerIconUrl },
     });
 
-    if (!interaction.deferred)
-      await interaction.deferReply({ ephemeral: true });
+    if (!interaction.deferred) await interaction.deferReply({ ephemeral: true });
     if (!interaction.replied) await interaction.editReply({ embeds: [embed] });
   }
 }

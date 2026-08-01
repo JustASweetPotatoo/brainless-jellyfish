@@ -1,15 +1,19 @@
+import dotenv from "dotenv";
+dotenv.config();
+
 import { Client, Events, GatewayIntentBits, version } from "discord.js";
 
 import { Logger, LogPrinter } from "./logger/Logger";
 import ModuleManager from "./modules/core/ModuleManager";
 import ErrorHandler from "./modules/ErrorHandler";
 import SlashCommandManager from "./slashCommands/SlashCommandManager";
-import ClientError from "./error/ClientError";
-import { ErrorCode } from "./error/ErrorCode";
 import DatabaseManager from "./database/DatabaseManager";
 import MessageReplier from "./modules/MessageReplier";
 
 export type OperationMode = "default" | "debug";
+
+const { DEV_SERVER } = process.env;
+
 
 export default class MassClient extends Client {
   // Client info
@@ -37,6 +41,9 @@ export default class MassClient extends Client {
   // Init module
   public readonly slashCommandManager: SlashCommandManager;
 
+  // Client dev aliances
+  public readonly devServerId: string;
+
   constructor(operationMode: OperationMode) {
     super({
       intents: [
@@ -48,6 +55,7 @@ export default class MassClient extends Client {
       ],
     });
     this.operationMode = operationMode;
+    this.devServerId = DEV_SERVER ?? "";
 
     this.setMaxListeners(1000);
 
@@ -72,8 +80,8 @@ export default class MassClient extends Client {
     this.logger.info("Starting bot...");
 
     if (!(await this.database.createConnection())) {
-      this.logger.warn("Can't reach database!");
-      throw new ClientError(ErrorCode.DATABASE_CONNECT_FAILED);
+      this.logger.warn("Stoping bot");
+      process.exit(0);
     }
 
     this.moduleManager.loadModules();

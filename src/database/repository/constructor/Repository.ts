@@ -42,10 +42,6 @@ export abstract class Repository<
     this.databaseName = database.name;
 
     this.fullTableName = `\`${this.databaseName}\`.\`${this.tableName}\``;
-
-    this.database.on("load-modules-complete", async () => {
-      await this.createTable();
-    });
   }
 
   async createTable(): Promise<boolean> {

@@ -1,3 +1,4 @@
+import ClientDevelopmentService from "../ClientDevelopmentService";
 import GuildLevelManager from "../levelProvider/GuildManager";
 import MessageLevelProvider from "../levelProvider/MessageLevelProvider";
 import VoiceLevelProvider from "../levelProvider/VoiceLevelProvider";
@@ -10,4 +11,5 @@ export const moduleRegistry = {
   GuildLevelManager,
   MessageLevelProvider,
   VoiceLevelProvider,
+  ClientDevelopmentService,
 } as const;
