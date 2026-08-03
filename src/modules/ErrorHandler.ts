@@ -1,6 +1,13 @@
 import dotenv from "dotenv";
 
-import { ButtonInteraction, ChatInputCommandInteraction, Colors, CommandInteraction, EmbedBuilder } from "discord.js";
+import {
+  ButtonInteraction,
+  ChatInputCommandInteraction,
+  Colors,
+  CommandInteraction,
+  EmbedBuilder,
+  MessageFlags,
+} from "discord.js";
 
 import ClientModule from "./core/ClientModule";
 import ClientError from "../error/ClientError";
@@ -8,10 +15,11 @@ import { ErrorCode } from "../error/ErrorCode";
 import { ClientErrorData } from "../error/interface";
 import { dangerIconUrl } from "../assets/icon";
 import ClientSlashCommandBuilder from "../slashCommandBuilder/SlashCommandBuilder";
+import { sendInteractionMessageReply } from "../utils/replier";
 
 dotenv.config();
 
-export default class ErrorHandler extends ClientModule<"error-handler"> {
+export default class ClientErrorHandler extends ClientModule<"client-error-handler"> {
   parseError(error: ClientError | unknown): ClientError {
     if (error instanceof ClientError) {
       return error;
@@ -27,7 +35,7 @@ export default class ErrorHandler extends ClientModule<"error-handler"> {
     data.logger.error({ message: error.createMessage(true) });
   }
 
-  async responseSlashCommandErrorInteraction(
+  async handleSlashCommandError(
     interaction: CommandInteraction | ChatInputCommandInteraction,
     err: ClientError | Error,
   ) {
@@ -56,13 +64,13 @@ export default class ErrorHandler extends ClientModule<"error-handler"> {
       author: { name: "Command Error", iconURL: dangerIconUrl },
     });
 
-    await this.client.messageReplier.sendMessage(interaction, {
+    await sendInteractionMessageReply(interaction, {
       embeds: [embed],
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
   }
 
-  async responseButtonErrorInteraction(interaction: ButtonInteraction, error: ClientError) {
+  async hanldeButtonInteractionError(interaction: ButtonInteraction, error: ClientError) {
     const doneTimestamp = Date.now();
     const doneTimestampBySeconds = Math.floor(doneTimestamp / 1000);
     const durationByMiliseconds = doneTimestamp - interaction.createdTimestamp;

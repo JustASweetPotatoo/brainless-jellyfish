@@ -2,18 +2,17 @@ import dotenv from "dotenv";
 dotenv.config();
 
 import { Client, Events, GatewayIntentBits, version } from "discord.js";
+import { DataSource } from "typeorm";
 
 import { Logger, LogPrinter } from "./logger/Logger";
 import ModuleManager from "./modules/core/ModuleManager";
-import ErrorHandler from "./modules/ErrorHandler";
+import ClientErrorHandler from "./modules/ErrorHandler";
 import SlashCommandManager from "./slashCommands/SlashCommandManager";
 import DatabaseManager from "./database/DatabaseManager";
-import MessageReplier from "./modules/MessageReplier";
 
 export type OperationMode = "default" | "debug";
 
 const { DEV_SERVER } = process.env;
-
 
 export default class MassClient extends Client {
   // Client info
@@ -32,11 +31,11 @@ export default class MassClient extends Client {
   public readonly logger: Logger;
   public readonly logPrinter: LogPrinter;
   public readonly moduleManager: ModuleManager;
-  public readonly errorHandler: ErrorHandler;
-  public readonly messageReplier: MessageReplier;
+  public readonly errorHandler: ClientErrorHandler;
+  public readonly database: DataSource;
 
   // Database
-  public readonly database: DatabaseManager;
+  public readonly databaseManager: DatabaseManager;
 
   // Init module
   public readonly slashCommandManager: SlashCommandManager;
@@ -62,10 +61,9 @@ export default class MassClient extends Client {
     this.startAt = new Date();
     this.logPrinter = new LogPrinter(this);
     this.logger = new Logger({ label: "main", printer: this.logPrinter });
-    this.database = new DatabaseManager(this);
+    this.databaseManager = new DatabaseManager(this);
     this.moduleManager = new ModuleManager({ client: this });
-    this.errorHandler = new ErrorHandler({ client: this });
-    this.messageReplier = new MessageReplier({ client: this });
+    this.errorHandler = new ClientErrorHandler({ client: this });
 
     this.slashCommandManager = new SlashCommandManager({ client: this });
 
@@ -79,10 +77,15 @@ export default class MassClient extends Client {
   override async login(token?: string): Promise<string> {
     this.logger.info("Starting bot...");
 
-    if (!(await this.database.createConnection())) {
+    if (!(await this.databaseManager.createConnection())) {
       this.logger.warn("Stoping bot");
       process.exit(0);
     }
+
+    // if (!(await this.databaseManager.createDataSourceConnection())) {
+    //   this.logger.warn("Force stopping bot demman on no database connection");
+    //   process.exit(0);
+    // }
 
     this.moduleManager.loadModules();
 

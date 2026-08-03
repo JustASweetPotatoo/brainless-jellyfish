@@ -22,17 +22,11 @@ import ClientSlashCommandSubcommandGroupBuilder from "./SlashCommandSubcommandGr
 import { defaultExecutor } from "./function";
 
 export default class ClientSlashCommandBuilder extends SlashCommandBuilder {
-  public readonly subcommands: Array<
-    ClientSlashCommandSubcommandBuilder | ClientSlashCommandSubcommandGroupBuilder
-  >;
+  public readonly subcommands: Array<ClientSlashCommandSubcommandBuilder | ClientSlashCommandSubcommandGroupBuilder>;
 
-  public readonly subcommandExecutorCollection: Collection<
-    string,
-    SlashCommandExecuteFunction
-  > = new Collection();
+  public readonly subcommandExecutorCollection: Collection<string, SlashCommandExecuteFunction> = new Collection();
   public execute: SlashCommandExecuteFunction = defaultExecutor;
-  public readonly autoCompleteFunctions: Collection<string, AutocompleteExecutor> =
-    new Collection();
+  public readonly autoCompleteFunctions: Collection<string, AutocompleteExecutor> = new Collection();
 
   constructor(options?: ClientSlashCommandBuilderOptions) {
     super();
@@ -50,10 +44,7 @@ export default class ClientSlashCommandBuilder extends SlashCommandBuilder {
     this.subcommands.forEach((subcommand) => {
       if (subcommand instanceof ClientSlashCommandSubcommandBuilder) {
         this.addSubcommand(subcommand);
-        this.subcommandExecutorCollection.set(
-          `${this.name} ${subcommand.name}`,
-          subcommand.execute
-        );
+        this.subcommandExecutorCollection.set(`${this.name} ${subcommand.name}`, subcommand.execute);
       } else if (subcommand instanceof ClientSlashCommandSubcommandGroupBuilder) {
         subcommand.loadSubcommands();
         this.addSubcommandGroup(subcommand);
@@ -61,11 +52,33 @@ export default class ClientSlashCommandBuilder extends SlashCommandBuilder {
     });
   }
 
-  public getAutocompleteExecutor(
-    interaction: AutocompleteInteraction
-  ): AutocompleteExecutor | undefined {
-    const autocompleteName = interaction.options.getFocused(true).name;
-    return this.autoCompleteFunctions.get(autocompleteName);
+  public getAutocompleteExecutor(interaction: AutocompleteInteraction): AutocompleteExecutor | undefined {
+    const focusedOption = interaction.options.getFocused(true);
+    const subcommandGroupName = interaction.options.getSubcommandGroup();
+    const subcommandName = interaction.options.getSubcommand();
+
+    if (subcommandGroupName) {
+      const groupBuilder = this.subcommands.find(
+        (item): item is ClientSlashCommandSubcommandGroupBuilder =>
+          item instanceof ClientSlashCommandSubcommandGroupBuilder && item.name === subcommandGroupName,
+      );
+
+      if (groupBuilder) {
+        const groupExecutor = groupBuilder.getAutocompleteExecutor(interaction);
+        if (groupExecutor) return groupExecutor;
+      }
+    }
+
+    if (subcommandName) {
+      const subcommandBuilder = this.subcommands.find(
+        (item): item is ClientSlashCommandSubcommandBuilder =>
+          item instanceof ClientSlashCommandSubcommandBuilder && item.name === subcommandName,
+      );
+
+      if (subcommandBuilder?.autocomplete) return subcommandBuilder.autocomplete;
+    }
+
+    return this.autoCompleteFunctions.get(focusedOption.name);
   }
 
   public getExecutor(interaction: CommandInteractionType): SlashCommandExecuteFunction {
@@ -94,23 +107,16 @@ export default class ClientSlashCommandBuilder extends SlashCommandBuilder {
   }
 
   static getStackName(
-    interaction:
-      | CommandInteractionType
-      | ChatInputCommandInteraction
-      | AutocompleteInteraction,
-    parseStack: boolean = false
+    interaction: CommandInteractionType | ChatInputCommandInteraction | AutocompleteInteraction,
+    parseStack: boolean = false,
   ): string | Array<string> {
     const commandParts: Array<string> = [interaction.commandName];
 
     try {
-      commandParts.push(
-        (interaction as ChatInputCommandInteraction).options.getSubcommandGroup() ?? ""
-      );
+      commandParts.push((interaction as ChatInputCommandInteraction).options.getSubcommandGroup() ?? "");
     } catch (error) {}
     try {
-      commandParts.push(
-        (interaction as ChatInputCommandInteraction).options.getSubcommand() ?? ""
-      );
+      commandParts.push((interaction as ChatInputCommandInteraction).options.getSubcommand() ?? "");
     } catch (error) {}
 
     const filteredParts = commandParts.filter((item) => item !== "");
@@ -124,67 +130,37 @@ export default class ClientSlashCommandBuilder extends SlashCommandBuilder {
   }
 
   override addStringOption(
-    input:
-      | SlashCommandStringOption
-      | ((builder: SlashCommandStringOption) => SlashCommandStringOption)
+    input: SlashCommandStringOption | ((builder: SlashCommandStringOption) => SlashCommandStringOption),
   ): this {
-    super.addStringOption(
-      input instanceof SlashCommandStringOption
-        ? input
-        : input(new SlashCommandStringOption())
-    );
+    super.addStringOption(input instanceof SlashCommandStringOption ? input : input(new SlashCommandStringOption()));
     return this;
   }
 
   override addNumberOption(
-    input:
-      | SlashCommandNumberOption
-      | ((builder: SlashCommandNumberOption) => SlashCommandNumberOption)
+    input: SlashCommandNumberOption | ((builder: SlashCommandNumberOption) => SlashCommandNumberOption),
   ): this {
-    super.addNumberOption(
-      input instanceof SlashCommandNumberOption
-        ? input
-        : input(new SlashCommandNumberOption())
-    );
+    super.addNumberOption(input instanceof SlashCommandNumberOption ? input : input(new SlashCommandNumberOption()));
     return this;
   }
 
   override addUserOption(
-    input:
-      | SlashCommandUserOption
-      | ((builder: SlashCommandUserOption) => SlashCommandUserOption)
+    input: SlashCommandUserOption | ((builder: SlashCommandUserOption) => SlashCommandUserOption),
   ): this {
-    super.addUserOption(
-      input instanceof SlashCommandUserOption
-        ? input
-        : input(new SlashCommandUserOption())
-    );
+    super.addUserOption(input instanceof SlashCommandUserOption ? input : input(new SlashCommandUserOption()));
     return this;
   }
 
   override addRoleOption(
-    input:
-      | SlashCommandRoleOption
-      | ((builder: SlashCommandRoleOption) => SlashCommandRoleOption)
+    input: SlashCommandRoleOption | ((builder: SlashCommandRoleOption) => SlashCommandRoleOption),
   ): this {
-    super.addRoleOption(
-      input instanceof SlashCommandRoleOption
-        ? input
-        : input(new SlashCommandRoleOption())
-    );
+    super.addRoleOption(input instanceof SlashCommandRoleOption ? input : input(new SlashCommandRoleOption()));
     return this;
   }
 
   override addChannelOption(
-    input:
-      | SlashCommandChannelOption
-      | ((builder: SlashCommandChannelOption) => SlashCommandChannelOption)
+    input: SlashCommandChannelOption | ((builder: SlashCommandChannelOption) => SlashCommandChannelOption),
   ): this {
-    super.addChannelOption(
-      input instanceof SlashCommandChannelOption
-        ? input
-        : input(new SlashCommandChannelOption())
-    );
+    super.addChannelOption(input instanceof SlashCommandChannelOption ? input : input(new SlashCommandChannelOption()));
     return this;
   }
 }

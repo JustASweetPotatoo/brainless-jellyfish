@@ -1,9 +1,6 @@
+import { AutocompleteInteraction, Collection, SlashCommandSubcommandGroupBuilder } from "discord.js";
 import {
-  ChatInputCommandInteraction,
-  Collection,
-  SlashCommandSubcommandGroupBuilder,
-} from "discord.js";
-import {
+  AutocompleteExecutor,
   ClientSlashCommandSubcommandGroupBuilderOptions,
   CommandInteractionType,
   SlashCommandExecuteFunction,
@@ -15,10 +12,8 @@ export default class ClientSlashCommandSubcommandGroupBuilder extends SlashComma
   public execute: SlashCommandExecuteFunction = defaultExecutor;
 
   public readonly subcommands: Array<ClientSlashCommandSubcommandBuilder>;
-  public readonly subcommandExecutorCollection: Collection<
-    string,
-    SlashCommandExecuteFunction
-  > = new Collection();
+  public readonly subcommandExecutorCollection: Collection<string, SlashCommandExecuteFunction> = new Collection();
+  public readonly subcommandAutocompleteCollection: Collection<string, AutocompleteExecutor> = new Collection();
 
   constructor(options: ClientSlashCommandSubcommandGroupBuilderOptions) {
     super();
@@ -30,18 +25,31 @@ export default class ClientSlashCommandSubcommandGroupBuilder extends SlashComma
     this.subcommands.forEach((subcommand) => {
       this.addSubcommand(subcommand);
       this.subcommandExecutorCollection.set(subcommand.name, subcommand.execute);
+      if (subcommand.autocomplete) {
+        this.subcommandAutocompleteCollection.set(subcommand.name, subcommand.autocomplete);
+      }
     });
+  }
+
+  public getAutocompleteExecutor(interaction: AutocompleteInteraction): AutocompleteExecutor | undefined {
+    const maybeOptions = (interaction as unknown as { options?: { getSubcommand(): string | null } }).options;
+    const subcommandName = maybeOptions?.getSubcommand?.() ?? null;
+    if (!subcommandName) return undefined;
+
+    return this.subcommandAutocompleteCollection.get(subcommandName);
   }
 
   public getExecutor(interaction: CommandInteractionType): SlashCommandExecuteFunction {
     const commandArgs = [interaction.commandName];
 
-    if (interaction instanceof ChatInputCommandInteraction) {
-      const subcommandName = interaction.options.getSubcommand();
-      const subcommandGroupName = interaction.options.getSubcommandGroup();
-      subcommandGroupName ? commandArgs.push(subcommandGroupName) : undefined;
-      subcommandName ? commandArgs.push(subcommandName) : undefined;
-    }
+    const maybeOptions = (
+      interaction as unknown as { options?: { getSubcommand(): string | null; getSubcommandGroup(): string | null } }
+    ).options;
+    const subcommandName = maybeOptions?.getSubcommand?.() ?? null;
+    const subcommandGroupName = maybeOptions?.getSubcommandGroup?.() ?? null;
+
+    if (subcommandGroupName) commandArgs.push(subcommandGroupName);
+    if (subcommandName) commandArgs.push(subcommandName);
 
     const executor = this.subcommandExecutorCollection.get(commandArgs[2]);
 

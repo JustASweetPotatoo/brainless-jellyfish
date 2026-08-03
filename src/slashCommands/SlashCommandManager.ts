@@ -168,7 +168,10 @@ export default class SlashCommandManager extends ClientModule<"slash-command-man
 
     try {
       const autoCompleteExecutor = command.getAutocompleteExecutor(interaction);
-      if (!autoCompleteExecutor) return;
+      if (!autoCompleteExecutor) {
+        this.logger.warn(`No autocomplete executor found for ${interaction.commandName}`);
+        return;
+      }
 
       await autoCompleteExecutor(this.client, interaction);
     } catch (error) {

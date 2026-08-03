@@ -3,7 +3,7 @@ import MassClient from "./Client";
 
 dotenv.config();
 
-const client = new MassClient("debug");
+const client = new MassClient("default");
 
 const { TOKEN } = process.env;
 

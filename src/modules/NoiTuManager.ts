@@ -16,6 +16,7 @@ import NoituGuildConfig from "../database/model/noituGuildConfig";
 import NoituChannelConfig from "../database/model/noituChannelConfig";
 import { Module, On } from "./core/decorators";
 import ClientModule from "./core/ClientModule";
+import { sendTemporatyMessageReply } from "../utils/replier";
 
 export enum NoituCreateChannelEvent {
   SUCCESS,
@@ -128,7 +129,7 @@ export default class NoituManager extends ClientModule<"noitu-manager"> {
         break;
       case NoituMessageCreateEvent.ERROR:
         embedBuilder.setTitle("Error on executing event MessageCreate").setColor(Colors.Red);
-        this.client.messageReplier.sendMessage(message, {
+        await sendTemporatyMessageReply(message, {
           embeds: [embedBuilder],
         });
         return;
@@ -137,7 +138,7 @@ export default class NoituManager extends ClientModule<"noitu-manager"> {
     embedBuilder.setTitle(channelConfig?.switchMessage(response) ?? null).setColor(Colors.Red);
 
     if (embedBuilder.toJSON().title) {
-      this.client.messageReplier.sendMessage(message, {
+      await sendTemporatyMessageReply(message, {
         embeds: [embedBuilder],
       });
     }

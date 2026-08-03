@@ -1,22 +1,20 @@
-import { ChannelType, ChatInputCommandInteraction } from "discord.js";
+import { ChannelType, ChatInputCommandInteraction, SlashCommandChannelOption } from "discord.js";
 
 import ClientSlashCommandBuilder from "../slashCommandBuilder/SlashCommandBuilder";
 import ClientSlashCommandSubcommandBuilder from "../slashCommandBuilder/SlashCommandSubcommandBuilder";
 
 const userLeveUpChannel = new ClientSlashCommandSubcommandBuilder()
-  .setName("level-up")
+  .setName("set-channel")
   .setDescription("Sets the channel where the bot logs member who's level up")
-  .addChannelOption((option) =>
-    option
-      .setName("channel")
-      .setDescription("Select a channel to be level up channel")
-      .addChannelTypes([ChannelType.GuildText])
-      .setRequired(true),
-  )
   .setExecutor(async (client, interaction) =>
-    client.moduleManager
-      .get( "message-level-provider")
-      .changeLogChannel(interaction as ChatInputCommandInteraction),
+    client.moduleManager.get("guild-level-manager").changeLogChannel(interaction as ChatInputCommandInteraction),
+  )
+  .addChannelOption(
+    new SlashCommandChannelOption()
+      .setName("channel")
+      .setDescription("Channel to set")
+      .addChannelTypes(ChannelType.GuildText)
+      .setRequired(true),
   );
 
 export default new ClientSlashCommandBuilder({

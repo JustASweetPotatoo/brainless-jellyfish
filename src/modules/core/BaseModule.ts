@@ -29,6 +29,7 @@ import ClientSlashCommandBuilder from "../../slashCommandBuilder/SlashCommandBui
 import ModuleManager from "./ModuleManager";
 import { Repository } from "../../database/repository/constructor/Repository";
 import { BaseModel } from "../../database/model/constructor/BaseModel";
+import { sendInteractionMessageReply } from "../../utils/replier";
 
 export interface ModuleOptions {
   client: MassClient;
@@ -91,7 +92,7 @@ export default abstract class BaseModule<TName extends string> extends EventEmit
           db: DatabaseManager,
         ) => unknown;
 
-        const repo: R = new RepoClass(this.client.database) as R;
+        const repo: R = new RepoClass(this.client.databaseManager) as R;
 
         (this as any)[propertyKey] = repo;
 
@@ -167,11 +168,14 @@ export default abstract class BaseModule<TName extends string> extends EventEmit
         this.handleSlashCommandInteractionError(error, interaction),
       );
 
-    if (interaction.isButton()) return this.onButtonInteractionCreate(interaction);
+    if (interaction.isButton())
+      return this.onButtonInteractionCreate(interaction).catch((error) =>
+        this.hanldeButtonInteractionError(interaction, error),
+      );
 
-    if (interaction.isModalSubmit()) return this.onModalSubmitInteractionCreate(interaction);
+    if (interaction.isModalSubmit()) return this.onModalSubmitInteractionCreate(interaction).catch((error) => {});
 
-    if (interaction.isAutocomplete()) return this.onAutoCompleteInteractionCreate(interaction);
+    if (interaction.isAutocomplete()) return this.onAutoCompleteInteractionCreate(interaction).catch((error) => {});
   }
 
   protected abstract onButtonInteractionCreate(interaction: ButtonInteraction): Promise<any>;
@@ -184,6 +188,7 @@ export default abstract class BaseModule<TName extends string> extends EventEmit
 
   protected abstract onAutoCompleteInteractionCreate(interaction: AutocompleteInteraction): Promise<any>;
 
+  // Error handler section
   protected handleClientError(error: any) {
     this.client.errorHandler.handleClientError({
       error: error,
@@ -207,70 +212,12 @@ export default abstract class BaseModule<TName extends string> extends EventEmit
   ) {
     if (interaction instanceof ChatInputCommandInteraction) {
       const err = this.parseError(error);
-      this.responseSlashCommandErrorInteraction(interaction, error);
+      this.handleSlashCommandError(interaction, error);
       this.logger.error({ message: err.createMessage(true) });
     }
   }
 
-  async responseInteractionError(error: Error | ClientError | any, interaction: ErrorInteractionType) {
-    const releaseTimestamp = Date.now();
-    const releaseTimestampInSec = Math.floor(releaseTimestamp / 1000);
-    const durationInMs = releaseTimestamp - interaction.createdTimestamp;
-
-    let customId = undefined;
-
-    if (interaction instanceof ChatInputCommandInteraction) {
-      const commandName = ClientSlashCommandBuilder.getStackName(interaction as ChatInputCommandInteraction);
-
-      customId = commandName + " type Command";
-    }
-
-    if (interaction instanceof ButtonInteraction) {
-      customId = interaction.customId + " type Button";
-    }
-
-    if (interaction instanceof ModalSubmitInteraction) {
-      customId = interaction.customId + " type Submit";
-    }
-
-    const deleteButton = new ButtonBuilder()
-      .setLabel("Delete")
-      .setStyle(ButtonStyle.Danger)
-      .setCustomId("global-delete");
-    const actionRowBuilder = new ActionRowBuilder<ButtonBuilder>().addComponents([deleteButton]);
-    const container = new ContainerBuilder()
-      .addSectionComponents(new SectionBuilder())
-      .addActionRowComponents([actionRowBuilder]);
-
-    const embed = new EmbedBuilder({
-      title: `An unexpected error occurred !`,
-      description: `
-            -# ***Please contact to bot owner to report!***
-    
-            > **\`CUSTOM_ID    :\` ${customId ?? "No custom ID"}**
-            > **\`ERROR CODE   :\` ${error.code}**
-            > **\`DESCRIPTION  :\` ${error.baseMessage}**
-            > **\`CREATED TIME :\` <t:${releaseTimestampInSec}:f>-<t:${releaseTimestampInSec}:R>** 
-            > **\`DURATION     :\` ${durationInMs}ms**
-          `,
-      color: Colors.Red,
-      timestamp: releaseTimestamp,
-      // not done yet ${this.client.getStatus(interaction).latency}
-      footer: { text: `CID: ${customId}` },
-      author: { name: "Command Error", iconURL: dangerIconUrl },
-    });
-
-    if (interaction.deferred) {
-      await interaction.editReply({ embeds: [embed], components: [container] });
-    } else if (interaction.isRepliable()) {
-      await interaction.reply({
-        embeds: [embed],
-        flags: MessageFlags.Ephemeral,
-      });
-    }
-  }
-
-  async responseSlashCommandErrorInteraction(
+  async handleSlashCommandError(
     interaction: CommandInteraction | ChatInputCommandInteraction,
     err: ClientError | Error,
   ) {
@@ -299,7 +246,7 @@ export default abstract class BaseModule<TName extends string> extends EventEmit
       author: { name: "Command Error", iconURL: dangerIconUrl },
     });
 
-    await this.client.messageReplier.sendMessage(interaction, {
+    await sendInteractionMessageReply(interaction, {
       embeds: [embed],
       ephemeral: true,
     });
@@ -307,7 +254,7 @@ export default abstract class BaseModule<TName extends string> extends EventEmit
     throw err;
   }
 
-  async responseButtonErrorInteraction(interaction: ButtonInteraction, error: ClientError) {
+  async hanldeButtonInteractionError(interaction: ButtonInteraction, error: ClientError) {
     const doneTimestamp = Date.now();
     const doneTimestampBySeconds = Math.floor(doneTimestamp / 1000);
     const durationByMiliseconds = doneTimestamp - interaction.createdTimestamp;

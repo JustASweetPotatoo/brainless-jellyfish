@@ -11,6 +11,7 @@ import {
   SlashCommandMentionableOption,
 } from "discord.js";
 import {
+  AutocompleteExecutor,
   ClientSlashCommandSubcommandBuilderOptions,
   SlashCommandExecuteFunction,
 } from "./interface";
@@ -18,6 +19,7 @@ import { defaultExecutor } from "./function";
 
 export default class ClientSlashCommandSubcommandBuilder extends SlashCommandSubcommandBuilder {
   public execute: SlashCommandExecuteFunction = defaultExecutor;
+  public autocomplete: AutocompleteExecutor | undefined;
 
   constructor(options?: ClientSlashCommandSubcommandBuilderOptions) {
     super();
@@ -28,10 +30,13 @@ export default class ClientSlashCommandSubcommandBuilder extends SlashCommandSub
     return this;
   }
 
+  setAutocompleteExecutor(func: AutocompleteExecutor) {
+    this.autocomplete = func;
+    return this;
+  }
+
   override addChannelOption(
-    input:
-      | SlashCommandChannelOption
-      | ((builder: SlashCommandChannelOption) => SlashCommandChannelOption)
+    input: SlashCommandChannelOption | ((builder: SlashCommandChannelOption) => SlashCommandChannelOption),
   ): this {
     if (input instanceof SlashCommandChannelOption) {
       super.addChannelOption(input);
@@ -43,9 +48,7 @@ export default class ClientSlashCommandSubcommandBuilder extends SlashCommandSub
   }
 
   override addUserOption(
-    input:
-      | SlashCommandUserOption
-      | ((builder: SlashCommandUserOption) => SlashCommandUserOption)
+    input: SlashCommandUserOption | ((builder: SlashCommandUserOption) => SlashCommandUserOption),
   ): this {
     if (input instanceof SlashCommandUserOption) {
       super.addUserOption(input);
@@ -57,9 +60,7 @@ export default class ClientSlashCommandSubcommandBuilder extends SlashCommandSub
   }
 
   override addRoleOption(
-    input:
-      | SlashCommandRoleOption
-      | ((builder: SlashCommandRoleOption) => SlashCommandRoleOption)
+    input: SlashCommandRoleOption | ((builder: SlashCommandRoleOption) => SlashCommandRoleOption),
   ): this {
     if (input instanceof SlashCommandRoleOption) {
       super.addRoleOption(input);
@@ -71,9 +72,7 @@ export default class ClientSlashCommandSubcommandBuilder extends SlashCommandSub
   }
 
   override addNumberOption(
-    input:
-      | SlashCommandNumberOption
-      | ((builder: SlashCommandNumberOption) => SlashCommandNumberOption)
+    input: SlashCommandNumberOption | ((builder: SlashCommandNumberOption) => SlashCommandNumberOption),
   ): this {
     if (input instanceof SlashCommandNumberOption) {
       super.addNumberOption(input);
@@ -85,9 +84,7 @@ export default class ClientSlashCommandSubcommandBuilder extends SlashCommandSub
   }
 
   override addStringOption(
-    input:
-      | SlashCommandStringOption
-      | ((builder: SlashCommandStringOption) => SlashCommandStringOption)
+    input: SlashCommandStringOption | ((builder: SlashCommandStringOption) => SlashCommandStringOption),
   ): this {
     if (input instanceof SlashCommandStringOption) {
       super.addStringOption(input);
@@ -99,9 +96,7 @@ export default class ClientSlashCommandSubcommandBuilder extends SlashCommandSub
   }
 
   override addAttachmentOption(
-    input:
-      | SlashCommandAttachmentOption
-      | ((builder: SlashCommandAttachmentOption) => SlashCommandAttachmentOption)
+    input: SlashCommandAttachmentOption | ((builder: SlashCommandAttachmentOption) => SlashCommandAttachmentOption),
   ): SlashCommandSubcommandBuilder {
     if (input instanceof SlashCommandAttachmentOption) {
       super.addAttachmentOption(input);
@@ -113,10 +108,8 @@ export default class ClientSlashCommandSubcommandBuilder extends SlashCommandSub
   }
 
   override addBooleanOption(
-    input:
-      | SlashCommandBooleanOption
-      | ((builder: SlashCommandBooleanOption) => SlashCommandBooleanOption)
-  ): SlashCommandSubcommandBuilder {
+    input: SlashCommandBooleanOption | ((builder: SlashCommandBooleanOption) => SlashCommandBooleanOption),
+  ): this {
     if (input instanceof SlashCommandBooleanOption) {
       super.addBooleanOption(input);
     } else {
@@ -127,10 +120,8 @@ export default class ClientSlashCommandSubcommandBuilder extends SlashCommandSub
   }
 
   override addIntegerOption(
-    input:
-      | SlashCommandIntegerOption
-      | ((builder: SlashCommandIntegerOption) => SlashCommandIntegerOption)
-  ): SlashCommandSubcommandBuilder {
+    input: SlashCommandIntegerOption | ((builder: SlashCommandIntegerOption) => SlashCommandIntegerOption),
+  ): this {
     if (input instanceof SlashCommandIntegerOption) {
       super.addIntegerOption(input);
     } else {
@@ -141,10 +132,8 @@ export default class ClientSlashCommandSubcommandBuilder extends SlashCommandSub
   }
 
   override addMentionableOption(
-    input:
-      | SlashCommandMentionableOption
-      | ((builder: SlashCommandMentionableOption) => SlashCommandMentionableOption)
-  ): SlashCommandSubcommandBuilder {
+    input: SlashCommandMentionableOption | ((builder: SlashCommandMentionableOption) => SlashCommandMentionableOption),
+  ): this {
     if (input instanceof SlashCommandMentionableOption) {
       super.addMentionableOption(input);
     } else {

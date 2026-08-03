@@ -30,7 +30,7 @@ import {
 import RankProviderMilestone from "../../database/model/RankProviderMilestone";
 import { autoDeferReply } from "../../utils/functions";
 import { sendInteractionMessageReply } from "../../utils/replier";
-import { On } from "../core/decorators";
+import { On, Repository } from "../core/decorators";
 import generateRankCard from "../../utils/rankCard";
 
 export enum MessageLevelProviderEvents {
@@ -66,7 +66,9 @@ export default class MessageLevelProvider extends ClientModule<"message-level-pr
   private readonly guildProfileCache: Collection<string, GuildLevelProviderProfile>;
   private readonly userProfileCache: Collection<string, UserLevelProfile>;
 
+  @Repository()
   readonly guildRepo: GuildLevelProviderProfileRepo;
+  @Repository()
   readonly userRepo: UserlevelProfileRepo;
 
   constructor(options: ModuleOptions) {
@@ -87,6 +89,9 @@ export default class MessageLevelProvider extends ClientModule<"message-level-pr
           case MessageLevelProviderEvents.USER_EXP_ADD:
             (this.onUserExpAdd.bind(this) as Function)(...args);
             break;
+          case MessageLevelProviderEvents.USER_LEVEL_UP:
+            (this.onUserLevelUp.bind(this) as Function)(...args);
+            break;
         }
       }),
     );
@@ -94,9 +99,6 @@ export default class MessageLevelProvider extends ClientModule<"message-level-pr
     this.channelCache = new Collection();
     this.guildProfileCache = new Collection();
     this.userProfileCache = new Collection();
-
-    this.guildRepo = new GuildLevelProviderProfileRepo(options.client.database);
-    this.userRepo = new UserlevelProfileRepo(options.client.database);
   }
 
   public async changeLogChannel(interaction: ChatInputCommandInteraction) {
@@ -259,6 +261,7 @@ export default class MessageLevelProvider extends ClientModule<"message-level-pr
     }
 
     await this.updateUserProfile(profile);
+    return profile;
   }
 
   private async sendLevelUpNotification(member: GuildMember, newLevel: number, newMilestone: RankProviderMilestone) {
@@ -270,7 +273,7 @@ export default class MessageLevelProvider extends ClientModule<"message-level-pr
         description: `${
           newMilestone
             ? `\n*Bạn đã đạt được thành tựu:${
-                newMilestone.roleId ? `**<@&${newMilestone.roleId}**` : "Vai trò không xác định !"
+                newMilestone.roleId ? `**<@&${newMilestone.roleId}>**` : "Vai trò không xác định !"
               }*`
             : undefined
         }`,

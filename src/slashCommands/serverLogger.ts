@@ -44,9 +44,9 @@ const setUserLogChannel = new ClientSlashCommandSubcommandBuilder()
   //     .setChannelInteractionExecutor(interaction as ChatInputCommandInteraction)
   // );
 
-export default new ClientSlashCommandBuilder({
-  subcommands: [setMessageLogChannel, setUserLogChannel],
-})
-  .setName("log")
-  .setDescription("Log for everything on your server")
-  .setDefaultMemberPermissions(PermissionFlagsBits.Administrator);
+// export default new ClientSlashCommandBuilder({
+//   subcommands: [setMessageLogChannel, setUserLogChannel],
+// })
+//   .setName("log")
+//   .setDescription("Log for everything on your server")
+//   .setDefaultMemberPermissions(PermissionFlagsBits.Administrator);

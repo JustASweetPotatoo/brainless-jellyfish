@@ -1,7 +1,11 @@
 import { Collection } from "discord.js";
 import { BaseModel } from "./constructor/BaseModel";
 import RankProviderMilestone, { RankProviderMilestoneObj } from "./RankProviderMilestone";
-import { join } from "path";
+
+export interface RankProviderGuildProfileBlacklistItem {
+  id: string;
+  type: "channel" | "role";
+}
 
 export interface RankProviderGuildProfileJson {
   readonly id: string;
@@ -10,6 +14,7 @@ export interface RankProviderGuildProfileJson {
   rate?: number;
   type?: number;
   milestones?: RankProviderMilestoneObj[];
+  blacklist?: RankProviderGuildProfileBlacklistItem[];
 }
 
 export default class RankProviderGuildProfile extends BaseModel<RankProviderGuildProfileJson> {
@@ -19,6 +24,7 @@ export default class RankProviderGuildProfile extends BaseModel<RankProviderGuil
   rate: number = 1;
   type: number = 1;
   milestones: Collection<string, RankProviderMilestone> = new Collection();
+  blacklist: Collection<string, RankProviderGuildProfileBlacklistItem> = new Collection();
 
   constructor(json: RankProviderGuildProfileJson) {
     super(json);
@@ -28,6 +34,13 @@ export default class RankProviderGuildProfile extends BaseModel<RankProviderGuil
     this.logChannelId = json.log_channel_id;
     this.type = json.type ?? 1;
     this.rate = json.rate ?? 1;
+    this.blacklist = new Collection();
+    for (const item of json.blacklist ?? []) {
+      this.blacklist.set(item.id, {
+        id: item.id,
+        type: item.type === "role" ? "role" : "channel",
+      });
+    }
     if (json.milestones) {
       for (const milestoneJson of json.milestones) {
         const milestone = RankProviderMilestone.fromJSON(milestoneJson);
@@ -44,6 +57,7 @@ export default class RankProviderGuildProfile extends BaseModel<RankProviderGuil
       rate: this.rate,
       type: this.type,
       milestones: this.milestones.map((m) => m.toJSON()),
+      blacklist: this.blacklist.map((item) => item),
     };
   }
 }

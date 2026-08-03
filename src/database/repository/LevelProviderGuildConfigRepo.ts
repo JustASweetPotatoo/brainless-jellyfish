@@ -15,7 +15,8 @@ export default class LevelProviderGuildConfigRepo extends Repository<
       log_channel_id VARCHAR(64),
       rate DOUBLE DEFAULT 1,
       type TINYINT DEFAULT 1,
-      milestones JSON
+      milestones JSON,
+      blacklist JSON
     );
   `;
 
@@ -28,10 +29,18 @@ export default class LevelProviderGuildConfigRepo extends Repository<
 
     const query = `
       INSERT INTO ${this.fullTableName}
-        (id, active, log_channel_id, rate, type, milestones)
-      VALUES (?, ?, ?, ?, ?, ?)
+        (id, active, log_channel_id, rate, type, milestones, blacklist)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `;
-    const values = [json.id, json.active, json.log_channel_id, json.rate, JSON.stringify(json.milestones)];
+    const values = [
+      json.id,
+      json.active,
+      json.log_channel_id,
+      json.rate,
+      json.type,
+      JSON.stringify(json.milestones),
+      JSON.stringify(json.blacklist),
+    ];
 
     await this.executeQuery(query, values);
 
@@ -48,7 +57,8 @@ export default class LevelProviderGuildConfigRepo extends Repository<
         log_channel_id = ?,
         rate = ?,
         type = ?,
-        milestones = ?
+        milestones = ?,
+        blacklist = ?
       WHERE id = ?
     `;
 
@@ -58,6 +68,7 @@ export default class LevelProviderGuildConfigRepo extends Repository<
       json.rate,
       json.type,
       JSON.stringify(json.milestones),
+      JSON.stringify(json.blacklist ?? []),
       json.id,
     ]);
 
@@ -79,6 +90,8 @@ export default class LevelProviderGuildConfigRepo extends Repository<
 
     if (!row) return null;
 
+    const parsedBlacklist = typeof row.blacklist === "string" ? JSON.parse(row.blacklist) : (row.blacklist ?? []);
+
     return this.model.fromJSON({
       id: row.id,
       active: !!row.active,
@@ -86,6 +99,7 @@ export default class LevelProviderGuildConfigRepo extends Repository<
       rate: row.rate,
       type: row.type,
       milestones: row.milestones ?? [],
+      blacklist: parsedBlacklist,
     });
   }
 }
