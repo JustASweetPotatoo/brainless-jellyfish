@@ -7,12 +7,6 @@ import {
   AutocompleteInteraction,
   EmbedBuilder,
   Colors,
-  MessageFlags,
-  ContainerBuilder,
-  SectionBuilder,
-  ButtonBuilder,
-  ButtonStyle,
-  ActionRowBuilder,
   Events,
 } from "discord.js";
 
@@ -52,6 +46,7 @@ export default abstract class BaseModule<TName extends string> extends EventEmit
    * @description Event default is 1
    */
   private readonly count: { event: number; repo: number } = { event: 1, repo: 1 };
+  private eventsRegistered = false;
 
   constructor(options: ModuleOptions) {
     super();
@@ -110,22 +105,27 @@ export default abstract class BaseModule<TName extends string> extends EventEmit
   }
 
   public registerEvents(): this {
+    if (this.eventsRegistered) return this;
+    this.eventsRegistered = true;
+
     let proto = Object.getPrototypeOf(this);
 
-    this.client.on(Events.InteractionCreate, (interaction) => void this.onInteractionCreate(interaction));
+    if (this.hasInteractionHandler()) {
+      this.client.on(Events.InteractionCreate, (interaction) => void this.onInteractionCreate(interaction));
+    }
 
     while (proto && proto !== BaseModule.prototype) {
       for (const key of Object.getOwnPropertyNames(proto)) {
         if (key === "constructor") continue;
 
-        const event = Reflect.getMetadata(EVENT_KEY, proto, key);
+        const event = Reflect.getOwnMetadata(EVENT_KEY, proto, key);
 
         if (!event) continue;
 
         const handler = (this as any)[key].bind(this);
 
         this.client.on(event, (...args: unknown[]) => {
-          void this.execute(event, handler, ...args);
+          void this.execute(event, handler, ...args).catch((error) => this.handleClientError(error));
         });
 
         this.count.event++;
@@ -137,6 +137,16 @@ export default abstract class BaseModule<TName extends string> extends EventEmit
     this.emit("module-events-loaded", this);
 
     return this;
+  }
+
+  private hasInteractionHandler(): boolean {
+    const handlerNames = new Set([
+      "onButtonInteractionCreate",
+      "onSlashCommandInteractionCreate",
+      "onModalSubmitInteractionCreate",
+      "onAutoCompleteInteractionCreate",
+    ]);
+    return Object.getOwnPropertyNames(Object.getPrototypeOf(this)).some((name) => handlerNames.has(name));
   }
 
   private async execute<T extends (...args: any[]) => any>(
@@ -163,19 +173,42 @@ export default abstract class BaseModule<TName extends string> extends EventEmit
   }
 
   public async onInteractionCreate(interaction: Interaction) {
-    if (interaction.isChatInputCommand())
-      return this.onSlashCommandInteractionCreate(interaction).catch((error) =>
-        this.handleSlashCommandInteractionError(error, interaction),
-      );
+    try {
+      if (interaction.isChatInputCommand()) {
+        await this.onSlashCommandInteractionCreate(interaction);
+        return;
+      }
 
-    if (interaction.isButton())
-      return this.onButtonInteractionCreate(interaction).catch((error) =>
-        this.hanldeButtonInteractionError(interaction, error),
-      );
+      if (interaction.isButton()) {
+        await this.onButtonInteractionCreate(interaction);
+        return;
+      }
 
-    if (interaction.isModalSubmit()) return this.onModalSubmitInteractionCreate(interaction).catch((error) => {});
+      if (interaction.isModalSubmit()) {
+        await this.onModalSubmitInteractionCreate(interaction);
+        return;
+      }
 
-    if (interaction.isAutocomplete()) return this.onAutoCompleteInteractionCreate(interaction).catch((error) => {});
+      if (interaction.isAutocomplete()) {
+        await this.onAutoCompleteInteractionCreate(interaction);
+      }
+    } catch (error) {
+      if (interaction.isChatInputCommand()) {
+        await this.handleSlashCommandInteractionError(error, interaction);
+      } else if (interaction.isButton()) {
+        await this.handleButtonInteractionErrorSafely(interaction, error);
+      } else {
+        this.handleClientError(error);
+      }
+    }
+  }
+
+  private async handleButtonInteractionErrorSafely(interaction: ButtonInteraction, error: unknown): Promise<void> {
+    try {
+      await this.hanldeButtonInteractionError(interaction, this.parseError(error));
+    } catch (handlerError) {
+      this.handleClientError(handlerError);
+    }
   }
 
   protected abstract onButtonInteractionCreate(interaction: ButtonInteraction): Promise<any>;
@@ -206,13 +239,17 @@ export default abstract class BaseModule<TName extends string> extends EventEmit
     }
   }
 
-  protected handleSlashCommandInteractionError<TInteraction extends Interaction>(
+  protected async handleSlashCommandInteractionError<TInteraction extends Interaction>(
     error: any,
     interaction: TInteraction,
-  ) {
+  ): Promise<void> {
     if (interaction instanceof ChatInputCommandInteraction) {
       const err = this.parseError(error);
-      this.handleSlashCommandError(interaction, error);
+      try {
+        await this.handleSlashCommandError(interaction, error);
+      } catch (handlerError) {
+        this.handleClientError(handlerError);
+      }
       this.logger.error({ message: err.createMessage(true) });
     }
   }
@@ -250,8 +287,6 @@ export default abstract class BaseModule<TName extends string> extends EventEmit
       embeds: [embed],
       ephemeral: true,
     });
-
-    throw err;
   }
 
   async hanldeButtonInteractionError(interaction: ButtonInteraction, error: ClientError) {

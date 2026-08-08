@@ -1,13 +1,20 @@
+import path from "path";
+
 import {
   APIRole,
+  AttachmentBuilder,
   ChannelType,
   ChatInputCommandInteraction,
   Collection,
   Colors,
+  ContainerBuilder,
   EmbedBuilder,
   Events,
   GuildMember,
+  MessageFlags,
   Role,
+  SeparatorBuilder,
+  TextDisplayBuilder,
 } from "discord.js";
 import ClientModule from "../core/ClientModule";
 
@@ -15,11 +22,20 @@ import GuildLevelProviderProfile from "../../database/model/RankProviderGuildPro
 import UserLevelProfile from "../../database/model/UserLevelProfile";
 import GuildLevelProviderProfileRepo from "../../database/repository/LevelProviderGuildConfigRepo";
 import UserlevelProfileRepo from "../../database/repository/UserLevelProfileRepo";
-import { CommandExecutor, GuildOnly, Repository } from "../core/decorators";
+import { SlashCommandExecutor, Repository } from "../core/decorators";
 import { autoDeferReplyInteraction } from "../../slashCommandBuilder/function";
 import { MessageLevelProviderEvents } from "./MessageLevelProvider";
 import RankProviderMilestone from "../../database/model/RankProviderMilestone";
-import { calcLevel } from "../../utils/calculator";
+import {
+  calcLevel,
+  calcPercentageOfProgress,
+  craftEmbedProgressBar,
+  getTotalExpToReachLevel,
+} from "../../utils/calculator";
+import { sendInteractionMessageReply } from "../../utils/replier";
+import generateRankCard from "../../utils/rankCard";
+
+const avatarPath = path.join(__dirname, "../assets/avatar.png");
 
 export interface IncreaseLevelOptions {
   member: GuildMember;
@@ -44,8 +60,7 @@ export default class GuildLevelManager extends ClientModule<"guild-level-manager
   @Repository()
   readonly userRepo: UserlevelProfileRepo;
 
-  @CommandExecutor()
-  @GuildOnly()
+  @SlashCommandExecutor({ guildOnly: true, defered: true })
   async updateMemberLevel(interaction: ChatInputCommandInteraction) {
     const type = interaction.options.getString("type", true)?.toLowerCase();
     const amount = interaction.options.getNumber("amount", true);
@@ -93,9 +108,9 @@ export default class GuildLevelManager extends ClientModule<"guild-level-manager
     const previousLevel = calcLevel(isVoice ? userProfile.voiceExp : userProfile.messageExp);
 
     if (type === "exp") {
-      userProfile.addExp(isMessageType, amount);
+      userProfile.messageExp = amount;
     } else {
-      userProfile.addLevel(isMessageType, amount);
+      userProfile.messageExp = getTotalExpToReachLevel(amount);
     }
 
     const newLevel = calcLevel(isVoice ? userProfile.voiceExp : userProfile.messageExp);
@@ -125,8 +140,7 @@ export default class GuildLevelManager extends ClientModule<"guild-level-manager
     });
   }
 
-  @CommandExecutor()
-  @GuildOnly()
+  @SlashCommandExecutor()
   async activeGuild(interaction: ChatInputCommandInteraction) {
     const guildId = interaction.guildId;
     if (!guildId) return;
@@ -151,8 +165,7 @@ export default class GuildLevelManager extends ClientModule<"guild-level-manager
     await interaction.editReply({ embeds: [embed] });
   }
 
-  @CommandExecutor()
-  @GuildOnly()
+  @SlashCommandExecutor()
   async changeLogChannel(interaction: ChatInputCommandInteraction) {
     await autoDeferReplyInteraction(interaction, { ephemeral: true });
     const guildId = interaction.guildId;
@@ -242,6 +255,7 @@ export default class GuildLevelManager extends ClientModule<"guild-level-manager
     await interaction.editReply({ embeds: [embed] });
   }
 
+  @SlashCommandExecutor({ guildOnly: true })
   private async addBlacklistEntry(
     interaction: ChatInputCommandInteraction,
     profile: GuildLevelProviderProfile,
@@ -271,8 +285,7 @@ export default class GuildLevelManager extends ClientModule<"guild-level-manager
     return true;
   }
 
-  @CommandExecutor()
-  @GuildOnly()
+  @SlashCommandExecutor()
   async listingMilestone(interaction: ChatInputCommandInteraction) {
     const guild = interaction.guild;
     if (!guild) return;
@@ -291,8 +304,7 @@ export default class GuildLevelManager extends ClientModule<"guild-level-manager
     });
   }
 
-  @CommandExecutor()
-  @GuildOnly()
+  @SlashCommandExecutor()
   async addBlacklistRole(interaction: ChatInputCommandInteraction) {
     const guildId = interaction.guildId;
     if (!guildId) return;
@@ -312,8 +324,7 @@ export default class GuildLevelManager extends ClientModule<"guild-level-manager
     }
   }
 
-  @CommandExecutor()
-  @GuildOnly()
+  @SlashCommandExecutor()
   async createMilestone(interaction: ChatInputCommandInteraction) {
     const guild = interaction.guild;
     if (!guild) return;
@@ -421,5 +432,187 @@ export default class GuildLevelManager extends ClientModule<"guild-level-manager
         }).setTimestamp(),
       ],
     });
+  }
+
+  @SlashCommandExecutor({ guildOnly: true, defered: true, ephemeral: true })
+  async getTopMember(interaction: ChatInputCommandInteraction<"cached">) {
+    const guildProf = await this.getGuildProfile(interaction.guild.id);
+    if (!guildProf.active) {
+      await interaction.editReply({
+        embeds: [
+          new EmbedBuilder({
+            footer: { text: `UID: ${interaction.member.id}` },
+            title: "Operation failed!",
+            color: Colors.Yellow,
+            description: `Your server is not active yet, please use command \`/level active\` to turn on.`,
+          }).setTimestamp(),
+        ],
+      });
+      return;
+    }
+
+    const isVoice = interaction.options.getBoolean("is-voice") ?? false;
+
+    const topList = await this.userRepo.getOrderByLevelInGuild(guildProf.id, 2);
+
+    const convertedUserMessages: string[] = [];
+    const convertedUserMessages2: string[] = [];
+    const convertedUserMessages3: string[] = [];
+    const combined: string[] = [];
+
+    topList.forEach((userData, index) => {
+      convertedUserMessages.push(`> **#${index + 1}${index < 10 ? "" : " "}** <@${userData.id}>`);
+      convertedUserMessages2.push(`> \`${isVoice ? userData.getVoiceLevel() : userData.getMessageLevel()}\``);
+      convertedUserMessages3.push(`> \`${isVoice ? userData.voiceExp : userData.messageExp}\``);
+
+      combined.push(
+        `| **#${index + 1}${index < 10 ? "" : " "}** <@${userData.id}> | \`${isVoice ? userData.getVoiceLevel() : userData.getMessageLevel()}\` | \`${isVoice ? userData.voiceExp : userData.messageExp}\` |`,
+      );
+    });
+
+    const interactionUserProfile = await this.userRepo.getRankIncluded(
+      interaction.user.id,
+      interaction.guildId,
+      isVoice,
+    );
+
+    const containerBuilder = new ContainerBuilder()
+      .setAccentColor(Colors.Blurple)
+      .addTextDisplayComponents(new TextDisplayBuilder().setContent(`### ${interaction.guild.name}`))
+      .addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(
+          `# Bảng xếp hạng top ${convertedUserMessages.length} ${isVoice ? "VC" : "tin nhắn"}`,
+        ),
+      )
+      .addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(
+          `> *Rank của bạn - <@${interaction.user.id}>: #${interactionUserProfile.rank}*`,
+        ),
+      )
+      .addSeparatorComponents(new SeparatorBuilder())
+      .addTextDisplayComponents(
+        new TextDisplayBuilder().setContent([`| User | Level | Exp |`, `| ... | ... | ... |`, ...combined].join("\n")),
+      )
+      // .addTextDisplayComponents(
+      //   new TextDisplayBuilder().setContent(
+      //     convertedUserMessages
+      //       .map((user, index) => `${user}　　${convertedUserMessages2[index]}　　${convertedUserMessages3[index]}`)
+      //       .join("\n"),
+      //   ),
+      // )
+      .addSeparatorComponents(new SeparatorBuilder())
+      .addTextDisplayComponents(new TextDisplayBuilder().setContent(`-# UID: ${interaction.user.id}`));
+
+    const embedBuilder = new EmbedBuilder({
+      author: {
+        name: interaction.guild.name,
+        iconURL: interaction.guild.iconURL()!,
+      },
+      title: `Bảng xếp hạng top ${convertedUserMessages.length} ${isVoice ? "VC" : "tin nhắn"}`,
+      description: `> *Rank của bạn - <@${interaction.user.id}>: #${interactionUserProfile.rank}*`,
+      timestamp: new Date(),
+      fields: [
+        { name: "User", value: convertedUserMessages.join("\n"), inline: true },
+        {
+          name: "level",
+          value: convertedUserMessages2.join("\n"),
+          inline: true,
+        },
+        { name: "Xp", value: convertedUserMessages3.join("\n"), inline: true },
+      ],
+      footer: {
+        iconURL: interaction.user.avatarURL()!,
+        text: `UID:${interaction.user.id}`,
+      },
+      color: Colors.Blurple,
+    });
+
+    // await interaction.editReply({ components: [containerBuilder], flags: MessageFlags.IsComponentsV2 });
+    await interaction.editReply({ embeds: [embedBuilder] });
+  }
+
+  @SlashCommandExecutor({ guildOnly: true, defered: true })
+  async getUserRank(interaction: ChatInputCommandInteraction<"cached">) {
+    let target = interaction.options.getMember("member");
+    if (!target) target = interaction.member;
+
+    let guildProfile = await this.getGuildProfile(target.guild.id);
+
+    if (!guildProfile.active) return;
+
+    let profile = await this.getUserProfile(target);
+
+    const messageLevel = calcLevel(profile.messageExp);
+    const voiceLevel = calcLevel(profile.voiceExp);
+    const guildMilestone = guildProfile.milestones.find((value) => value.id == profile.milestoneId);
+    const milestoneRole = await interaction.guild.roles.fetch(guildMilestone?.roleId ?? "");
+
+    const profileRank = await this.userRepo.getRankIncluded(profile.id, profile.guildId, false);
+    const profileRank2 = await this.userRepo.getRankIncluded(profile.id, profile.guildId, true);
+
+    if (guildProfile.type == 1) {
+      const firstCol: string[] = [
+        `:bust_in_silhouette: **Message Level:**`,
+        `:chart_with_upwards_trend: **Progress:**`,
+        ` `,
+        `:bust_in_silhouette: **Voice Level:**`,
+        `:chart_with_upwards_trend: **Progress:**`,
+        ` `,
+        `:trophy: **Milestone:**`,
+      ];
+
+      const secondCol: string[] = [
+        `***${messageLevel} (${profile.messageExp} exp)***`,
+        craftEmbedProgressBar(calcPercentageOfProgress(profile.messageExp)),
+        ` `,
+        `***${voiceLevel} (${profile.voiceExp} exp)***`,
+        craftEmbedProgressBar(calcPercentageOfProgress(profile.voiceExp)),
+        ` `,
+        `***${"No data"}***`,
+      ];
+
+      const embed = new EmbedBuilder({
+        author: {
+          name: interaction.user.username,
+          iconURL: interaction.user.avatarURL()!,
+        },
+        color: Colors.Blurple,
+        fields: [
+          {
+            name: "Info",
+            value: firstCol.join("\n"),
+            inline: true,
+          },
+          {
+            name: "Value",
+            value: secondCol.join("\n"),
+            inline: true,
+          },
+        ],
+      }).setTimestamp();
+
+      await sendInteractionMessageReply(interaction, { embeds: [embed] });
+    } else {
+      const avatar = target.displayAvatarURL() ?? target.avatarURL() ?? avatarPath;
+
+      const buffer = await generateRankCard({
+        userInf: {
+          name: target.displayName,
+          avatarUrl: avatar,
+        },
+        msgLvlData: {
+          expValue: profile.messageExp,
+          rank: profileRank.rank,
+        },
+        vcLvlData: {
+          expValue: profile.voiceExp,
+          rank: profileRank2.rank,
+        },
+      });
+
+      const attachment = new AttachmentBuilder(buffer, { name: `${target.id}/${new Date().getTime()}.png` });
+
+      await interaction.editReply({ files: [attachment] });
+    }
   }
 }

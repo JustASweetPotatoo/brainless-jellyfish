@@ -1,24 +1,22 @@
-// import { Colors, EmbedBuilder } from "discord.js";
-// import { autoDeferReplyInteraction } from "../slashCommandBuilder/function";
-// import ClientSlashCommandBuilder from "../slashCommandBuilder/SlashCommandBuilder";
+import { Colors, EmbedBuilder } from "discord.js";
+import ClientSlashCommandBuilder from "../slashCommandBuilder/SlashCommandBuilder";
 
-// export default new ClientSlashCommandBuilder()
-//   .setName("ping")
-//   .setDescription("Get response time of bot.")
-//   .setExecutor(async (client, interaction) => {
-//     await autoDeferReplyInteraction(interaction);
+export default new ClientSlashCommandBuilder()
+  .setName("ping")
+  .setDescription("Check the bot response time.")
+  .setExecutor(async (client, interaction) => {
+    const responseTime = Date.now() - interaction.createdTimestamp;
+    const websocketPing = Math.round(client.ws.ping);
 
-//     if (interaction.deferred) {
-//       await interaction.editReply({
-//         embeds: [
-//           new EmbedBuilder({
-//             title: "Pong !",
-//             description: `Resonse time is **${
-//               (new Date().getTime() - interaction.createdTimestamp) * 2
-//             }** ms`,
-//             color: Colors.Blurple,
-//           }),
-//         ],
-//       });
-//     }
-//   });
+    await interaction.editReply({
+      embeds: [
+        new EmbedBuilder()
+          .setColor(Colors.Blurple)
+          .setTitle("Pong!")
+          .addFields(
+            { name: "Response time", value: `${responseTime} ms`, inline: true },
+            { name: "WebSocket ping", value: `${websocketPing} ms`, inline: true },
+          ),
+      ],
+    });
+  });

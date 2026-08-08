@@ -1,5 +1,6 @@
 import "reflect-metadata";
-import { ChatInputCommandInteraction, Events } from "discord.js";
+import { ChatInputCommandInteraction, Events, MessageFlags, PermissionFlagsBits } from "discord.js";
+import { autoDeferReplyInteraction } from "../../slashCommandBuilder/function";
 
 export const MODULE_KEY = Symbol("module");
 
@@ -13,22 +14,15 @@ export function Module<TName extends string>(name: TName) {
 export const EVENT_KEY = Symbol("event");
 
 export function On(event: Events): MethodDecorator {
-  return (target, propertyKey) => {
+  return (target, propertyKey, descriptor) => {
+    if (typeof propertyKey !== "string" && typeof propertyKey !== "symbol") {
+      throw new TypeError("@On can only decorate a method.");
+    }
+    if (!descriptor || typeof descriptor.value !== "function") {
+      throw new TypeError(`@On(${event}) must decorate a method.`);
+    }
+
     Reflect.defineMetadata(EVENT_KEY, event, target, propertyKey);
-  };
-}
-
-export const SLASHCOMMAND_KEY = Symbol("slashcommand");
-
-/**
- *
- * @deprecated Command feature not worked yet
- */
-export function SlashCommand(): PropertyDecorator {
-  return (target, propertyKey) => {
-    const type = Reflect.getMetadata("design:type", target, propertyKey);
-
-    Reflect.defineMetadata(SLASHCOMMAND_KEY, { type }, target, propertyKey);
   };
 }
 
@@ -47,6 +41,9 @@ export function Repository(): PropertyDecorator {
           `Make sure "emitDecoratorMetadata" is enabled.`,
       );
     }
+    if (typeof propertyKey !== "string" && typeof propertyKey !== "symbol") {
+      throw new TypeError("@Repository can only decorate a property.");
+    }
 
     Reflect.defineMetadata(REPOSITORY_KEY, type, target, propertyKey);
 
@@ -64,54 +61,100 @@ export const INJECT_KEY = Symbol("inject");
 
 type CommandExecutorHandler = (interaction: ChatInputCommandInteraction, ...args: any[]) => any;
 
-export function CommandExecutor(): (
-  target: object,
-  propertyKey: string | symbol,
-  descriptor: PropertyDescriptor,
-) => void {
-  return (_target, _propertyKey, descriptor) => {
-    const originalMethod = descriptor.value as CommandExecutorHandler | undefined;
+type InGuildCommandExecutorHandler = (interaction: ChatInputCommandInteraction<"cached">, ...args: any[]) => any;
 
-    if (!originalMethod) return;
-
-    if (originalMethod.length < 1) {
-      throw new Error(
-        "CommandExecutor requires the handler to declare an interaction parameter, e.g. async handler(interaction: ChatInputCommandInteraction)",
-      );
-    }
-
-    descriptor.value = function (this: any, interaction: ChatInputCommandInteraction, ...args: any[]) {
-      if (!interaction || typeof interaction !== "object") {
-        throw new Error("Command executor requires an interaction argument.");
-      }
-
-      return originalMethod.call(this, interaction, ...args);
-    };
-  };
+export interface CommandExecutorDecoratorOption {
+  guildOnly?: boolean;
+  deferred?: boolean;
+  /** @deprecated Use deferred instead. */
+  defered?: boolean;
+  ephemeral?: boolean;
+  requiredAdminPermission?: boolean;
 }
 
-export function GuildOnly(): MethodDecorator {
-  return (_target, _propertyKey, descriptor: PropertyDescriptor) => {
-    const originalMethod = descriptor.value as
-      | ((this: any, interaction: ChatInputCommandInteraction, ...args: any[]) => any)
-      | undefined;
+/**
+ * @description Required interaction type ChatInputCommandInteraction
+ */
+export function SlashCommandExecutor(options: {
+  guildOnly: true;
+  deferred?: boolean;
+  /** @deprecated Use deferred instead. */
+  defered?: boolean;
+  ephemeral?: boolean;
+  requiredAdminPermission?: boolean;
+}): (
+  target: object,
+  propertyKey: string | symbol,
+  descriptor: TypedPropertyDescriptor<InGuildCommandExecutorHandler>,
+) => void;
 
-    if (!originalMethod) return;
+export function SlashCommandExecutor(options?: {
+  guildOnly?: false;
+  deferred?: boolean;
+  /** @deprecated Use deferred instead. */
+  defered?: boolean;
+  ephemeral?: boolean;
+  requiredAdminPermission?: boolean;
+}): (
+  target: object,
+  propertyKey: string | symbol,
+  descriptor: TypedPropertyDescriptor<CommandExecutorHandler | InGuildCommandExecutorHandler>,
+) => void;
 
-    descriptor.value = function (this: any, interaction: ChatInputCommandInteraction, ...args: any[]) {
-      if (!interaction.inGuild() || !interaction.guild) {
-        if (interaction.replied || interaction.deferred) {
-          return Promise.resolve();
+export function SlashCommandExecutor(
+  options?: CommandExecutorDecoratorOption,
+): (target: object, propertyKey: string | symbol, descriptor: PropertyDescriptor) => void {
+  return (_target, propertyKey, descriptor) => {
+    if (!descriptor || typeof descriptor.value !== "function") {
+      throw new TypeError(`@SlashCommandExecutor must decorate a method: ${String(propertyKey)}.`);
+    }
+
+    const originalMethod = descriptor.value;
+    const shouldDefer = options?.deferred ?? options?.defered ?? false;
+
+    descriptor.value = async function (this: any, interaction: ChatInputCommandInteraction, ...args: any[]) {
+      // Guild only
+      if (options?.guildOnly && !interaction.inCachedGuild()) {
+        if (!interaction.replied && !interaction.deferred) {
+          await interaction.reply({
+            content: "You can't use this command here!",
+            ephemeral: true,
+          });
         }
 
-        return interaction.reply({ content: "You can't use this command here !", ephemeral: true });
+        return;
       }
 
-      if (!interaction.member) {
-        return interaction.reply({ content: "This command requires a guild member context.", ephemeral: true });
+      // Require Administrator
+      if (
+        options?.requiredAdminPermission &&
+        interaction.inCachedGuild() &&
+        !interaction.member.permissions.has(PermissionFlagsBits.Administrator)
+      ) {
+        const payload = {
+          content: "You need Administrator permission to use this command.",
+        };
+
+        if (interaction.deferred || interaction.replied) {
+          await interaction.editReply(payload);
+        } else {
+          await interaction.reply({
+            ...payload,
+            flags: MessageFlags.Ephemeral,
+          });
+        }
+
+        return;
       }
 
-      return originalMethod.call(this, interaction, ...args);
+      if (shouldDefer) {
+        await autoDeferReplyInteraction(interaction, {
+          flags: options?.ephemeral ? MessageFlags.Ephemeral : undefined,
+        });
+      }
+
+      // Execute command
+      return await originalMethod.call(this, interaction, ...args);
     };
   };
 }

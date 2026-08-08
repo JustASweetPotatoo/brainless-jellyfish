@@ -7,7 +7,7 @@ export interface UserLevelProfileJson {
   message_exp?: number;
   voice_exp?: number;
   milestone_id?: string;
-  channel_blacklist?: string[]
+  channel_blacklist?: string[];
 }
 
 export default class UserLevelProfile extends BaseModel<UserLevelProfileJson> {
@@ -54,7 +54,7 @@ export default class UserLevelProfile extends BaseModel<UserLevelProfileJson> {
       message_exp: this.messageExp,
       voice_exp: this.voiceExp,
       milestone_id: this.milestoneId,
-      channel_blacklist: this.channelBlacklist
+      channel_blacklist: this.channelBlacklist,
     };
   }
 
@@ -63,7 +63,7 @@ export default class UserLevelProfile extends BaseModel<UserLevelProfileJson> {
   }
 
   getMessageLevel() {
-    return calcLevel(this.voiceExp);
+    return calcLevel(this.messageExp  );
   }
 
   getCacheId() {

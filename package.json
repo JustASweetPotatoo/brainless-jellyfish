@@ -30,6 +30,7 @@
   "scripts": {
     "start": "ts-node src/index.ts",
     "test": "node test.js",
+    "test2": "ts-node src/utils/test.ts",
     "debug": "ts-node src/dev.ts",
     "js-file-test": "node dev.js"
   },

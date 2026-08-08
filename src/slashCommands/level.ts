@@ -20,14 +20,12 @@ const getRank = new ClientSlashCommandSubcommandBuilder()
   .setName("check")
   .setDescription("Check your level or someone else's")
   .setExecutor(async (client, interaction) =>
-    client.moduleManager
-      .get("message-level-provider")
-      .getUserRank(interaction as ChatInputCommandInteraction<"cached">),
+    client.moduleManager.get("guild-level-manager").getUserRank(interaction as ChatInputCommandInteraction<"cached">),
   )
   .addUserOption(new SlashCommandUserOption().setName("target").setDescription("Member to check").setRequired(false));
 
-const active = new ClientSlashCommandSubcommandBuilder()
-  .setName("active")
+const moduleOn = new ClientSlashCommandSubcommandBuilder()
+  .setName("on")
   .setDescription("Activate level system")
   .setExecutor(async (client, interaction) => {
     await autoDeferReply(interaction, { ephemeral: true });
@@ -99,10 +97,9 @@ const updateLevel = new ClientSlashCommandSubcommandBuilder()
       .setName("is-voice-level")
       .setDescription("Add to voice exp ? (default is message exp)"),
   )
-  .setExecutor(async (client, interaction) => {
-    await autoDeferReplyInteraction(interaction, { flags: MessageFlags.Ephemeral });
-    await client.moduleManager.get("guild-level-manager").updateMemberLevel(interaction as ChatInputCommandInteraction);
-  })
+  .setExecutor(async (client, interaction) =>
+    client.moduleManager.get("guild-level-manager").updateMemberLevel(interaction as ChatInputCommandInteraction),
+  )
   .setAutocompleteExecutor(async (client, interaction) => {
     const focusedValue = interaction.options.getFocused();
     const choices = [
@@ -114,8 +111,17 @@ const updateLevel = new ClientSlashCommandSubcommandBuilder()
     await interaction.respond(filtered);
   });
 
+const getTop = new ClientSlashCommandSubcommandBuilder()
+  .setName("top")
+  .setDescription("Get top 10 member level.")
+  .addBooleanOption(new SlashCommandBooleanOption().setName("is-voice").setDescription("Get top voice"))
+  .setExecutor(async (client, interaction) =>
+    client.moduleManager.get("guild-level-manager").getTopMember(interaction as ChatInputCommandInteraction<"cached">),
+  );
+
 export default new ClientSlashCommandBuilder({
-  subcommands: [updateLevel, getRank, active, blacklistAdd, createMilestone, listingMilestone],
+  subcommands: [updateLevel, getRank, getTop, moduleOn, blacklistAdd, createMilestone, listingMilestone],
 })
   .setName("level")
-  .setDescription("Check user level");
+  .setDescription("Check user level")
+  .setResourceCost("heavy");

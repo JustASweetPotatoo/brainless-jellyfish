@@ -42,6 +42,9 @@ export default class MassClient extends Client {
 
   // Client dev aliances
   public readonly devServerId: string;
+  public readonly shardIds: readonly number[];
+
+  private bootstrapped = false;
 
   constructor(operationMode: OperationMode) {
     super({
@@ -55,6 +58,7 @@ export default class MassClient extends Client {
     });
     this.operationMode = operationMode;
     this.devServerId = DEV_SERVER ?? "";
+    this.shardIds = this.shard?.ids ?? [0];
 
     this.setMaxListeners(1000);
 
@@ -71,10 +75,14 @@ export default class MassClient extends Client {
   }
 
   private async clientReadyAction() {
-    this.logger.ok(`Client ready, logged in as ${this.user?.tag}`);
+    this.logger.ok(`Shard ${this.shardIds.join(", ")} ready, logged in as ${this.user?.tag}`);
   }
 
   override async login(token?: string): Promise<string> {
+    if (this.bootstrapped) {
+      return this.token ?? "";
+    }
+
     this.logger.info("Starting bot...");
 
     if (!(await this.databaseManager.createConnection())) {
@@ -88,6 +96,7 @@ export default class MassClient extends Client {
     // }
 
     this.moduleManager.loadModules();
+    this.bootstrapped = true;
 
     this.emit("system-operational", this);
 

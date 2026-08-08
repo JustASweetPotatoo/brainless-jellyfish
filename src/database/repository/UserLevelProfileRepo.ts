@@ -1,14 +1,9 @@
 import { Collection } from "discord.js";
 import DatabaseManager from "../DatabaseManager";
-import UserLevelProfile, {
-  UserLevelProfileJson,
-} from "../model/UserLevelProfile";
+import UserLevelProfile, { UserLevelProfileJson } from "../model/UserLevelProfile";
 import { Repository } from "./constructor/Repository";
 
-export default class UserlevelProfileRepo extends Repository<
-  UserLevelProfile,
-  UserLevelProfileJson
-> {
+export default class UserlevelProfileRepo extends Repository<UserLevelProfile, UserLevelProfileJson> {
   protected model: { fromJSON(json: UserLevelProfileJson): UserLevelProfile };
 
   protected readonly createTableQuery = `
@@ -27,10 +22,7 @@ export default class UserlevelProfileRepo extends Repository<
     super("level_user_profile", database);
   }
 
-  async get(options: {
-    id: string;
-    guildId: string;
-  }): Promise<UserLevelProfile> {
+  async get(options: { id: string; guildId: string }): Promise<UserLevelProfile> {
     const query = `
       SELECT * FROM ${this.fullTableName}
       WHERE id = ? AND guild_id = ?
@@ -45,10 +37,7 @@ export default class UserlevelProfileRepo extends Repository<
     return this.create(options);
   }
 
-  async create(options: {
-    id: string;
-    guildId: string;
-  }): Promise<UserLevelProfile> {
+  async create(options: { id: string; guildId: string }): Promise<UserLevelProfile> {
     const newProfile = new UserLevelProfile({
       id: options.id,
       guild_id: options.guildId,
@@ -88,20 +77,12 @@ export default class UserlevelProfileRepo extends Repository<
       WHERE id = ? AND guild_id = ?;
     `;
 
-    await this.executeQuery(query, [
-      json.message_exp,
-      json.voice_exp,
-      json.milestone_id,
-      json.id,
-      json.guild_id,
-    ]);
+    await this.executeQuery(query, [json.message_exp, json.voice_exp, json.milestone_id, json.id, json.guild_id]);
 
     return profile;
   }
 
-  async updateByMessageLevel(
-    profile: UserLevelProfile,
-  ): Promise<UserLevelProfile> {
+  async updateByMessageLevel(profile: UserLevelProfile): Promise<UserLevelProfile> {
     const obj = profile.toJSON();
 
     const query = `
@@ -112,19 +93,12 @@ export default class UserlevelProfileRepo extends Repository<
       WHERE id = ? AND guild_id = ?;
     `;
 
-    await this.executeQuery(query, [
-      obj.message_exp,
-      obj.milestone_id,
-      obj.id,
-      obj.guild_id,
-    ]);
+    await this.executeQuery(query, [obj.message_exp, obj.milestone_id, obj.id, obj.guild_id]);
 
     return profile;
   }
 
-  async updateByVoiceLevel(
-    profile: UserLevelProfile,
-  ): Promise<UserLevelProfile> {
+  async updateByVoiceLevel(profile: UserLevelProfile): Promise<UserLevelProfile> {
     const obj = profile.toJSON();
 
     const query = `
@@ -135,33 +109,57 @@ export default class UserlevelProfileRepo extends Repository<
       WHERE id = ? AND guild_id = ?;
     `;
 
-    await this.executeQuery(query, [
-      obj.voice_exp,
-      obj.milestone_id,
-      obj.id,
-      obj.guild_id,
-    ]);
+    await this.executeQuery(query, [obj.voice_exp, obj.milestone_id, obj.id, obj.guild_id]);
 
     return profile;
   }
 
-  async getOderBy(
+  async getOrderByLevelInGuild(
     guild_id: string,
+    page: number = 1,
     DESC: boolean = true,
-  ): Promise<Collection<string, UserLevelProfile>> {
+    isVoice: boolean = false,
+  ): Promise<Array<UserLevelProfile>> {
     const query = `
       SELECT * FROM ${this.fullTableName}
       WHERE guild_id = ?
-      ORDER BY message_exp ${DESC ? "DESC" : "ASC"}
-      LIMIT 10;
+      ORDER BY ${isVoice ? "voice_exp" : "message_exp"} ${DESC ? "DESC" : "ASC"}
+      LIMIT 10 OFFSET ${10 * (page - 1)};
     `;
     const rows = await this.executeQuery(query, [guild_id]);
-    const collection = new Collection<string, UserLevelProfile>();
-    rows.forEach((row) =>
-      collection.set(row.id, new UserLevelProfile(row as UserLevelProfileJson)),
-    );
+    const array: UserLevelProfile[] = [];
+    rows.forEach((row) => array.push(new UserLevelProfile(row as UserLevelProfileJson)));
 
-    return collection;
+    return array;
+  }
+
+  async getRankIncluded(
+    id: string,
+    guildId: string,
+    isVoice = false,
+  ): Promise<UserLevelProfileJson & { rank: number }> {
+    const target = isVoice ? "voice_exp" : "message_exp";
+
+    const query = `
+      SELECT
+        u.*,
+        (
+          SELECT COUNT(*) + 1
+          FROM ${this.tableName}
+          WHERE ${target} > u.${target}
+        ) AS \'rank\'
+      FROM ${this.tableName} u
+      WHERE u.id = ? AND u.guild_id = ?;
+    `;
+
+    let res = await this.executeQuery(query, [id, guildId]);
+
+    if (!res.at(0)) {
+      await this.create({ id, guildId });
+      res = await this.executeQuery(query, [id, guildId]);
+    }
+
+    return res[0] as UserLevelProfileJson & { rank: number };
   }
 
   delete(id: string): Promise<boolean> {

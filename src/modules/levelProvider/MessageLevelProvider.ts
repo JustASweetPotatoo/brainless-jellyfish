@@ -143,7 +143,7 @@ export default class MessageLevelProvider extends ClientModule<"message-level-pr
 
   private async onLogChannelChange(guildProfile: GuildLevelProviderProfile, oldChannelId: string) {
     this.channelCache.delete(`${oldChannelId}|${guildProfile.id}`);
-    this.updateGuildProfile(guildProfile).catch(this.handleClientError);
+    this.updateGuildProfile(guildProfile).catch((error) => this.handleClientError(error));
   }
 
   private async onUserLevelAdd(options: UserLevelAddOptions) {
@@ -160,12 +160,12 @@ export default class MessageLevelProvider extends ClientModule<"message-level-pr
 
   private async updateUserProfile(profile: UserLevelProfile) {
     this.userProfileCache.set(profile.getCacheId(), profile);
-    await this.userRepo.update(profile).catch(this.handleClientError);
+    await this.userRepo.update(profile).catch((error) => this.handleClientError(error));
   }
 
   private async updateGuildProfile(profile: GuildLevelProviderProfile) {
     this.guildProfileCache.set(profile.id, profile);
-    await this.guildRepo.update(profile).catch(this.handleClientError);
+    await this.guildRepo.update(profile).catch((error) => this.handleClientError(error));
   }
 
   private async getGuildProfile(guildId: string): Promise<GuildLevelProviderProfile> {
@@ -257,7 +257,8 @@ export default class MessageLevelProvider extends ClientModule<"message-level-pr
         member.roles.add(addRole).catch((e) => this.logger.error(e));
       }
 
-      this.sendLevelUpNotification(member, newLevel, newMilestone).catch(this.handleClientError);
+      profile.milestoneId = newMilestone.id;
+      this.sendLevelUpNotification(member, newLevel, newMilestone).catch((error) => this.handleClientError(error));
     }
 
     await this.updateUserProfile(profile);
@@ -281,78 +282,6 @@ export default class MessageLevelProvider extends ClientModule<"message-level-pr
       });
 
       await channel.send({ embeds: [embed] });
-    }
-  }
-
-  async getUserRank(interaction: ChatInputCommandInteraction<"cached">) {
-    let target = interaction.options.getMember("member");
-    if (!target) target = interaction.member;
-
-    let guildProfile = await this.getGuildProfile(target.guild.id);
-
-    if (!guildProfile.active) return;
-
-    let profile = await this.getUserProfile(target);
-
-    const messageLevel = calcLevel(profile.messageExp);
-    const voiceLevel = calcLevel(profile.voiceExp);
-
-    if (guildProfile.type == 1) {
-      const firstCol: string[] = [
-        `:bust_in_silhouette: **Message Level:**`,
-        `:chart_with_upwards_trend: **Progress:**`,
-        ` `,
-        `:bust_in_silhouette: **Voice Level:**`,
-        `:chart_with_upwards_trend: **Progress:**`,
-        ` `,
-        `:trophy: **Milestone:**`,
-      ];
-
-      const secondCol: string[] = [
-        `***${messageLevel} (${profile.messageExp} exp)***`,
-        craftEmbedProgressBar(calcPercentageOfProgress(profile.messageExp)),
-        ` `,
-        `***${voiceLevel} (${profile.voiceExp} exp)***`,
-        craftEmbedProgressBar(calcPercentageOfProgress(profile.voiceExp)),
-        ` `,
-        `***${"No data"}***`,
-      ];
-
-      const embed = new EmbedBuilder({
-        author: {
-          name: interaction.user.username,
-          iconURL: interaction.user.avatarURL()!,
-        },
-        color: Colors.Blurple,
-        fields: [
-          {
-            name: "Info",
-            value: firstCol.join("\n"),
-            inline: true,
-          },
-          {
-            name: "Value",
-            value: secondCol.join("\n"),
-            inline: true,
-          },
-        ],
-      }).setTimestamp();
-
-      await sendInteractionMessageReply(interaction, { embeds: [embed] });
-    } else {
-      const buffer = await generateRankCard({
-        username: target.user.displayName,
-        level: messageLevel,
-        xp: profile.messageExp,
-        maxXp: getTotalExpToReachLevel(messageLevel + 1),
-        avatarUrl: target.user.avatarURL() ?? "",
-        totalXp: profile.messageExp,
-        badgeName: undefined,
-      });
-
-      const attachment = new AttachmentBuilder(buffer, { name: `${target.id}/${new Date().getTime()}.png` });
-
-      await interaction.editReply({ files: [attachment] });
     }
   }
 

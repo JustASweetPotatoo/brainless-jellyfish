@@ -13,14 +13,20 @@
       "request": "launch",
       "type": "node-terminal"
     },
-     {
+    {
       "command": "npm run debug",
       "name": "Run dev client",
+      "request": "launch",
+      "type": "node-terminal"
+    },
+    {
+      "command": "npm run test2",
+      "name": "Run test",
       "request": "launch",
       "type": "node-terminal"
     }
   ],
   "scripts": {
-    "start": "ts-node src/index.ts",
+    "start": "ts-node src/index.ts"
   }
 }

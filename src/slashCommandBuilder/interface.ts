@@ -3,6 +3,8 @@ import MassClient from "../Client";
 import ClientSlashCommandSubcommandBuilder from "./SlashCommandSubcommandBuilder";
 import ClientSlashCommandSubcommandGroupBuilder from "./SlashCommandSubcommandGroupBuilder";
 
+export type CommandResourceCost = "normal" | "heavy";
+
 export interface SlashCommandExecuteFunction {
   (client: MassClient, interaction: CommandInteraction<"cached">): Promise<void>;
 }
@@ -20,6 +22,7 @@ export type CommandInteractionType = CommandInteraction | ChatInputCommandIntera
 
 export interface ClientSlashCommandBuilderOptions {
   subcommands?: Array<ClientSlashCommandSubcommandBuilder | ClientSlashCommandSubcommandGroupBuilder>;
+  resourceCost?: CommandResourceCost;
 }
 
 export interface ClientSlashCommandSubcommandBuilderOptions {}

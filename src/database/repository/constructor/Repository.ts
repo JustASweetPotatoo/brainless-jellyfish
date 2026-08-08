@@ -114,6 +114,7 @@ export abstract class Repository<TModel extends BaseModel<TJSON>, TJSON> extends
       const [rows] = await this.pool.query<RowDataPacket[]>(query, values);
       return rows;
     } catch (error) {
+      console.log(error);
       this.database.getLogger().error(new ClientError(ErrorCode.EXECUTE_QUERY_FAILED, error));
       return [];
     }

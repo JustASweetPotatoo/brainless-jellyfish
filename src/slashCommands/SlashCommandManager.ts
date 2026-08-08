@@ -23,6 +23,11 @@ import { autoDeferReplyInteraction } from "../slashCommandBuilder/function";
 import { On } from "../modules/core/decorators";
 import { ModuleOptions } from "../modules/core/BaseModule";
 
+function readPositiveInteger(value: string | undefined, fallback: number): number {
+  const parsed = Number.parseInt(value ?? "", 10);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+}
+
 export default class SlashCommandManager extends ClientModule<"slash-command-manager"> {
   readonly discordEvents: Events[] = [Events.GuildAvailable, Events.InteractionCreate];
 
@@ -32,6 +37,14 @@ export default class SlashCommandManager extends ClientModule<"slash-command-man
   private readonly workDir: string = path.join(__dirname, "./");
   private readonly commands: Collection<string, ClientSlashCommandBuilder> = new Collection();
   private slashCommandJSONBody: Array<RESTPostAPIApplicationCommandsJSONBody> = [];
+  private readonly maxHeavyCommands = readPositiveInteger(process.env.MAX_HEAVY_COMMANDS, 2);
+  private readonly heavyCommandCooldown = readPositiveInteger(process.env.HEAVY_COMMAND_COOLDOWN_MS, 5000);
+  private readonly heavyCommandMessageTimeout = readPositiveInteger(
+    process.env.HEAVY_COMMAND_MESSAGE_TIMEOUT_MS,
+    5000,
+  );
+  private readonly heavyCommandCooldowns = new Collection<string, number>();
+  private heavyCommandsInFlight = 0;
 
   constructor(options: ModuleOptions) {
     super(options);
@@ -142,6 +155,37 @@ export default class SlashCommandManager extends ClientModule<"slash-command-man
     this.logger.ok(`Total ${counter} guilds is loaded with ${this.commands.size} commands`);
   }
 
+  private acquireHeavyCommand(
+    interaction: ChatInputCommandInteraction<"cached">,
+    command: ClientSlashCommandBuilder,
+  ): string | undefined {
+    if (command.resourceCost !== "heavy") return;
+
+    if (this.heavyCommandsInFlight >= this.maxHeavyCommands) {
+      return `This command is busy right now. Please try again in a moment. (limit: ${this.maxHeavyCommands} at once)`;
+    }
+
+    const cooldownKey = `${interaction.guildId ?? "dm"}:${interaction.user.id}:${command.name}`;
+    const lastRun = this.heavyCommandCooldowns.get(cooldownKey);
+    const remainingCooldown = lastRun ? this.heavyCommandCooldown - (Date.now() - lastRun) : 0;
+
+    if (remainingCooldown > 0) {
+      return `Please wait ${Math.ceil(remainingCooldown / 1000)}s before running this command again.`;
+    }
+
+    if (lastRun) this.heavyCommandCooldowns.delete(cooldownKey);
+
+    this.heavyCommandCooldowns.set(cooldownKey, Date.now());
+    this.heavyCommandsInFlight++;
+    return undefined;
+  }
+
+  private releaseHeavyCommand(command: ClientSlashCommandBuilder): void {
+    if (command.resourceCost === "heavy") {
+      this.heavyCommandsInFlight = Math.max(this.heavyCommandsInFlight - 1, 0);
+    }
+  }
+
   protected override async onSlashCommandInteractionCreate(
     interaction: CommandInteraction<"cached"> | ChatInputCommandInteraction<"cached">,
   ): Promise<any> {
@@ -154,7 +198,20 @@ export default class SlashCommandManager extends ClientModule<"slash-command-man
       );
     }
 
-    await command.getExecutor(interaction)(this.client, interaction);
+    const rejectionMessage = this.acquireHeavyCommand(interaction as ChatInputCommandInteraction<"cached">, command);
+    if (rejectionMessage) {
+      await interaction.editReply({ content: rejectionMessage });
+      setTimeout(() => {
+        void interaction.deleteReply().catch(() => undefined);
+      }, this.heavyCommandMessageTimeout);
+      return;
+    }
+
+    try {
+      await command.getExecutor(interaction)(this.client, interaction);
+    } finally {
+      this.releaseHeavyCommand(command);
+    }
   }
 
   protected override async onAutoCompleteInteractionCreate(interaction: AutocompleteInteraction): Promise<any> {

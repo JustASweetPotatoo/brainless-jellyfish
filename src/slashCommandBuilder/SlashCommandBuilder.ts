@@ -12,6 +12,7 @@ import {
 
 import {
   ClientSlashCommandBuilderOptions,
+  CommandResourceCost,
   AutocompleteExecutor,
   CommandInteractionType,
   SlashCommandExecuteFunction,
@@ -27,10 +28,17 @@ export default class ClientSlashCommandBuilder extends SlashCommandBuilder {
   public readonly subcommandExecutorCollection: Collection<string, SlashCommandExecuteFunction> = new Collection();
   public execute: SlashCommandExecuteFunction = defaultExecutor;
   public readonly autoCompleteFunctions: Collection<string, AutocompleteExecutor> = new Collection();
+  public resourceCost: CommandResourceCost;
 
   constructor(options?: ClientSlashCommandBuilderOptions) {
     super();
     this.subcommands = options?.subcommands ?? [];
+    this.resourceCost = options?.resourceCost ?? "normal";
+  }
+
+  setResourceCost(resourceCost: CommandResourceCost): this {
+    this.resourceCost = resourceCost;
+    return this;
   }
 
   setExecutor(func: SlashCommandExecuteFunction) {
