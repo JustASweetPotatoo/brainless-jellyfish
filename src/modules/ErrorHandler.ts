@@ -44,7 +44,7 @@ export default class ClientErrorHandler extends ClientModule<"client-error-handl
     const durationByMiliseconds = doneTimestamp - interaction.createdTimestamp;
     const commandName = ClientSlashCommandBuilder.getStackName(interaction as ChatInputCommandInteraction);
 
-    const responseTime = interaction.createdTimestamp - Date.now();
+    const responseTime = doneTimestamp - interaction.createdTimestamp;
     const error = new ClientError(ErrorCode.UNKNOWN_ERROR, err);
 
     const embed = new EmbedBuilder({

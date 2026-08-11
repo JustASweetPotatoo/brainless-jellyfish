@@ -11,7 +11,6 @@ import {
   EmbedBuilder,
   Events,
   GuildMember,
-  MessageFlags,
   Role,
   SeparatorBuilder,
   TextDisplayBuilder,

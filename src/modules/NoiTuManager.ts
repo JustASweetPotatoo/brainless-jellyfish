@@ -2,7 +2,6 @@ import {
   ChatInputCommandInteraction,
   Collection,
   Colors,
-  CommandInteraction,
   EmbedBuilder,
   Events,
   Guild,
@@ -18,18 +17,18 @@ import { Module, On } from "./core/decorators";
 import ClientModule from "./core/ClientModule";
 import { sendTemporatyMessageReply } from "../utils/replier";
 
-export enum NoituCreateChannelEvent {
+export enum NoiTuCreateChannelEvent {
   SUCCESS,
   FAILURE,
 }
 
-export enum NoituSetChannelEvent {
+export enum NoiTuSetChannelEvent {
   SUCCESS,
   NOT_TEXT_CHANNEL,
   NOT_GUILD_COMMAND_INTERACTION,
 }
 
-export enum NoituMessageCreateEvent {
+export enum NoiTuMessageCreateEvent {
   ERROR = 0,
   SUCCESS = 1,
   NON_SETUP_SERVER = 2,
@@ -43,9 +42,9 @@ export enum NoituMessageCreateEvent {
   CHANNEL_CONFIG_NOT_FOUND = 10,
 }
 
-@Module("noitu-manager")
-export default class NoituManager extends ClientModule<"noitu-manager"> {
-  static readonly moduleName = "noitu-manager";
+@Module("noi-tu-manager")
+export default class NoiTuManager extends ClientModule<"noi-tu-manager"> {
+  static readonly moduleName = "noi-tu-manager";
 
   readonly discordEvents: Events[] = [Events.ClientReady, Events.MessageCreate, Events.GuildCreate, Events.GuildDelete];
 
@@ -68,8 +67,8 @@ export default class NoituManager extends ClientModule<"noitu-manager"> {
     }
   }
 
-  async createChannel(interaction: ChatInputCommandInteraction<"cached">): Promise<NoituCreateChannelEvent> {
-    if (!interaction.inGuild()) return NoituCreateChannelEvent.FAILURE;
+  async createChannel(interaction: ChatInputCommandInteraction<"cached">): Promise<NoiTuCreateChannelEvent> {
+    if (!interaction.inGuild()) return NoiTuCreateChannelEvent.FAILURE;
 
     try {
       const guild = interaction.guild;
@@ -77,17 +76,17 @@ export default class NoituManager extends ClientModule<"noitu-manager"> {
 
       const channel = await guild.channels.create({ name: channelName });
       this.guildChannelConfigCollection.set(guild.id, new NoituChannelConfig(channel.id, guild.id));
-      return NoituCreateChannelEvent.SUCCESS;
+      return NoiTuCreateChannelEvent.SUCCESS;
     } catch (error) {
       this.client.errorHandler.handleClientError({
         error: error as Error,
         logger: this.logger,
       });
-      return NoituCreateChannelEvent.FAILURE;
+      return NoiTuCreateChannelEvent.FAILURE;
     }
   }
 
-  async setChannel(interaction: ChatInputCommandInteraction<"cached">): Promise<NoituSetChannelEvent> {
+  async setChannel(interaction: ChatInputCommandInteraction<"cached">): Promise<NoiTuSetChannelEvent> {
     const targetChannel = interaction.options.getChannel("channel", true);
 
     if (targetChannel instanceof TextChannel) {
@@ -96,9 +95,9 @@ export default class NoituManager extends ClientModule<"noitu-manager"> {
         interaction.guild.id,
         new NoituChannelConfig(targetChannel.id, interaction.guild.id),
       );
-      return NoituSetChannelEvent.SUCCESS;
+      return NoiTuSetChannelEvent.SUCCESS;
     } else {
-      return NoituSetChannelEvent.NOT_TEXT_CHANNEL;
+      return NoiTuSetChannelEvent.NOT_TEXT_CHANNEL;
     }
   }
 
@@ -124,10 +123,10 @@ export default class NoituManager extends ClientModule<"noitu-manager"> {
     const channelConfig = this.guildChannelConfigCollection.get(message.channelId);
 
     switch (response) {
-      case NoituMessageCreateEvent.SUCCESS:
+      case NoiTuMessageCreateEvent.SUCCESS:
         message.react("✅");
         break;
-      case NoituMessageCreateEvent.ERROR:
+      case NoiTuMessageCreateEvent.ERROR:
         embedBuilder.setTitle("Error on executing event MessageCreate").setColor(Colors.Red);
         await sendTemporatyMessageReply(message, {
           embeds: [embedBuilder],
@@ -144,28 +143,28 @@ export default class NoituManager extends ClientModule<"noitu-manager"> {
     }
   }
 
-  private messageCreateAction(message: Message<true>): NoituMessageCreateEvent {
+  private messageCreateAction(message: Message<true>): NoiTuMessageCreateEvent {
     const channel = this.channels.get(message.channelId);
-    if (!channel) return NoituMessageCreateEvent.NON_INTERACTIVE_CHANNEL;
+    if (!channel) return NoiTuMessageCreateEvent.NON_INTERACTIVE_CHANNEL;
 
     const channelConfig = this.guildChannelConfigCollection.get(channel.id);
-    if (!channelConfig) return NoituMessageCreateEvent.CHANNEL_CONFIG_NOT_FOUND;
+    if (!channelConfig) return NoiTuMessageCreateEvent.CHANNEL_CONFIG_NOT_FOUND;
 
     if (message.content.startsWith("!") || message.content.endsWith("!"))
-      return NoituMessageCreateEvent.IS_STARTSWITH_PREFIX;
+      return NoiTuMessageCreateEvent.IS_STARTSWITH_PREFIX;
 
     if (message.author.id == channelConfig.lastUserId && !channelConfig.continuously)
-      return NoituMessageCreateEvent.IS_THE_LAST_USER;
+      return NoiTuMessageCreateEvent.IS_THE_LAST_USER;
 
     const usedWordlist = channelConfig.usedWordlist.split("/");
     if (usedWordlist.find((phrase) => phrase == channelConfig.lastPhrase) && !channelConfig.repeat)
-      return NoituMessageCreateEvent.IS_REPEATED;
+      return NoiTuMessageCreateEvent.IS_REPEATED;
 
     const args = message.content.split(" ");
 
-    if (!this.wordDictionary[args[0]]) return NoituMessageCreateEvent.INCORRECT_STARTING_WORD;
+    if (!this.wordDictionary[args[0]]) return NoiTuMessageCreateEvent.INCORRECT_STARTING_WORD;
 
-    if (this.wordDictionary[args[0]][message.content]) return NoituMessageCreateEvent.INCORRECT_PHRASE;
+    if (this.wordDictionary[args[0]][message.content]) return NoiTuMessageCreateEvent.INCORRECT_PHRASE;
 
     channelConfig.lastUserId = message.author.id;
     channelConfig.lastPhrase = message.content;
@@ -173,9 +172,9 @@ export default class NoituManager extends ClientModule<"noitu-manager"> {
 
     if (channelConfig.counter >= channelConfig.resetAt && channelConfig.resetAt != -1) {
       channelConfig.resetCounter();
-      return NoituMessageCreateEvent.COUNTER_MAX_REACHED;
+      return NoiTuMessageCreateEvent.COUNTER_MAX_REACHED;
     }
 
-    return NoituMessageCreateEvent.SUCCESS;
+    return NoiTuMessageCreateEvent.SUCCESS;
   }
 }

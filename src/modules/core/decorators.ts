@@ -4,6 +4,7 @@ import { autoDeferReplyInteraction } from "../../slashCommandBuilder/function";
 
 export const MODULE_KEY = Symbol("module");
 
+/** Adds a stable module name to a class for registry and diagnostic output. */
 export function Module<TName extends string>(name: TName) {
   return <T extends new (...args: any[]) => any>(target: T) => {
     Reflect.defineMetadata(MODULE_KEY, name, target);
@@ -13,6 +14,7 @@ export function Module<TName extends string>(name: TName) {
 
 export const EVENT_KEY = Symbol("event");
 
+/** Registers one class method as a Discord event handler. */
 export function On(event: Events): MethodDecorator {
   return (target, propertyKey, descriptor) => {
     if (typeof propertyKey !== "string" && typeof propertyKey !== "symbol") {
@@ -31,6 +33,7 @@ export const REPOSITORIES_KEY = Symbol("repositories");
 
 export type RepositoryConstructor<T = any> = new (...args: any[]) => T;
 
+/** Marks a typed property for database repository injection during module startup. */
 export function Repository(): PropertyDecorator {
   return (target, propertyKey) => {
     const type = Reflect.getMetadata("design:type", target, propertyKey) as RepositoryConstructor;

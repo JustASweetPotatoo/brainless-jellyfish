@@ -1,4 +1,4 @@
-import { NoituMessageCreateEvent } from "../../modules/NoiTuManager";
+import { NoiTuMessageCreateEvent } from "../../modules/NoiTuManager";
 
 export interface NoituChannelConfigDataObj {
   readonly channel_id: string;
@@ -91,19 +91,19 @@ export default class NoituChannelConfig {
     };
   }
 
-  switchMessage(event: NoituMessageCreateEvent): string | undefined {
+  switchMessage(event: NoiTuMessageCreateEvent): string | undefined {
     switch (event) {
-      case NoituMessageCreateEvent.INCORRECT_PHRASE:
+      case NoiTuMessageCreateEvent.INCORRECT_PHRASE:
         return this.onWrongWordMessage;
-      case NoituMessageCreateEvent.INCORRECT_STARTING_WORD:
+      case NoiTuMessageCreateEvent.INCORRECT_STARTING_WORD:
         return this.onWrongStartingWordMessage;
-      case NoituMessageCreateEvent.IS_THE_LAST_USER:
+      case NoiTuMessageCreateEvent.IS_THE_LAST_USER:
         return this.onIsTheLastUserMessage;
-      case NoituMessageCreateEvent.IS_REPEATED:
+      case NoiTuMessageCreateEvent.IS_REPEATED:
         return this.onIsRepeatedMessage;
-      case NoituMessageCreateEvent.COUNTER_MAX_REACHED:
+      case NoiTuMessageCreateEvent.COUNTER_MAX_REACHED:
         return this.onCounterMaxReachedMessage;
-      case NoituMessageCreateEvent.ERROR:
+      case NoiTuMessageCreateEvent.ERROR:
         return "Error on executing event MessageCreate";
 
       default:

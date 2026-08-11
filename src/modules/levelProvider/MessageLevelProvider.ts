@@ -1,5 +1,4 @@
 import {
-  AttachmentBuilder,
   ChannelType,
   ChatInputCommandInteraction,
   Collection,
@@ -20,18 +19,10 @@ import UserLevelProfile from "../../database/model/UserLevelProfile";
 
 import GuildLevelProviderProfileRepo from "../../database/repository/LevelProviderGuildConfigRepo";
 import UserlevelProfileRepo from "../../database/repository/UserLevelProfileRepo";
-import {
-  calcLevel,
-  calcPercentageOfProgress,
-  craftEmbedProgressBar,
-  getRandomInt,
-  getTotalExpToReachLevel,
-} from "../../utils/calculator";
+import { calcLevel, getRandomInt } from "../../utils/calculator";
 import RankProviderMilestone from "../../database/model/RankProviderMilestone";
 import { autoDeferReply } from "../../utils/functions";
-import { sendInteractionMessageReply } from "../../utils/replier";
 import { On, Repository } from "../core/decorators";
-import generateRankCard from "../../utils/rankCard";
 
 export enum MessageLevelProviderEvents {
   GUILD_ACTIVE = "guildActive",

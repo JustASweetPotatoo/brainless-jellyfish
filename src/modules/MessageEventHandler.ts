@@ -13,29 +13,18 @@ import {
 } from "discord.js";
 import ClientModule from "./core/ClientModule";
 import GuildMessageLoggerConfigRepo from "../database/repository/logger/GuildMessageLoggerConfigRepo";
-import { ModuleOptions } from "./core/Module";
+import { ModuleOptions } from "./core/BaseModule";
+import { On, Repository } from "./core/decorators";
 import { EMBED_DESCRIPTION_MAX_LENGTH } from "../utils/const";
 import GuildMessageLoggerConfig from "../database/model/logger/GuildMessageLoggerConfig";
 import { autoDeferReply } from "../utils/functions";
 import { sendInteractionMessageReply } from "../utils/replier";
 
-export default class MessageEventLogger extends ClientModule {
-  readonly discordEvents: Events[] = [
-    Events.MessageUpdate,
-    Events.MessageDelete,
-    Events.MessageBulkDelete,
-  ];
-
+export default class MessageEventLogger extends ClientModule<"message-event-logger"> {
+  @Repository()
   private readonly repo: GuildMessageLoggerConfigRepo;
-  private readonly configCache: Collection<string, GuildMessageLoggerConfig> =
-    new Collection();
-  private readonly channelCache: Collection<string, TextChannel> =
-    new Collection();
-
-  constructor(options: ModuleOptions) {
-    super("message-event-logger", options);
-    this.repo = new GuildMessageLoggerConfigRepo(this.client.database);
-  }
+  private readonly configCache: Collection<string, GuildMessageLoggerConfig> = new Collection();
+  private readonly channelCache: Collection<string, TextChannel> = new Collection();
 
   private async initChannel(channleId: string, guild: Guild) {
     let channelCache = this.channelCache.get(`${channleId}:${guild.id}`);
@@ -43,10 +32,7 @@ export default class MessageEventLogger extends ClientModule {
     if (!channelCache) {
       let fetchChannel = await guild.channels.fetch(channleId);
       if (!fetchChannel) return undefined;
-      this.channelCache.set(
-        `${channleId}:${guild.id}`,
-        fetchChannel as TextChannel,
-      );
+      this.channelCache.set(`${channleId}:${guild.id}`, fetchChannel as TextChannel);
     }
 
     return channelCache;
@@ -74,10 +60,8 @@ export default class MessageEventLogger extends ClientModule {
     return await this.initChannel(prolfieCache.channelId!, guild);
   }
 
-  protected async onMessageUpdate(
-    oldMessage: Message,
-    newMessage: Message,
-  ): Promise<any> {
+  @On(Events.MessageUpdate)
+  protected async onMessageUpdate(oldMessage: Message, newMessage: Message): Promise<any> {
     if (oldMessage.author.bot || !oldMessage.inGuild()) return;
     let channel = await this.check(oldMessage.guild);
     if (!channel) return;
@@ -93,9 +77,7 @@ export default class MessageEventLogger extends ClientModule {
           })
           .setTitle(
             `${
-              locale == Locale.Vietnamese
-                ? "Tin nhắn đã chỉnh sửa trong"
-                : "Message edited in"
+              locale == Locale.Vietnamese ? "Tin nhắn đã chỉnh sửa trong" : "Message edited in"
             } <#${oldMessage.channelId}>`,
           )
           .addFields([
@@ -109,9 +91,7 @@ export default class MessageEventLogger extends ClientModule {
             },
           ])
           .setDescription(
-            `${locale == Locale.Vietnamese ? "Đã chỉnh sửa" : "Edited"} <t:${Math.floor(
-              Date.now() / 1000,
-            )}:R>`,
+            `${locale == Locale.Vietnamese ? "Đã chỉnh sửa" : "Edited"} <t:${Math.floor(Date.now() / 1000)}:R>`,
           )
           .setColor(Colors.Yellow)
           .setFooter({ text: `MSG-ID: ${oldMessage.id}` })
@@ -120,6 +100,7 @@ export default class MessageEventLogger extends ClientModule {
     });
   }
 
+  @On(Events.MessageDelete)
   protected async onMessageDelete(message: Message<true>): Promise<any> {
     if (message.author.bot) return;
     if (!message.inGuild()) return;
@@ -128,8 +109,7 @@ export default class MessageEventLogger extends ClientModule {
 
     if (!channel) return;
 
-    const isOverSizeMessage =
-      message.content.length > EMBED_DESCRIPTION_MAX_LENGTH;
+    const isOverSizeMessage = message.content.length > EMBED_DESCRIPTION_MAX_LENGTH;
 
     const embed = new EmbedBuilder()
       .setAuthor({
@@ -140,8 +120,7 @@ export default class MessageEventLogger extends ClientModule {
       .setDescription(
         `Deleted <t:${Math.floor(Date.now() / 1000)}:R>\n**Content:** ${
           message.content.length == 0 ? "*No content*" : message.content
-        }`.slice(0, EMBED_DESCRIPTION_MAX_LENGTH - 3) +
-          (isOverSizeMessage ? "..." : ""),
+        }`.slice(0, EMBED_DESCRIPTION_MAX_LENGTH - 3) + (isOverSizeMessage ? "..." : ""),
       )
       .setColor(Colors.Red)
       .setFooter({ text: `MSG-ID: ${message.id}` })
@@ -161,9 +140,8 @@ export default class MessageEventLogger extends ClientModule {
     });
   }
 
-  protected async onMessageBulkDelete(
-    messages: Collection<string, Message<true>>,
-  ): Promise<any> {
+  @On(Events.MessageBulkDelete)
+  protected async onMessageBulkDelete(messages: Collection<string, Message<true>>): Promise<any> {
     if (!messages.first()?.inGuild()) return;
 
     let chunk: string = "";
@@ -171,9 +149,7 @@ export default class MessageEventLogger extends ClientModule {
     let firstEmbedFullContent = false;
     const firstEmbedTimeData = `Deleted <t:${Math.floor(Date.now() / 1000)}:R>`;
     const firstEmbed = new EmbedBuilder()
-      .setTitle(
-        `${messages.size} messages deleted in <#${messages.first()?.channelId}>`,
-      )
+      .setTitle(`${messages.size} messages deleted in <#${messages.first()?.channelId}>`)
       .setColor(Colors.Red);
 
     const embeds = [];
@@ -189,10 +165,7 @@ export default class MessageEventLogger extends ClientModule {
         const rowContent = `**${msg.author.username}**: ${msg.content}`;
 
         if (!firstEmbedFullContent) {
-          if (
-            chunk.length + rowContent.length + firstEmbedTimeData.length <
-            EMBED_DESCRIPTION_MAX_LENGTH
-          ) {
+          if (chunk.length + rowContent.length + firstEmbedTimeData.length < EMBED_DESCRIPTION_MAX_LENGTH) {
             chunk += rowContent + "\n";
           } else {
             firstEmbed.setDescription(firstEmbedTimeData + "\n" + chunk);
@@ -212,9 +185,7 @@ export default class MessageEventLogger extends ClientModule {
       });
   }
 
-  private async autoReplyNotInGuildCommandInteraction(
-    interaction: ChatInputCommandInteraction,
-  ) {
+  private async autoReplyNotInGuildCommandInteraction(interaction: ChatInputCommandInteraction) {
     await autoDeferReply(interaction);
 
     if (!interaction.inCachedGuild()) {
@@ -283,9 +254,7 @@ export default class MessageEventLogger extends ClientModule {
 
       config.channelId = undefined;
     } else {
-      const channel = interaction.options.getChannel("channel", true, [
-        ChannelType.GuildText,
-      ]);
+      const channel = interaction.options.getChannel("channel", true, [ChannelType.GuildText]);
 
       config.channelId = channel.id;
       this.channelCache.set(`${config.channelId}:${config.id}`, channel);

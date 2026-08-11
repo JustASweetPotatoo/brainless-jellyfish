@@ -1,10 +1,4 @@
-import {
-  ChannelType,
-  ChatInputCommandInteraction,
-  PermissionFlagsBits,
-  SlashCommandChannelOption,
-} from "discord.js";
-import ClientSlashCommandBuilder from "../slashCommandBuilder/SlashCommandBuilder";
+import { ChannelType, ChatInputCommandInteraction, SlashCommandChannelOption } from "discord.js";
 import ClientSlashCommandSubcommandBuilder from "../slashCommandBuilder/SlashCommandSubcommandBuilder";
 
 const setMessageLogChannel = new ClientSlashCommandSubcommandBuilder()
@@ -14,7 +8,7 @@ const setMessageLogChannel = new ClientSlashCommandSubcommandBuilder()
     new SlashCommandChannelOption()
       .setName("channel")
       .setDescription("Channel to set, must be text channel")
-      .addChannelTypes([ChannelType.GuildText])
+      .addChannelTypes([ChannelType.GuildText]),
   )
   .setExecutor(async (client, interaction) => {
     const itrt = interaction as ChatInputCommandInteraction<"cached">;
@@ -36,13 +30,13 @@ const setUserLogChannel = new ClientSlashCommandSubcommandBuilder()
     new SlashCommandChannelOption()
       .setName("channel")
       .setDescription("Channel to set")
-      .addChannelTypes([ChannelType.GuildText])
-  )
-  // .setExecutor(async (client, interaction) =>
-  //   client.moduleManager
-  //     .getUserEventManager()
-  //     .setChannelInteractionExecutor(interaction as ChatInputCommandInteraction)
-  // );
+      .addChannelTypes([ChannelType.GuildText]),
+  );
+// .setExecutor(async (client, interaction) =>
+//   client.moduleManager
+//     .getUserEventManager()
+//     .setChannelInteractionExecutor(interaction as ChatInputCommandInteraction)
+// );
 
 // export default new ClientSlashCommandBuilder({
 //   subcommands: [setMessageLogChannel, setUserLogChannel],

@@ -33,8 +33,6 @@ export interface ModuleConstructor<T extends string = string> {
   moduleName: T;
 }
 
-type AnyFn = (...args: any[]) => any;
-
 export type ErrorInteractionType = ChatInputCommandInteraction | ButtonInteraction | ModalSubmitInteraction;
 
 export default abstract class BaseModule<TName extends string> extends EventEmitter {
@@ -263,7 +261,7 @@ export default abstract class BaseModule<TName extends string> extends EventEmit
     const durationByMiliseconds = doneTimestamp - interaction.createdTimestamp;
     const commandName = ClientSlashCommandBuilder.getStackName(interaction as ChatInputCommandInteraction);
 
-    const responseTime = interaction.createdTimestamp - Date.now();
+    const responseTime = doneTimestamp - interaction.createdTimestamp;
     const error = new ClientError(ErrorCode.UNKNOWN_ERROR, err);
 
     const embed = new EmbedBuilder({

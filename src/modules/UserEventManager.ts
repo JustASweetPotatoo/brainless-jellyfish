@@ -8,7 +8,6 @@ import {
   Guild,
   GuildMember,
   TextChannel,
-  User,
 } from "discord.js";
 import ClientModule from "./core/ClientModule";
 import GuilUserLoggerConfigRepo from "../database/repository/logger/GuilUserLoggerConfigRepo";

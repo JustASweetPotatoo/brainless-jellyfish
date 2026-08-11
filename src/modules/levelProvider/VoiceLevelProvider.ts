@@ -24,23 +24,17 @@ export enum UserVoiceChannelAction {
 }
 
 export default class VoiceLevelProvider extends ClientModule<"voice-level-provider"> {
-  private readonly cache: Collection<string, GuildLevelProviderProfile> =
-    new Collection();
-  private readonly userCache: Collection<string, UserLevelProfile> =
-    new Collection();
+  private readonly cache: Collection<string, GuildLevelProviderProfile> = new Collection();
+  private readonly userCache: Collection<string, UserLevelProfile> = new Collection();
 
   @Repository()
   private readonly guildRepo: GuildLevelProviderProfileRepo;
   @Repository()
   private readonly userRepo: UserlevelProfileRepo;
 
-  private readonly sessions: Collection<string, UserVoiceSession> =
-    new Collection();
+  private readonly sessions: Collection<string, UserVoiceSession> = new Collection();
 
-  private classifyState(
-    oldState: VoiceState,
-    newState: VoiceState,
-  ): UserVoiceChannelAction {
+  private classifyState(oldState: VoiceState, newState: VoiceState): UserVoiceChannelAction {
     if (oldState.member && !newState.member) {
       return UserVoiceChannelAction.LEAVE;
     } else if (!oldState.member && newState.member) {
@@ -52,13 +46,10 @@ export default class VoiceLevelProvider extends ClientModule<"voice-level-provid
     }
   }
 
-  private async getGuildProfile(
-    guildId: string,
-  ): Promise<GuildLevelProviderProfile> {
+  private async getGuildProfile(guildId: string): Promise<GuildLevelProviderProfile> {
     let guildProfile = this.cache.get(guildId);
     if (!guildProfile) guildProfile = (await this.guildRepo.get(guildId))!;
-    if (!guildProfile)
-      guildProfile = new GuildLevelProviderProfile({ id: guildId });
+    if (!guildProfile) guildProfile = new GuildLevelProviderProfile({ id: guildId });
     return guildProfile;
   }
 
@@ -104,16 +95,10 @@ export default class VoiceLevelProvider extends ClientModule<"voice-level-provid
 
     if (session.isOpenMic) {
       expBonus +=
-        Math.floor(
-          ((Date.now() - (session.lastOpenMicTimestamp ?? Date.now())) /
-            60000) *
-            0.5,
-        ) * getRandomInt(25, 35);
+        Math.floor(((Date.now() - (session.lastOpenMicTimestamp ?? Date.now())) / 60000) * 0.5) * getRandomInt(25, 35);
     }
 
-    const expByMinutes =
-      Math.floor(((Date.now() - session.joinTimestamp) / 60000) * 0.5) *
-      getRandomInt(25, 35);
+    const expByMinutes = Math.floor(((Date.now() - session.joinTimestamp) / 60000) * 0.5) * getRandomInt(25, 35);
 
     userProfile.voiceExp += expByMinutes + session.bonusEpx + expBonus;
 
@@ -140,13 +125,9 @@ export default class VoiceLevelProvider extends ClientModule<"voice-level-provid
       session.isOpenMic = false;
     }
 
-    const timeByMiliseconds =
-      Date.now() - (session.lastOpenMicTimestamp ?? Date.now());
+    const timeByMiliseconds = Date.now() - (session.lastOpenMicTimestamp ?? Date.now());
 
-    const expBonus =
-      Math.floor(
-        ((timeByMiliseconds > 0 ? timeByMiliseconds : 0) / 60000) * 0.5,
-      ) * getRandomInt(25, 35);
+    const expBonus = Math.floor(((timeByMiliseconds > 0 ? timeByMiliseconds : 0) / 60000) * 0.5) * getRandomInt(25, 35);
 
     session.bonusEpx += expBonus;
     this.sessions.set(session.id, session);
@@ -171,11 +152,8 @@ export default class VoiceLevelProvider extends ClientModule<"voice-level-provid
     this.sessions.set(session.id, session);
   }
 
-  @On(Events.VoiceServerUpdate)
-  protected async onVoiceStateUpdate(
-    oldState: VoiceState,
-    newState: VoiceState,
-  ): Promise<any> {
+  @On(Events.VoiceStateUpdate)
+  protected async onVoiceStateUpdate(oldState: VoiceState, newState: VoiceState): Promise<any> {
     const member = oldState.member || newState.member;
     if (!member || member.user.bot) return;
     const guildProfile = await this.getGuildProfile(member.guild.id);

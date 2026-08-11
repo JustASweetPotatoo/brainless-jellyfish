@@ -3,7 +3,8 @@ import { Events, Guild } from "discord.js";
 import ClientModule from "./core/ClientModule";
 import { On } from "./core/decorators";
 
-export default class ClientDevelopmentService extends ClientModule<"development-serivce"> {
+export default class ClientDevelopmentService extends ClientModule<"client-development-service"> {
+  static readonly moduleName = "client-development-service";
   @On(Events.ClientReady)
   async onClientReady() {
     if (this.client.operationMode != "debug") {

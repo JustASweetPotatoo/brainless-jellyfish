@@ -39,10 +39,7 @@ export default class SlashCommandManager extends ClientModule<"slash-command-man
   private slashCommandJSONBody: Array<RESTPostAPIApplicationCommandsJSONBody> = [];
   private readonly maxHeavyCommands = readPositiveInteger(process.env.MAX_HEAVY_COMMANDS, 2);
   private readonly heavyCommandCooldown = readPositiveInteger(process.env.HEAVY_COMMAND_COOLDOWN_MS, 5000);
-  private readonly heavyCommandMessageTimeout = readPositiveInteger(
-    process.env.HEAVY_COMMAND_MESSAGE_TIMEOUT_MS,
-    5000,
-  );
+  private readonly heavyCommandMessageTimeout = readPositiveInteger(process.env.HEAVY_COMMAND_MESSAGE_TIMEOUT_MS, 5000);
   private readonly heavyCommandCooldowns = new Collection<string, number>();
   private heavyCommandsInFlight = 0;
 
@@ -51,6 +48,7 @@ export default class SlashCommandManager extends ClientModule<"slash-command-man
     this.client.on("system-operational", this.onSystemOperational.bind(this));
   }
 
+  /** Loads command modules and registers the current shard's guild commands. */
   protected async onSystemOperational(): Promise<any> {
     try {
       await this.getCommands();
@@ -95,11 +93,12 @@ export default class SlashCommandManager extends ClientModule<"slash-command-man
     this.logger.ok(`Readed total ${this.commands.size} commands`);
   }
 
+  /** Builds the REST payload once so command serialization errors are isolated and logged. */
   private craftBody() {
     this.logger.log("Crafting new (/) commands JSON body...");
     this.slashCommandJSONBody = [];
 
-    for (const [commandName, commandBuilder] of this.commands) {
+    for (const commandBuilder of this.commands.values()) {
       try {
         this.slashCommandJSONBody.push(commandBuilder.toJSON());
       } catch (error) {
@@ -143,7 +142,7 @@ export default class SlashCommandManager extends ClientModule<"slash-command-man
 
     this.craftBody();
 
-    for (const [id, guild] of guilds) {
+    for (const guild of guilds.values()) {
       try {
         await this.registerCommandsToGuild(guild);
         counter++;

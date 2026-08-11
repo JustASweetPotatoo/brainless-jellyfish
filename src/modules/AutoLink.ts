@@ -1,29 +1,19 @@
-import {
-  Colors,
-  EmbedBuilder,
-  Events,
-  Message,
-  OmitPartialGroupDMChannel,
-  PartialMessage,
-} from "discord.js";
+import { Colors, EmbedBuilder, Events, Message } from "discord.js";
 import ClientModule from "./core/ClientModule";
-import { ModuleOptions } from "./core/Module";
+import { ModuleOptions } from "./core/BaseModule";
+import { On } from "./core/decorators";
 import { extractFbLinkFromContent } from "../utils/autoLink";
 
-export default class AutoLink extends ClientModule {
-  readonly discordEvents: Events[] = [
-    Events.MessageCreate,
-    Events.VoiceStateUpdate,
-  ];
-
+export default class AutoLink extends ClientModule<"auto-link"> {
   constructor(options: ModuleOptions) {
-    super("auto-link", options);
+    super(options);
   }
 
   private convertLink(content: string) {
     return content.replace("https://www.facebook.com", "http://python:9812");
   }
 
+  @On(Events.MessageCreate)
   protected async onMessageCreate(message: Message<true>): Promise<any> {
     try {
       if (!message.inGuild() || message.author.bot) return;
@@ -49,7 +39,7 @@ export default class AutoLink extends ClientModule {
         return;
       }
 
-      const htmlText = await (await fetch(convertedLink)).text();
+      await (await fetch(convertedLink)).text();
     } catch (error) {
       this.logger.error(error);
     }

@@ -18,7 +18,7 @@ export default new ClientSlashCommandBuilder()
   .setName("user")
   .setDescription("Get user or member info")
   .addUserOption(new SlashCommandUserOption().setName("user").setDescription("The user to inspect").setRequired(false))
-  .setExecutor(async (client, interaction) => {
+  .setExecutor(async (_client, interaction) => {
     if (!(interaction instanceof ChatInputCommandInteraction)) {
       return;
     }

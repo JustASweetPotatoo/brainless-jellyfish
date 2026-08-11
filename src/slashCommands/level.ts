@@ -1,5 +1,4 @@
 import {
-  AutocompleteInteraction,
   ChannelType,
   ChatInputCommandInteraction,
   MessageFlags,
