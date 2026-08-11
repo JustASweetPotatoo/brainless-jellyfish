@@ -1,0 +1,197 @@
+@import url("https://fonts.googleapis.com/css2?family=Source+Sans+Pro:wght@400;600;700&display=swap");
+@import "tailwindcss";
+
+/* ===== Color tokens: Light mode (default) ===== */
+:root {
+  --c-grey-100: #141414;
+  --c-grey-200: #292929;
+  --c-grey-300: #3d3d3d;
+  --c-grey-400: #525252;
+  --c-grey-500: #666666;
+  --c-grey-600: #858585;
+  --c-grey-700: #a3a3a3;
+  --c-grey-800: #c2c2c2;
+  --c-grey-900: #e0e0e0;
+
+  --c-primary-100: #040509;
+  --c-primary-200: #080b12;
+  --c-primary-300: #0c101b;
+  --c-primary-400: #f2f0f0;
+  --c-primary-500: #141b2d;
+  --c-primary-600: #1f2a40;
+  --c-primary-700: #727681;
+  --c-primary-800: #a1a4ab;
+  --c-primary-900: #d0d1d5;
+
+  --c-green-100: #0f2922;
+  --c-green-200: #1e5245;
+  --c-green-300: #2e7c67;
+  --c-green-400: #3da58a;
+  --c-green-500: #4cceac;
+  --c-green-600: #70d8bd;
+  --c-green-700: #94e2cd;
+  --c-green-800: #b7ebde;
+  --c-green-900: #dbf5ee;
+
+  --c-red-100: #2c100f;
+  --c-red-200: #58201e;
+  --c-red-300: #832f2c;
+  --c-red-400: #af3f3b;
+  --c-red-500: #db4f4a;
+  --c-red-600: #e2726e;
+  --c-red-700: #e99592;
+  --c-red-800: #f1b9b7;
+  --c-red-900: #f8dcdb;
+
+  --c-blue-100: #151632;
+  --c-blue-200: #2a2d64;
+  --c-blue-300: #3e4396;
+  --c-blue-400: #535ac8;
+  --c-blue-500: #6870fa;
+  --c-blue-600: #868dfb;
+  --c-blue-700: #a4a9fc;
+  --c-blue-800: #c3c6fd;
+  --c-blue-900: #e1e2fe;
+}
+
+/* ===== Color tokens: Dark mode ===== */
+.dark {
+  --c-grey-100: #e0e0e0;
+  --c-grey-200: #c2c2c2;
+  --c-grey-300: #a3a3a3;
+  --c-grey-400: #858585;
+  --c-grey-500: #666666;
+  --c-grey-600: #525252;
+  --c-grey-700: #3d3d3d;
+  --c-grey-800: #292929;
+  --c-grey-900: #141414;
+
+  --c-primary-100: #d0d1d5;
+  --c-primary-200: #a1a4ab;
+  --c-primary-300: #727681;
+  --c-primary-400: #1f2a40;
+  --c-primary-500: #141b2d;
+  --c-primary-600: #101624;
+  --c-primary-700: #0c101b;
+  --c-primary-800: #080b12;
+  --c-primary-900: #040509;
+
+  --c-green-100: #dbf5ee;
+  --c-green-200: #b7ebde;
+  --c-green-300: #94e2cd;
+  --c-green-400: #70d8bd;
+  --c-green-500: #4cceac;
+  --c-green-600: #3da58a;
+  --c-green-700: #2e7c67;
+  --c-green-800: #1e5245;
+  --c-green-900: #0f2922;
+
+  --c-red-100: #f8dcdb;
+  --c-red-200: #f1b9b7;
+  --c-red-300: #e99592;
+  --c-red-400: #e2726e;
+  --c-red-500: #db4f4a;
+  --c-red-600: #af3f3b;
+  --c-red-700: #832f2c;
+  --c-red-800: #58201e;
+  --c-red-900: #2c100f;
+
+  --c-blue-100: #e1e2fe;
+  --c-blue-200: #c3c6fd;
+  --c-blue-300: #a4a9fc;
+  --c-blue-400: #868dfb;
+  --c-blue-500: #6870fa;
+  --c-blue-600: #535ac8;
+  --c-blue-700: #3e4396;
+  --c-blue-800: #2a2d64;
+  --c-blue-900: #151632;
+}
+
+/* Map CSS variables -> Tailwind color utilities (bg-*, text-*, border-*) */
+@theme inline {
+  --color-grey-100: var(--c-grey-100);
+  --color-grey-200: var(--c-grey-200);
+  --color-grey-300: var(--c-grey-300);
+  --color-grey-400: var(--c-grey-400);
+  --color-grey-500: var(--c-grey-500);
+  --color-grey-600: var(--c-grey-600);
+  --color-grey-700: var(--c-grey-700);
+  --color-grey-800: var(--c-grey-800);
+  --color-grey-900: var(--c-grey-900);
+
+  --color-primary-100: var(--c-primary-100);
+  --color-primary-200: var(--c-primary-200);
+  --color-primary-300: var(--c-primary-300);
+  --color-primary-400: var(--c-primary-400);
+  --color-primary-500: var(--c-primary-500);
+  --color-primary-600: var(--c-primary-600);
+  --color-primary-700: var(--c-primary-700);
+  --color-primary-800: var(--c-primary-800);
+  --color-primary-900: var(--c-primary-900);
+
+  --color-green-100: var(--c-green-100);
+  --color-green-200: var(--c-green-200);
+  --color-green-300: var(--c-green-300);
+  --color-green-400: var(--c-green-400);
+  --color-green-500: var(--c-green-500);
+  --color-green-600: var(--c-green-600);
+  --color-green-700: var(--c-green-700);
+  --color-green-800: var(--c-green-800);
+  --color-green-900: var(--c-green-900);
+
+  --color-red-100: var(--c-red-100);
+  --color-red-200: var(--c-red-200);
+  --color-red-300: var(--c-red-300);
+  --color-red-400: var(--c-red-400);
+  --color-red-500: var(--c-red-500);
+  --color-red-600: var(--c-red-600);
+  --color-red-700: var(--c-red-700);
+  --color-red-800: var(--c-red-800);
+  --color-red-900: var(--c-red-900);
+
+  --color-blue-100: var(--c-blue-100);
+  --color-blue-200: var(--c-blue-200);
+  --color-blue-300: var(--c-blue-300);
+  --color-blue-400: var(--c-blue-400);
+  --color-blue-500: var(--c-blue-500);
+  --color-blue-600: var(--c-blue-600);
+  --color-blue-700: var(--c-blue-700);
+  --color-blue-800: var(--c-blue-800);
+  --color-blue-900: var(--c-blue-900);
+
+  --font-sans: "Source Sans Pro", "sans-serif";
+}
+
+html,
+body,
+#root,
+.app,
+.content {
+  height: 100%;
+  width: 100%;
+  font-family: "Source Sans Pro", sans-serif;
+}
+
+.app {
+  display: flex;
+  position: relative;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+}
+
+/* Track */
+::-webkit-scrollbar-track {
+  background: #e0e0e0;
+}
+
+/* Handle */
+::-webkit-scrollbar-thumb {
+  background: #888;
+}
+
+/* Handle on hover */
+::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}

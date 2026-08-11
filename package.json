@@ -1,6 +1,8 @@
 {
   "dependencies": {
     "@fastify/websocket": "^11.2.0",
+    "@heroicons/react": "^2.2.0",
+    "@material-tailwind/react": "^2.1.10",
     "canvas": "^3.2.3",
     "discord-api-types": "^0.37.101",
     "discord.js": "^14.16.3",

@@ -7,6 +7,7 @@ dotenv.config();
 
 const { TOKEN } = process.env;
 
+/** Validates manager configuration before any shard process is created. */
 if (!TOKEN) {
   throw new Error("TOKEN is required to start the bot.");
 }
@@ -41,6 +42,7 @@ process.on("warning", (warning) => {
 });
 
 manager.on("shardCreate", (shard) => {
+  /** Child-process diagnostics stay in the manager so shard failures remain visible. */
   console.log(`[SHARD-MANAGER] Shard ${shard.id} created.`);
   shard.on("error", (error) => {
     console.error(`[SHARD-MANAGER] Shard ${shard.id} error:`, error);

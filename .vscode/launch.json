@@ -2,7 +2,7 @@
   "version": "0.3.0",
   "configurations": [
     {
-      "command": "npm start",
+      "command": "npm run dashboard",
       "name": "Run dashboard",
       "request": "launch",
       "type": "node-terminal"
