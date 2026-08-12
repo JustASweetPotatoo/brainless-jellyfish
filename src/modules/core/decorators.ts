@@ -1,10 +1,13 @@
 import "reflect-metadata";
 import { ChatInputCommandInteraction, Events, MessageFlags, PermissionFlagsBits } from "discord.js";
 import { autoDeferReplyInteraction } from "../../slashCommandBuilder/function";
+import { ModuleEvents } from "./BaseModule";
 
 export const MODULE_KEY = Symbol("module");
 
-/** Adds a stable module name to a class for registry and diagnostic output. */
+/**
+ * Adds a stable module name to a class for registry and diagnostic output.
+ */
 export function Module<TName extends string>(name: TName) {
   return <T extends new (...args: any[]) => any>(target: T) => {
     Reflect.defineMetadata(MODULE_KEY, name, target);
@@ -12,19 +15,57 @@ export function Module<TName extends string>(name: TName) {
   };
 }
 
-export const EVENT_KEY = Symbol("event");
+/**
+ * Discord event metadata.
+ */
+export const DISCORD_EVENT_KEY = Symbol("discord-event");
 
-/** Registers one class method as a Discord event handler. */
+/**
+ * Registers one class method as a Discord event handler.
+ *
+ * Example:
+ * @On(Events.MessageCreate)
+ * async onMessageCreate(message: Message) {}
+ */
 export function On(event: Events): MethodDecorator {
   return (target, propertyKey, descriptor) => {
     if (typeof propertyKey !== "string" && typeof propertyKey !== "symbol") {
       throw new TypeError("@On can only decorate a method.");
     }
+
     if (!descriptor || typeof descriptor.value !== "function") {
       throw new TypeError(`@On(${event}) must decorate a method.`);
     }
 
-    Reflect.defineMetadata(EVENT_KEY, event, target, propertyKey);
+    Reflect.defineMetadata(DISCORD_EVENT_KEY, event, target, propertyKey);
+  };
+}
+
+/**
+ * Module event metadata.
+ *
+ * Module events are internal events emitted by BaseModule itself.
+ */
+export const MODULE_EVENT_KEY = Symbol("module-event");
+
+/**
+ * Registers one class method as an internal module event handler.
+ *
+ * Example:
+ * @ModuleOn(MessageLevelProviderEvents.USER_LEVEL_UP)
+ * private async onUserLevelUp(...) {}
+ */
+export function ModuleOn<E extends ModuleEvents>(event: E): MethodDecorator {
+  return (target, propertyKey, descriptor) => {
+    if (typeof propertyKey !== "string" && typeof propertyKey !== "symbol") {
+      throw new TypeError("@ModuleOn can only decorate a method.");
+    }
+
+    if (!descriptor || typeof descriptor.value !== "function") {
+      throw new TypeError(`@ModuleOn(${String(event)}) must decorate a method.`);
+    }
+
+    Reflect.defineMetadata(MODULE_EVENT_KEY, event, target, propertyKey);
   };
 }
 
@@ -33,7 +74,9 @@ export const REPOSITORIES_KEY = Symbol("repositories");
 
 export type RepositoryConstructor<T = any> = new (...args: any[]) => T;
 
-/** Marks a typed property for database repository injection during module startup. */
+/**
+ * Marks a typed property for database repository injection during module startup.
+ */
 export function Repository(): PropertyDecorator {
   return (target, propertyKey) => {
     const type = Reflect.getMetadata("design:type", target, propertyKey) as RepositoryConstructor;
@@ -44,6 +87,7 @@ export function Repository(): PropertyDecorator {
           `Make sure "emitDecoratorMetadata" is enabled.`,
       );
     }
+
     if (typeof propertyKey !== "string" && typeof propertyKey !== "symbol") {
       throw new TypeError("@Repository can only decorate a property.");
     }
@@ -69,15 +113,14 @@ type InGuildCommandExecutorHandler = (interaction: ChatInputCommandInteraction<"
 export interface CommandExecutorDecoratorOption {
   guildOnly?: boolean;
   deferred?: boolean;
+
   /** @deprecated Use deferred instead. */
   defered?: boolean;
+
   ephemeral?: boolean;
   requiredAdminPermission?: boolean;
 }
 
-/**
- * @description Required interaction type ChatInputCommandInteraction
- */
 export function SlashCommandExecutor(options: {
   guildOnly: true;
   deferred?: boolean;
@@ -116,7 +159,6 @@ export function SlashCommandExecutor(
     const shouldDefer = options?.deferred ?? options?.defered ?? false;
 
     descriptor.value = async function (this: any, interaction: ChatInputCommandInteraction, ...args: any[]) {
-      // Guild only
       if (options?.guildOnly && !interaction.inCachedGuild()) {
         if (!interaction.replied && !interaction.deferred) {
           await interaction.reply({
@@ -128,7 +170,6 @@ export function SlashCommandExecutor(
         return;
       }
 
-      // Require Administrator
       if (
         options?.requiredAdminPermission &&
         interaction.inCachedGuild() &&
@@ -156,7 +197,6 @@ export function SlashCommandExecutor(
         });
       }
 
-      // Execute command
       return await originalMethod.call(this, interaction, ...args);
     };
   };

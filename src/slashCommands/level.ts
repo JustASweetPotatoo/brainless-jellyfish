@@ -19,7 +19,9 @@ const getRank = new ClientSlashCommandSubcommandBuilder()
   .setName("check")
   .setDescription("Check your level or someone else's")
   .setExecutor(async (client, interaction) =>
-    client.moduleManager.get("guild-level-manager").getUserRank(interaction as ChatInputCommandInteraction<"cached">),
+    client.moduleManager
+      .get("guild-level-manager")
+      .getMemberLevel(interaction as ChatInputCommandInteraction<"cached">),
   )
   .addUserOption(new SlashCommandUserOption().setName("target").setDescription("Member to check").setRequired(false));
 

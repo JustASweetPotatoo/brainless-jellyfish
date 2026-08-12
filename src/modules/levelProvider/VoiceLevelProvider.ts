@@ -3,11 +3,11 @@ import UserLevelProfile from "../../database/model/UserLevelProfile";
 import GuildLevelProviderProfileRepo from "../../database/repository/LevelProviderGuildConfigRepo";
 import UserlevelProfileRepo from "../../database/repository/UserLevelProfileRepo";
 import { getRandomInt } from "../../utils/calculator";
-import { On, Repository } from "../core/decorators";
+import { ModuleOn, On, Repository } from "../core/decorators";
 import ClientModule from "../core/ClientModule";
 import { Collection, Events, GuildMember, VoiceState } from "discord.js";
 
-export interface UserVoiceSession {
+export interface MemberVoiceSession {
   readonly id: string;
   readonly guildId: string;
   readonly joinTimestamp: number;
@@ -16,11 +16,11 @@ export interface UserVoiceSession {
   bonusEpx: number;
 }
 
-export enum UserVoiceChannelAction {
-  MUTE,
-  UNMUTE,
-  JOIN,
-  LEAVE,
+export enum MemberVoiceEvents {
+  MUTE = "voiceMute",
+  UNMUTE = "voiceUnmute",
+  JOIN = "voiceJoin",
+  LEAVE = "voiceLeave",
 }
 
 export default class VoiceLevelProvider extends ClientModule<"voice-level-provider"> {
@@ -32,17 +32,17 @@ export default class VoiceLevelProvider extends ClientModule<"voice-level-provid
   @Repository()
   private readonly userRepo: UserlevelProfileRepo;
 
-  private readonly sessions: Collection<string, UserVoiceSession> = new Collection();
+  private readonly sessions: Collection<string, MemberVoiceSession> = new Collection();
 
-  private classifyState(oldState: VoiceState, newState: VoiceState): UserVoiceChannelAction {
-    if (oldState.member && !newState.member) {
-      return UserVoiceChannelAction.LEAVE;
-    } else if (!oldState.member && newState.member) {
-      return UserVoiceChannelAction.JOIN;
-    } else if (newState.mute) {
-      return UserVoiceChannelAction.MUTE;
+  private classifyState(oldState: VoiceState, newState: VoiceState): MemberVoiceEvents {
+    if (oldState.channelId && !newState.channelId) {
+      return MemberVoiceEvents.LEAVE;
+    } else if (!oldState.channelId && newState.channelId) {
+      return MemberVoiceEvents.JOIN;
+    } else if (!oldState.mute && newState.mute) {
+      return MemberVoiceEvents.MUTE;
     } else {
-      return UserVoiceChannelAction.UNMUTE;
+      return MemberVoiceEvents.UNMUTE;
     }
   }
 
@@ -68,6 +68,7 @@ export default class VoiceLevelProvider extends ClientModule<"voice-level-provid
     return userProfile;
   }
 
+  @ModuleOn(MemberVoiceEvents.JOIN)
   private async userJoinVoiceEvent(member: GuildMember) {
     const cacheId = `${member.id}|${member.guild.id}`;
     let session = this.sessions.get(cacheId);
@@ -77,7 +78,7 @@ export default class VoiceLevelProvider extends ClientModule<"voice-level-provid
       id: member.id,
       guildId: member.guild.id,
       joinTimestamp: Date.now(),
-      isOpenMic: member.voice.mute ?? false,
+      isOpenMic: !member.voice.selfMute,
       bonusEpx: 0,
       lastOpenMicTimestamp: member.voice.mute ? undefined : Date.now(),
     };
@@ -85,11 +86,14 @@ export default class VoiceLevelProvider extends ClientModule<"voice-level-provid
     this.sessions.set(cacheId, session);
   }
 
+  @ModuleOn(MemberVoiceEvents.LEAVE)
   private async userLeaveVoiceEvent(member: GuildMember) {
     const userProfile = await this.getUserProfile(member);
     const cacheId = `${member.id}|${member.guild.id}`;
-    const session = this.sessions.get(cacheId);
-    if (!session) return;
+    let session = this.sessions.get(cacheId);
+    if (!session) {
+      return;
+    }
 
     let expBonus = 0;
 
@@ -107,6 +111,7 @@ export default class VoiceLevelProvider extends ClientModule<"voice-level-provid
     await this.userRepo.updateByVoiceLevel(userProfile);
   }
 
+  @ModuleOn(MemberVoiceEvents.MUTE)
   private async userMuteEvent(member: GuildMember) {
     const cacheId = `${member.id}|${member.guild.id}`;
     let session = this.sessions.get(cacheId);
@@ -133,6 +138,7 @@ export default class VoiceLevelProvider extends ClientModule<"voice-level-provid
     this.sessions.set(session.id, session);
   }
 
+  @ModuleOn(MemberVoiceEvents.UNMUTE)
   private async userUnmuteEvent(member: GuildMember) {
     const cacheId = `${member.id}|${member.guild.id}`;
     let session = this.sessions.get(cacheId);
@@ -159,21 +165,8 @@ export default class VoiceLevelProvider extends ClientModule<"voice-level-provid
     const guildProfile = await this.getGuildProfile(member.guild.id);
     if (!guildProfile.active) return;
 
-    const userState = this.classifyState(oldState, newState);
+    const memberEvent = this.classifyState(oldState, newState);
 
-    switch (userState) {
-      case UserVoiceChannelAction.JOIN:
-        await this.userJoinVoiceEvent(member);
-        break;
-      case UserVoiceChannelAction.LEAVE:
-        await this.userLeaveVoiceEvent(member);
-        break;
-      case UserVoiceChannelAction.MUTE:
-        await this.userMuteEvent(member);
-        break;
-      case UserVoiceChannelAction.UNMUTE:
-        await this.userUnmuteEvent(member);
-        break;
-    }
+    this.emit(memberEvent, oldState, newState);
   }
 }

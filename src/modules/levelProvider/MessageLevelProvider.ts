@@ -8,9 +8,9 @@ import {
   GuildMember,
   InteractionEditReplyOptions,
   Message,
-  Role,
   TextChannel,
 } from "discord.js";
+
 import ClientModule from "../core/ClientModule";
 import { ModuleOptions } from "../core/BaseModule";
 
@@ -19,10 +19,11 @@ import UserLevelProfile from "../../database/model/UserLevelProfile";
 
 import GuildLevelProviderProfileRepo from "../../database/repository/LevelProviderGuildConfigRepo";
 import UserlevelProfileRepo from "../../database/repository/UserLevelProfileRepo";
+
 import { calcLevel, getRandomInt } from "../../utils/calculator";
 import RankProviderMilestone from "../../database/model/RankProviderMilestone";
 import { autoDeferReply } from "../../utils/functions";
-import { On, Repository } from "../core/decorators";
+import { ModuleOn, On, Repository } from "../core/decorators";
 
 export enum MessageLevelProviderEvents {
   GUILD_ACTIVE = "guildActive",
@@ -43,49 +44,25 @@ export interface UserLevelAddOptions {
   amount: number;
 }
 
-export default class MessageLevelProvider extends ClientModule<"message-level-provider"> {
-  readonly discordEvents: Events[] = [Events.MessageCreate];
-  readonly moduleEvents: MessageLevelProviderEvents[] = [
-    MessageLevelProviderEvents.GUILD_ACTIVE,
-    MessageLevelProviderEvents.LOG_CHANNEL_CHANGE,
-    MessageLevelProviderEvents.USER_LEVEL_ADD,
-    MessageLevelProviderEvents.USER_EXP_ADD,
-    MessageLevelProviderEvents.USER_LEVEL_UP,
-  ];
+export interface LogChannelChangeEvent {
+  guildProfile: GuildLevelProviderProfile;
+  oldChannelId: string | null;
+  newChannelId: string;
+}
 
+export default class MessageLevelProvider extends ClientModule<"message-level-provider"> {
   private readonly channelCache: Collection<string, TextChannel>;
   private readonly guildProfileCache: Collection<string, GuildLevelProviderProfile>;
   private readonly userProfileCache: Collection<string, UserLevelProfile>;
 
   @Repository()
   readonly guildRepo: GuildLevelProviderProfileRepo;
+
   @Repository()
   readonly userRepo: UserlevelProfileRepo;
 
   constructor(options: ModuleOptions) {
     super(options);
-
-    this.moduleEvents.forEach((event) =>
-      this.on(event, (...args: any) => {
-        switch (event) {
-          case MessageLevelProviderEvents.GUILD_ACTIVE:
-            (this.onGuildActive.bind(this) as Function)(...args);
-            break;
-          case MessageLevelProviderEvents.LOG_CHANNEL_CHANGE:
-            (this.onLogChannelChange.bind(this) as Function)(...args);
-            break;
-          case MessageLevelProviderEvents.USER_LEVEL_ADD:
-            (this.onUserLevelAdd.bind(this) as Function)(...args);
-            break;
-          case MessageLevelProviderEvents.USER_EXP_ADD:
-            (this.onUserExpAdd.bind(this) as Function)(...args);
-            break;
-          case MessageLevelProviderEvents.USER_LEVEL_UP:
-            (this.onUserLevelUp.bind(this) as Function)(...args);
-            break;
-        }
-      }),
-    );
 
     this.channelCache = new Collection();
     this.guildProfileCache = new Collection();
@@ -95,57 +72,79 @@ export default class MessageLevelProvider extends ClientModule<"message-level-pr
   public async changeLogChannel(interaction: ChatInputCommandInteraction) {
     if (!interaction.inGuild()) return;
 
-    await autoDeferReply(interaction, { ephemeral: true });
+    await autoDeferReply(interaction, {
+      ephemeral: true,
+    });
 
     const channel = interaction.options.getChannel("channel", true, [ChannelType.GuildText]);
-
     const guildProfile = await this.getGuildProfile(interaction.guildId);
+    const oldChannelId = guildProfile.logChannelId!;
+    guildProfile.logChannelId = channel.id;
 
-    this.emit(MessageLevelProviderEvents.LOG_CHANNEL_CHANGE, guildProfile.logChannelId, channel.id, guildProfile.id);
+    this.emit(MessageLevelProviderEvents.LOG_CHANNEL_CHANGE, {
+      guildProfile,
+      oldChannelId,
+      newChannelId: channel.id,
+    } satisfies LogChannelChangeEvent);
 
     const changeChannelEmbed = new EmbedBuilder({
       title: "Thao tác thành công!",
       description: `Kênh thông báo lên cấp đã chuyển từ
-          > **Trước:** ${guildProfile.logChannelId ? `<#${guildProfile.logChannelId}>` : "Không xác định"}
-          > **Sau:** <#${channel.id}>`,
+      > **Trước:** ${oldChannelId ? `<#${oldChannelId}>` : "Không xác định"}
+      > **Sau:** <#${channel.id}>`,
       color: Colors.Green,
       timestamp: Date.now(),
-      footer: { text: `UID: ${interaction.user.id}` },
+      footer: {
+        text: `UID: ${interaction.user.id}`,
+      },
     });
 
     const setChannelEmbed = new EmbedBuilder({
       title: "Thao tác thành công!",
       description: `**Kênh thông báo lên cấp đã được set**\n> <#${channel.id}>`,
       color: Colors.Green,
-      footer: { text: `UID: ${interaction.user.id}` },
+      footer: {
+        text: `UID: ${interaction.user.id}`,
+      },
       timestamp: Date.now(),
     });
 
     const interactionReplyPayload: InteractionEditReplyOptions = {
-      embeds: [guildProfile.logChannelId ? changeChannelEmbed : setChannelEmbed],
+      embeds: [oldChannelId ? changeChannelEmbed : setChannelEmbed],
     };
 
     await interaction.editReply(interactionReplyPayload);
   }
 
+  @ModuleOn(MessageLevelProviderEvents.GUILD_ACTIVE)
   private async onGuildActive(guildProfile: GuildLevelProviderProfile) {
     await this.updateGuildProfile(guildProfile);
   }
 
-  private async onLogChannelChange(guildProfile: GuildLevelProviderProfile, oldChannelId: string) {
-    this.channelCache.delete(`${oldChannelId}|${guildProfile.id}`);
-    this.updateGuildProfile(guildProfile).catch((error) => this.handleClientError(error));
+  @ModuleOn(MessageLevelProviderEvents.LOG_CHANNEL_CHANGE)
+  private async onLogChannelChange(event: LogChannelChangeEvent) {
+    if (event.oldChannelId) {
+      this.channelCache.delete(`${event.oldChannelId}|${event.guildProfile.id}`);
+    }
+
+    await this.updateGuildProfile(event.guildProfile);
   }
 
+  @ModuleOn(MessageLevelProviderEvents.USER_LEVEL_ADD)
   private async onUserLevelAdd(options: UserLevelAddOptions) {
     const userProfile = await this.getUserProfile(options.member);
-    userProfile.addLevel(options.type == UserLevelType.TEXT, options.amount);
+
+    userProfile.addLevel(options.type === UserLevelType.TEXT, options.amount);
+
     await this.updateUserProfile(userProfile);
   }
 
+  @ModuleOn(MessageLevelProviderEvents.USER_EXP_ADD)
   private async onUserExpAdd(options: UserLevelAddOptions) {
     const userProfile = await this.getUserProfile(options.member);
-    userProfile.addExp(options.type == UserLevelType.TEXT, options.amount);
+
+    userProfile.addExp(options.type === UserLevelType.TEXT, options.amount);
+
     await this.updateUserProfile(userProfile);
   }
 
@@ -161,27 +160,44 @@ export default class MessageLevelProvider extends ClientModule<"message-level-pr
 
   private async getGuildProfile(guildId: string): Promise<GuildLevelProviderProfile> {
     let guildProfile = this.guildProfileCache.get(guildId);
-    if (!guildProfile) guildProfile = (await this.guildRepo.get(guildId))!;
+
     if (!guildProfile) {
-      guildProfile = new GuildLevelProviderProfile({ id: guildId });
+      guildProfile = await this.guildRepo.get(guildId);
+    }
+
+    if (!guildProfile) {
+      guildProfile = new GuildLevelProviderProfile({
+        id: guildId,
+      });
+
       await this.guildRepo.create(guildProfile);
     }
+    this.guildProfileCache.set(guildId, guildProfile);
 
     return guildProfile;
   }
 
   private async getUserProfile(member: GuildMember) {
-    let userProfile = this.userProfileCache.get(`${member.id}|${member.guild.id}`);
-    if (!userProfile)
+    const cacheId = `${member.id}|${member.guild.id}`;
+
+    let userProfile = this.userProfileCache.get(cacheId);
+
+    if (!userProfile) {
       userProfile = await this.userRepo.get({
         id: member.id,
         guildId: member.guild.id,
       });
-    if (!userProfile)
+    }
+
+    if (!userProfile) {
       userProfile = new UserLevelProfile({
         id: member.id,
         guild_id: member.guild.id,
       });
+    }
+
+    this.userProfileCache.set(cacheId, userProfile);
+
     return userProfile;
   }
 
@@ -189,14 +205,17 @@ export default class MessageLevelProvider extends ClientModule<"message-level-pr
     const contentMaxLength = 100;
     const contentSplitedMaxLenght = 20;
 
-    const contentSplitedLength = messageContent.split(" ").length; // 1
-    const contentLenght = messageContent.length; // 1
+    const contentSplitedLength = messageContent.split(" ").length;
+
+    const contentLenght = messageContent.length;
 
     const ratio_1 = contentLenght > contentMaxLength ? 1.0 : contentLenght / contentMaxLength;
+
     const ratio_2 =
       contentSplitedLength > contentSplitedMaxLenght ? 1.0 : contentSplitedLength / contentSplitedMaxLenght;
 
     const ratio = (ratio_1 + 2 * ratio_2) / 2;
+
     const final = ratio / 2 < 0.5 ? 0.5 : ratio / 2;
 
     return Math.ceil(getRandomInt(25, 35) * final);
@@ -205,10 +224,14 @@ export default class MessageLevelProvider extends ClientModule<"message-level-pr
   private async getLogChannel(member: GuildMember): Promise<TextChannel | undefined> {
     const guildProfile = await this.getGuildProfile(member.guild.id);
 
-    if (!guildProfile.logChannelId) return;
+    if (!guildProfile.logChannelId) {
+      return;
+    }
 
     const channelCacheId = `${guildProfile.logChannelId}|${member.guild.id}`;
+
     let channel = this.channelCache.get(channelCacheId);
+
     if (!channel) {
       const fetchedChannel = member.guild.channels.cache.get(guildProfile.logChannelId);
 
@@ -216,83 +239,94 @@ export default class MessageLevelProvider extends ClientModule<"message-level-pr
         this.logger.warn(
           `Channel not found in server ${member.guild.name}/${member.guild.id} with id: ${guildProfile.logChannelId}`,
         );
+
         return;
       }
 
       channel = fetchedChannel;
+
+      this.channelCache.set(channelCacheId, channel);
     }
 
     return channel;
   }
 
-  private async onUserLevelUp(member: GuildMember, profile: UserLevelProfile): Promise<any> {
+  @ModuleOn(MessageLevelProviderEvents.USER_LEVEL_UP)
+  private async onUserLevelUp(member: GuildMember, profile: UserLevelProfile): Promise<UserLevelProfile> {
     const guildProfile = await this.getGuildProfile(member.guild.id);
 
     const newLevel = calcLevel(profile.messageExp);
-    let milestoneChanged: boolean = false;
-    let addRole: Role | undefined;
 
     const newMilestone = guildProfile.milestones.find(
       (milestone) => milestone.startAt <= newLevel && newLevel <= milestone.endAt,
     );
 
-    if (newMilestone && newMilestone.id != profile.milestoneId) {
-      milestoneChanged = true;
-      addRole = member.guild.roles.cache.get(newMilestone?.roleId ?? "");
+    if (newMilestone && newMilestone.id !== profile.milestoneId) {
+      const addRole = member.guild.roles.cache.get(newMilestone.roleId ?? "");
 
       if (!addRole) {
         this.logger.warn(
           `No role found on server ${member.guild.name}/${member.guild.id} with id: ${newMilestone.roleId}`,
         );
       } else {
-        member.roles.add(addRole).catch((e) => this.logger.error(e));
+        await member.roles.add(addRole).catch((error) => this.logger.error(error));
       }
 
       profile.milestoneId = newMilestone.id;
-      this.sendLevelUpNotification(member, newLevel, newMilestone).catch((error) => this.handleClientError(error));
     }
 
+    void this.sendLevelUpNotification(member, newLevel, newMilestone).catch((error) => this.handleClientError(error));
     await this.updateUserProfile(profile);
     return profile;
   }
 
-  private async sendLevelUpNotification(member: GuildMember, newLevel: number, newMilestone: RankProviderMilestone) {
+  private async sendLevelUpNotification(member: GuildMember, newLevel: number, newMilestone?: RankProviderMilestone) {
     const channel = await this.getLogChannel(member);
 
-    if (channel) {
-      const embed = new EmbedBuilder({
-        title: `Bạn đã đạt level ${newLevel}`,
-        description: `${
-          newMilestone
-            ? `\n*Bạn đã đạt được thành tựu:${
-                newMilestone.roleId ? `**<@&${newMilestone.roleId}>**` : "Vai trò không xác định !"
-              }*`
-            : undefined
-        }`,
-        color: Colors.Blurple,
-      });
+    if (!channel) return;
 
-      await channel.send({ embeds: [embed] });
-    }
+    const embed = new EmbedBuilder({
+      title: `Bạn đã đạt level ${newLevel}`,
+      description: newMilestone
+        ? `\n*Bạn đã đạt được thành tựu:${
+            newMilestone.roleId ? ` **<@&${newMilestone.roleId}>**` : " Vai trò không xác định !"
+          }*`
+        : undefined,
+      color: Colors.Blurple,
+    });
+
+    await channel.send({
+      content: `<@${member.id}> level up !`,
+      embeds: [embed],
+    });
   }
 
   @On(Events.MessageCreate)
-  protected async onMessageCreate(message: Message<boolean>): Promise<any> {
+  protected async onMessageCreate(message: Message<boolean>): Promise<void> {
     const member = message.member;
-    if (!member || member.user.bot) return;
+
+    if (!member || member.user.bot) {
+      return;
+    }
 
     const guildProfile = await this.getGuildProfile(member.guild.id);
-    if (!guildProfile.active) return;
+
+    if (!guildProfile.active) {
+      return;
+    }
 
     let userProfile = await this.getUserProfile(member);
 
     const oldLevel = calcLevel(userProfile.messageExp);
+
     const newMessageExp = userProfile.messageExp + this.contentToExp(message.content);
+
     const newLevel = calcLevel(newMessageExp);
+
     userProfile.messageExp = newMessageExp;
 
-    if (oldLevel != newLevel) {
-      userProfile = await this.onUserLevelUp(member, userProfile);
+    if (oldLevel !== newLevel) {
+      this.emit(MessageLevelProviderEvents.USER_LEVEL_UP, member, userProfile);
     }
 
     await this.userRepo.updateByMessageLevel(userProfile);

@@ -123,7 +123,7 @@ export default class GuildLevelManager extends ClientModule<"guild-level-manager
 
     if (previousLevel !== newLevel) {
       this.client.moduleManager
-        .get("message-level-provider")
+        .get(isVoice ? "voice-level-provider" : "message-level-provider")
         .emit(MessageLevelProviderEvents.USER_LEVEL_UP, target, userProfile);
     }
 
@@ -211,25 +211,46 @@ export default class GuildLevelManager extends ClientModule<"guild-level-manager
     await interaction.editReply({ embeds: [embed] });
   }
 
-  private async getGuildProfile(guildId: string): Promise<GuildLevelProviderProfile> {
+  private async getGuildProfile(
+    guildId: string,
+    autoUpdate: boolean = false,
+    fetchDatabase?: boolean,
+  ): Promise<GuildLevelProviderProfile> {
     let guildProfile = this.guildProfileCache.get(guildId);
-    if (!guildProfile) guildProfile = (await this.guildRepo.get(guildId))!;
-    if (!guildProfile) guildProfile = new GuildLevelProviderProfile({ id: guildId });
+    if (!guildProfile || fetchDatabase) {
+      guildProfile = await this.guildRepo.get(guildId);
+    }
+
+    if (!guildProfile) {
+      guildProfile = new GuildLevelProviderProfile({ id: guildId });
+    }
+
+    if (autoUpdate) {
+      await this.update(guildProfile);
+    }
+
     return guildProfile;
   }
 
-  private async getUserProfile(member: GuildMember) {
+  private async getUserProfile(member: GuildMember, autoUpdate: boolean = false, fetchDatabase?: boolean) {
     let userProfile = this.userProfileCache.get(`${member.id}|${member.guild.id}`);
-    if (!userProfile)
+    if (!userProfile || fetchDatabase) {
       userProfile = await this.userRepo.get({
         id: member.id,
         guildId: member.guild.id,
       });
-    if (!userProfile)
+    }
+    if (!userProfile) {
       userProfile = new UserLevelProfile({
         id: member.id,
         guild_id: member.guild.id,
       });
+    }
+
+    if (autoUpdate) {
+      this.userProfileCache.set(userProfile.getCacheId(), userProfile);
+    }
+
     return userProfile;
   }
 
@@ -531,7 +552,7 @@ export default class GuildLevelManager extends ClientModule<"guild-level-manager
   }
 
   @SlashCommandExecutor({ guildOnly: true, defered: true })
-  async getUserRank(interaction: ChatInputCommandInteraction<"cached">) {
+  async getMemberLevel(interaction: ChatInputCommandInteraction<"cached">) {
     let target = interaction.options.getMember("member");
     if (!target) target = interaction.member;
 
@@ -539,7 +560,7 @@ export default class GuildLevelManager extends ClientModule<"guild-level-manager
 
     if (!guildProfile.active) return;
 
-    let profile = await this.getUserProfile(target);
+    let profile = await this.getUserProfile(target, true, true);
 
     const messageLevel = calcLevel(profile.messageExp);
     const voiceLevel = calcLevel(profile.voiceExp);

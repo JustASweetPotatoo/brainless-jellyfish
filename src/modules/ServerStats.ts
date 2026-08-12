@@ -10,7 +10,7 @@ import ClientModule from "./core/ClientModule";
 import MassClient from "../Client";
 import { ModuleOptions } from "./core/BaseModule";
 
-import FastifyServer, { PathListenerType } from "../webServer/FastifyServer";
+import FastifyServer, { PathListenerType } from "../API/FastifyServer";
 
 export default class ServerStatsManager extends ClientModule<"server-stats-manager"> {
   private systemTimeseconds = Math.floor(Date.now() / 1000);

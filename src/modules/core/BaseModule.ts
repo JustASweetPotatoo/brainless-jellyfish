@@ -10,10 +10,11 @@ import {
   Events,
 } from "discord.js";
 
+import { EventEmitter } from "node:events";
+
 import MassClient from "../../Client";
 import { Logger } from "../../logger/Logger";
-import { EVENT_KEY, REPOSITORIES_KEY, REPOSITORY_KEY } from "./decorators";
-import { EventEmitter } from "node:events";
+import { DISCORD_EVENT_KEY, MODULE_EVENT_KEY, REPOSITORIES_KEY, REPOSITORY_KEY } from "./decorators";
 import { kebabCase } from "../../utils/functions";
 import DatabaseManager from "../../database/DatabaseManager";
 import ClientError from "../../error/ClientError";
@@ -25,46 +26,117 @@ import { Repository } from "../../database/repository/constructor/Repository";
 import { BaseModel } from "../../database/model/constructor/BaseModel";
 import { sendInteractionMessageReply } from "../../utils/replier";
 
+/**
+ * MODULE OPTIONS
+ */
+
 export interface ModuleOptions {
   client: MassClient;
 }
+
+/**
+ * MODULE CONSTRUCTOR
+ */
 
 export interface ModuleConstructor<T extends string = string> {
   moduleName: T;
 }
 
+/**
+ * MODULE EVENTS
+ *
+ * EventEmitter accepts PropertyKey.
+ *
+ * We keep the existing interface compatible with your project.
+ */
+export type ModuleEvents = string | symbol;
+
+/**
+ * INTERACTION TYPES
+ */
+
 export type ErrorInteractionType = ChatInputCommandInteraction | ButtonInteraction | ModalSubmitInteraction;
 
-export default abstract class BaseModule<TName extends string> extends EventEmitter {
+/**
+ * BASE MODULE
+ */
+
+export default abstract class BaseModule<TName extends string, TEvent extends ModuleEvents> extends EventEmitter {
+  /**
+   * Module name.
+   */
   public readonly name: TName;
+
+  /**
+   * Logger.
+   */
   public readonly logger: Logger;
+
+  /**
+   * MassClient.
+   */
   protected readonly client: MassClient;
 
   /**
-   * @description Event default is 1
+   * Event/repository counters.
    */
-  private readonly count: { event: number; repo: number } = { event: 1, repo: 1 };
+  private readonly count: {
+    event: number;
+    repo: number;
+  } = {
+    event: 1,
+    repo: 1,
+  };
+
+  /**
+   * Prevent duplicate event registration.
+   */
   private eventsRegistered = false;
+
+  /**
+   * CONSTRUCTOR
+   */
 
   constructor(options: ModuleOptions) {
     super();
 
     const ctor = this.constructor as typeof BaseModule & ModuleConstructor<TName>;
 
+    /**
+     * If moduleName wasn't assigned statically,
+     * generate it automatically.
+     */
     if (!ctor.moduleName) {
       ctor.moduleName = kebabCase(ctor.name) as TName;
     }
 
     this.name = ctor.moduleName;
+
     this.client = options.client;
 
+    /**
+     * Logger.
+     */
     this.logger = new Logger({
       label: this.name,
       printer: this.client.logPrinter,
     });
 
+    /**
+     * Wait until ModuleManager finishes loading
+     * all modules.
+     */
     this.client.on("load-modules-complete", () => this.registerEvents());
+
+    /**
+     * Once module events have been registered,
+     * load repositories/database.
+     */
     this.on("module-events-loaded", this.loadDatabase.bind(this));
+
+    /**
+     * Database loaded.
+     */
     this.on("database-loaded", () => {
       this.logger.info(`Total ${this.count.event} events and ${this.count.repo} repositories.`);
     });
@@ -102,40 +174,9 @@ export default abstract class BaseModule<TName extends string> extends EventEmit
     return this;
   }
 
-  public registerEvents(): this {
-    if (this.eventsRegistered) return this;
-    this.eventsRegistered = true;
-
-    let proto = Object.getPrototypeOf(this);
-
-    if (this.hasInteractionHandler()) {
-      this.client.on(Events.InteractionCreate, (interaction) => void this.onInteractionCreate(interaction));
-    }
-
-    while (proto && proto !== BaseModule.prototype) {
-      for (const key of Object.getOwnPropertyNames(proto)) {
-        if (key === "constructor") continue;
-
-        const event = Reflect.getOwnMetadata(EVENT_KEY, proto, key);
-
-        if (!event) continue;
-
-        const handler = (this as any)[key].bind(this);
-
-        this.client.on(event, (...args: unknown[]) => {
-          void this.execute(event, handler, ...args).catch((error) => this.handleClientError(error));
-        });
-
-        this.count.event++;
-      }
-
-      proto = Object.getPrototypeOf(proto);
-    }
-
-    this.emit("module-events-loaded", this);
-
-    return this;
-  }
+  /**
+   * INTERACTION HANDLER
+   */
 
   private hasInteractionHandler(): boolean {
     const handlerNames = new Set([
@@ -144,8 +185,27 @@ export default abstract class BaseModule<TName extends string> extends EventEmit
       "onModalSubmitInteractionCreate",
       "onAutoCompleteInteractionCreate",
     ]);
-    return Object.getOwnPropertyNames(Object.getPrototypeOf(this)).some((name) => handlerNames.has(name));
+
+    let proto = Object.getPrototypeOf(this);
+
+    while (proto && proto !== BaseModule.prototype) {
+      const names = Object.getOwnPropertyNames(proto);
+
+      for (const name of names) {
+        if (handlerNames.has(name)) {
+          return true;
+        }
+      }
+
+      proto = Object.getPrototypeOf(proto);
+    }
+
+    return false;
   }
+
+  /**
+   * EXECUTE EVENT
+   */
 
   private async execute<T extends (...args: any[]) => any>(
     event: string,
@@ -159,7 +219,9 @@ export default abstract class BaseModule<TName extends string> extends EventEmit
     } catch (err) {
       this.handleClientError(err);
 
-      // Không throw đối với event handler
+      /**
+       * Do not throw event handler errors.
+       */
       return undefined as Awaited<ReturnType<T>>;
     } finally {
       const duration = performance.now() - start;
@@ -170,23 +232,42 @@ export default abstract class BaseModule<TName extends string> extends EventEmit
     }
   }
 
+  /**
+   * DISCORD INTERACTION
+   */
+
   public async onInteractionCreate(interaction: Interaction) {
     try {
+      /**
+       * Slash command
+       */
       if (interaction.isChatInputCommand()) {
         await this.onSlashCommandInteractionCreate(interaction);
+
         return;
       }
 
+      /**
+       * Button
+       */
       if (interaction.isButton()) {
         await this.onButtonInteractionCreate(interaction);
+
         return;
       }
 
+      /**
+       * Modal
+       */
       if (interaction.isModalSubmit()) {
         await this.onModalSubmitInteractionCreate(interaction);
+
         return;
       }
 
+      /**
+       * Autocomplete
+       */
       if (interaction.isAutocomplete()) {
         await this.onAutoCompleteInteractionCreate(interaction);
       }
@@ -201,14 +282,6 @@ export default abstract class BaseModule<TName extends string> extends EventEmit
     }
   }
 
-  private async handleButtonInteractionErrorSafely(interaction: ButtonInteraction, error: unknown): Promise<void> {
-    try {
-      await this.hanldeButtonInteractionError(interaction, this.parseError(error));
-    } catch (handlerError) {
-      this.handleClientError(handlerError);
-    }
-  }
-
   protected abstract onButtonInteractionCreate(interaction: ButtonInteraction): Promise<any>;
 
   protected abstract onSlashCommandInteractionCreate(
@@ -219,10 +292,25 @@ export default abstract class BaseModule<TName extends string> extends EventEmit
 
   protected abstract onAutoCompleteInteractionCreate(interaction: AutocompleteInteraction): Promise<any>;
 
-  // Error handler section
+  /**
+   * BUTTON ERROR
+   */
+
+  private async handleButtonInteractionErrorSafely(interaction: ButtonInteraction, error: unknown): Promise<void> {
+    try {
+      await this.hanldeButtonInteractionError(interaction, this.parseError(error));
+    } catch (handlerError) {
+      this.handleClientError(handlerError);
+    }
+  }
+
+  /**
+   * ERROR HANDLING
+   */
+
   protected handleClientError(error: any) {
     this.client.errorHandler.handleClientError({
-      error: error,
+      error,
       logger: this.logger,
     });
   }
@@ -230,12 +318,18 @@ export default abstract class BaseModule<TName extends string> extends EventEmit
   parseError(error: ClientError | unknown): ClientError {
     if (error instanceof ClientError) {
       return error;
-    } else if (error instanceof Error) {
-      return new ClientError(ErrorCode.UNKNOWN_ERROR, error);
-    } else {
-      return new ClientError(ErrorCode.UNKNOWN_ERROR);
     }
+
+    if (error instanceof Error) {
+      return new ClientError(ErrorCode.UNKNOWN_ERROR, error);
+    }
+
+    return new ClientError(ErrorCode.UNKNOWN_ERROR);
   }
+
+  /**
+   * SLASH COMMAND ERROR
+   */
 
   protected async handleSlashCommandInteractionError<TInteraction extends Interaction>(
     error: any,
@@ -243,14 +337,22 @@ export default abstract class BaseModule<TName extends string> extends EventEmit
   ): Promise<void> {
     if (interaction instanceof ChatInputCommandInteraction) {
       const err = this.parseError(error);
+
       try {
         await this.handleSlashCommandError(interaction, error);
       } catch (handlerError) {
         this.handleClientError(handlerError);
       }
-      this.logger.error({ message: err.createMessage(true) });
+
+      this.logger.error({
+        message: err.createMessage(true),
+      });
     }
   }
+
+  /**
+   * SLASH COMMAND ERROR RESPONSE
+   */
 
   async handleSlashCommandError(
     interaction: CommandInteraction | ChatInputCommandInteraction,
@@ -272,13 +374,18 @@ export default abstract class BaseModule<TName extends string> extends EventEmit
           > **\`COMMAND      :\` ${commandName}**
           > **\`ERROR CODE   :\` ${error.code}**
           > **\`DESCRIPTION  :\` ${error.baseMessage}**
-          > **\`CREATED TIME :\` <t:${doneTimestampBySeconds}:f>-<t:${doneTimestampBySeconds}:R>** 
+          > **\`CREATED TIME :\` <t:${doneTimestampBySeconds}:f>-<t:${doneTimestampBySeconds}:R>**
           > **\`DURATION     :\` ${durationByMiliseconds}ms**
         `,
       color: Colors.Red,
       timestamp: doneTimestamp,
-      footer: { text: `⏳ Response Time: ${responseTime} ms` },
-      author: { name: "Command Error", iconURL: dangerIconUrl },
+      footer: {
+        text: `⏳ Response Time: ${responseTime} ms`,
+      },
+      author: {
+        name: "Command Error",
+        iconURL: dangerIconUrl,
+      },
     });
 
     await sendInteractionMessageReply(interaction, {
@@ -286,6 +393,10 @@ export default abstract class BaseModule<TName extends string> extends EventEmit
       ephemeral: true,
     });
   }
+
+  /**
+   * BUTTON ERROR RESPONSE
+   */
 
   async hanldeButtonInteractionError(interaction: ButtonInteraction, error: ClientError) {
     const doneTimestamp = Date.now();
@@ -298,23 +409,162 @@ export default abstract class BaseModule<TName extends string> extends EventEmit
       title: `An unexpected error occurred !`,
       description: `
             -# ***Please contact to bot owner to report!***
-    
+
             > **\`BUTTON ID    :\` ${buttonCustomId}**
             > **\`ERROR CODE   :\` ${error.code}**
             > **\`DESCRIPTION  :\` ${error.baseMessage}**
-            > **\`CREATED TIME :\` <t:${doneTimestampBySeconds}:f>-<t:${doneTimestampBySeconds}:R>** 
+            > **\`CREATED TIME :\` <t:${doneTimestampBySeconds}:f>-<t:${doneTimestampBySeconds}:R>**
             > **\`DURATION     :\` ${durationByMiliseconds}ms**
           `,
       color: Colors.Red,
       timestamp: doneTimestamp,
-      // not done yet ${this.client.getStatus(interaction).latency}
-      footer: { text: `⏳ Response Time: ${responseTime} ms` },
-      author: { name: "Command Error", iconURL: dangerIconUrl },
+      footer: {
+        text: `⏳ Response Time: ${responseTime} ms`,
+      },
+      author: {
+        name: "Command Error",
+        iconURL: dangerIconUrl,
+      },
     });
 
-    if (!interaction.deferred) await interaction.deferReply({ ephemeral: true });
-    if (!interaction.replied) await interaction.editReply({ embeds: [embed] });
+    if (!interaction.deferred) {
+      await interaction.deferReply({
+        ephemeral: true,
+      });
+    }
+
+    if (!interaction.replied) {
+      await interaction.editReply({
+        embeds: [embed],
+      });
+    }
   }
 
+  /**
+   * MODULE MANAGER
+   */
   protected getManager = (): ModuleManager => this.client.moduleManager;
+
+  /**
+   * REGISTER EVENTS
+   */
+  public registerEvents(reloaded: boolean = false): this {
+    /**
+     * Avoid duplicate registration.
+     */
+    if (this.eventsRegistered && !reloaded) {
+      return this;
+    }
+
+    this.eventsRegistered = true;
+
+    /**
+     * Internal module events.
+     */
+    this.registerModuleEvents();
+
+    /**
+     * Discord.js events.
+     */
+    this.registerDiscordEvents();
+
+    /**
+     * Tell module that event registration
+     * has finished.
+     */
+    this.emit("module-events-loaded", this);
+
+    return this;
+  }
+
+  /**
+   * REGISTER DISCORD EVENTS
+   */
+
+  private registerDiscordEvents(): this {
+    let proto = Object.getPrototypeOf(this);
+
+    /**
+     * Register interaction handler.
+     */
+    if (this.hasInteractionHandler()) {
+      this.client.on(Events.InteractionCreate, (interaction) => {
+        void this.onInteractionCreate(interaction);
+      });
+    }
+
+    /**
+     * Scan class prototype chain.
+     */
+    while (proto && proto !== BaseModule.prototype) {
+      for (const key of Object.getOwnPropertyNames(proto)) {
+        if (key === "constructor") {
+          continue;
+        }
+
+        const event = Reflect.getOwnMetadata(DISCORD_EVENT_KEY, proto, key);
+
+        if (!event) {
+          continue;
+        }
+
+        const handler = (this as any)[key].bind(this);
+
+        this.client.on(event, (...args: unknown[]) => {
+          void this.execute(String(event), handler, ...args).catch((error) => this.handleClientError(error));
+        });
+
+        this.count.event++;
+      }
+
+      proto = Object.getPrototypeOf(proto);
+    }
+
+    return this;
+  }
+
+  /**
+   * REGISTER MODULE EVENTS
+   *
+   * Module events are registered on:
+   *
+   *     this.on(...)
+   *
+   * NOT:
+   *
+   *     this.client.on(...)
+   *
+   * Therefore they are completely isolated
+   * from Discord.js events.
+   */
+
+  private registerModuleEvents(): this {
+    let proto = Object.getPrototypeOf(this);
+
+    while (proto && proto !== BaseModule.prototype) {
+      for (const key of Object.getOwnPropertyNames(proto)) {
+        if (key === "constructor") {
+          continue;
+        }
+
+        const event = Reflect.getOwnMetadata(MODULE_EVENT_KEY, proto, key) as TEvent | undefined;
+
+        if (!event) {
+          continue;
+        }
+
+        const handler = (this as any)[key].bind(this);
+
+        this.on(event, (...args: unknown[]) => {
+          void this.execute(event as string, handler, ...args).catch((error) => this.handleClientError(error));
+        });
+
+        this.count.event++;
+      }
+
+      proto = Object.getPrototypeOf(proto);
+    }
+
+    return this;
+  }
 }

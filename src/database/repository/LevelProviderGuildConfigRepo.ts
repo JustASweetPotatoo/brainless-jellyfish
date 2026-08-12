@@ -83,12 +83,16 @@ export default class LevelProviderGuildConfigRepo extends Repository<
     return true;
   }
 
-  async get(id: string): Promise<LevelProviderGuildProfile | null> {
+  async get(id: string): Promise<LevelProviderGuildProfile> {
     const query = `SELECT * FROM ${this.fullTableName} WHERE id = ? LIMIT 1`;
 
     const row = (await this.executeQuery(query, [id])).at(0);
 
-    if (!row) return null;
+    if (!row) {
+      const newProf = new LevelProviderGuildProfile({ id: id });
+      await this.create(newProf);
+      return newProf;
+    }
 
     const parsedBlacklist = typeof row.blacklist === "string" ? JSON.parse(row.blacklist) : (row.blacklist ?? []);
 
