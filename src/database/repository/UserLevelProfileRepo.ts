@@ -1,9 +1,11 @@
-import { Collection } from "discord.js";
 import DatabaseManager from "../DatabaseManager";
 import UserLevelProfile, { UserLevelProfileJson } from "../model/UserLevelProfile";
 import { Repository } from "./constructor/Repository";
 
-export default class UserlevelProfileRepo extends Repository<UserLevelProfile, UserLevelProfileJson> {
+export default class UserlevelProfileRepo extends Repository<
+  UserLevelProfile,
+  UserLevelProfileJson
+> {
   protected model: { fromJSON(json: UserLevelProfileJson): UserLevelProfile };
 
   protected readonly createTableQuery = `
@@ -77,7 +79,13 @@ export default class UserlevelProfileRepo extends Repository<UserLevelProfile, U
       WHERE id = ? AND guild_id = ?;
     `;
 
-    await this.executeQuery(query, [json.message_exp, json.voice_exp, json.milestone_id, json.id, json.guild_id]);
+    await this.executeQuery(query, [
+      json.message_exp,
+      json.voice_exp,
+      json.milestone_id,
+      json.id,
+      json.guild_id,
+    ]);
 
     return profile;
   }

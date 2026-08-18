@@ -19,6 +19,8 @@ export default class GuildVoiceLoggerConfig extends BaseModel<GuildVoiceLoggerCo
     this.active = json.active;
   }
 
+  getChannelCacheId = (): string => `${this.id}|${this.channelId}`;
+
   toJSON(): GuildVoiceLoggerConfigJson {
     return {
       id: this.id,

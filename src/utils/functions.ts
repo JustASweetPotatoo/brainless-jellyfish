@@ -26,7 +26,15 @@ import { searchMessageOptions } from "../interfaces/options";
 import ClientError from "../error/ClientError";
 import { ErrorCode } from "../error/ErrorCode";
 
-export type TimestampUnit = "auto" | "all" | "year" | "month" | "day" | "hour" | "minute" | "second";
+export type TimestampUnit =
+  | "auto"
+  | "all"
+  | "year"
+  | "month"
+  | "day"
+  | "hour"
+  | "minute"
+  | "second";
 
 export function formatTimestamp(
   timestamp: number,
@@ -60,7 +68,10 @@ export function formatTimestamp(
   elapsedAfterMonths.setFullYear(elapsedAfterMonths.getFullYear() + years);
   elapsedAfterMonths.setMonth(elapsedAfterMonths.getMonth() + months);
 
-  let remainingSeconds = Math.max(Math.floor((now.getTime() - elapsedAfterMonths.getTime()) / 1000), 0);
+  let remainingSeconds = Math.max(
+    Math.floor((now.getTime() - elapsedAfterMonths.getTime()) / 1000),
+    0,
+  );
   const days = Math.floor(remainingSeconds / 86_400);
   remainingSeconds %= 86_400;
   const hours = Math.floor(remainingSeconds / 3_600);
@@ -227,7 +238,10 @@ export async function searchMessage(
   };
 }
 
-export async function deleteMessages(options: searchMessageOptions, interaction: ChatInputCommandInteraction) {
+export async function deleteMessages(
+  options: searchMessageOptions,
+  interaction: ChatInputCommandInteraction,
+) {
   var embed: EmbedBuilder = new EmbedBuilder({
     timestamp: Date.now(),
     footer: {
@@ -242,17 +256,17 @@ export async function deleteMessages(options: searchMessageOptions, interaction:
 
   // Check if the channel is a TextChannel or a ThreadChannel
   if (!(targetChannel instanceof TextChannel || targetChannel instanceof ThreadChannel)) {
-    throw new ClientError(ErrorCode.NO_TARGET_CHANNEL, "This command can only be used in text or thread channels.");
+    throw new ClientError(
+      ErrorCode.NO_TARGET_CHANNEL,
+      "This command can only be used in text or thread channels.",
+    );
   }
 
   if (options.substring && options.substring.length < 3) {
     embed.setTitle("The substring must have at least **3 characters**!").setColor(Colors.Yellow);
   } else {
-    const { bulkDeleteableMessageCollection, messageCollection, userDataCollection } = await searchMessage(
-      targetChannel,
-      options,
-      interactionMessage.id,
-    );
+    const { bulkDeleteableMessageCollection, messageCollection, userDataCollection } =
+      await searchMessage(targetChannel, options, interactionMessage.id);
 
     // If there are messages to delete
     if (bulkDeleteableMessageCollection.size + messageCollection.size > 0) {
@@ -317,7 +331,9 @@ export function getPermissionName(permission: PermissionResolvable): string | un
 export function getPermissionNames(permissions: readonly PermissionResolvable[]): string[] {
   return permissions.map(
     (perm) =>
-      Object.entries(PermissionFlagsBits).find(([, value]) => value === BigInt(perm as bigint))?.[0] ?? String(perm),
+      Object.entries(PermissionFlagsBits).find(
+        ([, value]) => value === BigInt(perm as bigint),
+      )?.[0] ?? String(perm),
   );
 }
 
@@ -329,4 +345,37 @@ export type KebabCase<S extends string> = S extends `${infer First}${infer Rest}
 
 export function kebabCase<T extends string>(str: T): KebabCase<T> {
   return str.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase() as KebabCase<T>;
+}
+
+export type AttachmentType = "image" | "video" | "audio" | "file";
+
+export function getAttachmentType(contentType: string | null): AttachmentType {
+  if (!contentType) return "file";
+
+  if (contentType.startsWith("image/")) return "image";
+  if (contentType.startsWith("video/")) return "video";
+  if (contentType.startsWith("audio/")) return "audio";
+
+  return "file";
+}
+
+export function extractFacebookShareUrl(content: string): string | undefined {
+  const urls = content
+    .match(/https?:\/\/[^\s]+/g)
+    ?.filter((url) => url.startsWith("https://www.facebook.com"));
+
+  const fisrt = urls?.at(0);
+  if (fisrt) {
+    return normalizeFacebookShareUrl(fisrt);
+  }
+
+  return undefined;
+}
+
+function normalizeFacebookShareUrl(url: string): string | undefined {
+  const match = url.match(/https?:\/\/(?:www\.)?facebook\.com\/share\/([^/?#]+)\/([^/?#]+)\/?/i);
+
+  if (!match) return undefined;
+
+  return `https://www.facebook.com/share/${match[1]}/${match[2]}/`;
 }

@@ -1,5 +1,11 @@
 import "reflect-metadata";
-import { ChatInputCommandInteraction, Events, MessageFlags, PermissionFlagsBits } from "discord.js";
+import {
+  ChatInputCommandInteraction,
+  ClientEvents,
+  Guild,
+  MessageFlags,
+  PermissionFlagsBits,
+} from "discord.js";
 import { autoDeferReplyInteraction } from "../../slashCommandBuilder/function";
 import { ModuleEvents } from "./BaseModule";
 
@@ -21,13 +27,21 @@ export function Module<TName extends string>(name: TName) {
 export const DISCORD_EVENT_KEY = Symbol("discord-event");
 
 /**
+ * Discord event metadata.
+ */
+export interface DiscordModuleEventMetadata {
+  event: keyof ClientEvents;
+  botRejected?: boolean;
+}
+
+/**
  * Registers one class method as a Discord event handler.
  *
  * Example:
  * @On(Events.MessageCreate)
  * async onMessageCreate(message: Message) {}
  */
-export function On(event: Events): MethodDecorator {
+export function On(event: keyof ClientEvents, botRejected: boolean = true): MethodDecorator {
   return (target, propertyKey, descriptor) => {
     if (typeof propertyKey !== "string" && typeof propertyKey !== "symbol") {
       throw new TypeError("@On can only decorate a method.");
@@ -37,7 +51,12 @@ export function On(event: Events): MethodDecorator {
       throw new TypeError(`@On(${event}) must decorate a method.`);
     }
 
-    Reflect.defineMetadata(DISCORD_EVENT_KEY, event, target, propertyKey);
+    const metatdata: DiscordModuleEventMetadata = {
+      event: event,
+      botRejected: botRejected,
+    };
+
+    Reflect.defineMetadata(DISCORD_EVENT_KEY, metatdata, target, propertyKey);
   };
 }
 
@@ -108,7 +127,10 @@ export const INJECT_KEY = Symbol("inject");
 
 type CommandExecutorHandler = (interaction: ChatInputCommandInteraction, ...args: any[]) => any;
 
-type InGuildCommandExecutorHandler = (interaction: ChatInputCommandInteraction<"cached">, ...args: any[]) => any;
+type InGuildCommandExecutorHandler = (
+  interaction: ChatInputCommandInteraction<"cached"> & { guild: Guild },
+  ...args: any[]
+) => any;
 
 export interface CommandExecutorDecoratorOption {
   guildOnly?: boolean;
@@ -144,7 +166,7 @@ export function SlashCommandExecutor(options?: {
 }): (
   target: object,
   propertyKey: string | symbol,
-  descriptor: TypedPropertyDescriptor<CommandExecutorHandler | InGuildCommandExecutorHandler>,
+  descriptor: TypedPropertyDescriptor<CommandExecutorHandler>,
 ) => void;
 
 export function SlashCommandExecutor(
@@ -158,7 +180,11 @@ export function SlashCommandExecutor(
     const originalMethod = descriptor.value;
     const shouldDefer = options?.deferred ?? options?.defered ?? false;
 
-    descriptor.value = async function (this: any, interaction: ChatInputCommandInteraction, ...args: any[]) {
+    descriptor.value = async function (
+      this: any,
+      interaction: ChatInputCommandInteraction,
+      ...args: any[]
+    ) {
       if (options?.guildOnly && !interaction.inCachedGuild()) {
         if (!interaction.replied && !interaction.deferred) {
           await interaction.reply({

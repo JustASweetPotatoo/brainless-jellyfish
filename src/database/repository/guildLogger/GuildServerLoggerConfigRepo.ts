@@ -1,7 +1,5 @@
 import DatabaseManager from "../../DatabaseManager";
-import GuildServerLoggerConfig, {
-  GuildServerLoggerConfigJson,
-} from "../../model/logger/GuildServerLoggerConfig";
+import GuildServerLoggerConfig, { GuildServerLoggerConfigJson } from "../../model/logger/GuildServerLoggerConfig";
 import { Repository } from "../constructor/Repository";
 
 export default class GuildServerLoggerConfigRepo extends Repository<
@@ -28,7 +26,7 @@ export default class GuildServerLoggerConfigRepo extends Repository<
     await this.executeQuery(
       `INSERT INTO ${this.fullTableName} (id, channel_id, active)
        VALUES (?, ?, ?)`,
-      [json.id, json.channel_id, json.active]
+      [json.id, json.channel_id, json.active],
     );
 
     return data;
@@ -41,7 +39,7 @@ export default class GuildServerLoggerConfigRepo extends Repository<
       `UPDATE ${this.fullTableName}
        SET channel_id = ?, active = ?
        WHERE id = ?`,
-      [json.channel_id, json.active, json.id]
+      [json.channel_id, json.active, json.id],
     );
 
     return data;
@@ -53,13 +51,10 @@ export default class GuildServerLoggerConfigRepo extends Repository<
     return true;
   }
 
-  async get(id: string): Promise<GuildServerLoggerConfig | null> {
-    const rows = await this.executeQuery(
-      `SELECT * FROM ${this.fullTableName} WHERE id = ? LIMIT 1`,
-      [id]
-    );
+  async get(id: string): Promise<GuildServerLoggerConfig | undefined> {
+    const rows = await this.executeQuery(`SELECT * FROM ${this.fullTableName} WHERE id = ? LIMIT 1`, [id]);
 
-    if (!rows.length) return null;
+    if (!rows.length) return;
 
     return this.model.fromJSON(rows[0] as GuildServerLoggerConfigJson);
   }

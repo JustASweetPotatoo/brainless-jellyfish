@@ -1,13 +1,8 @@
 import DatabaseManager from "../../DatabaseManager";
-import GuildUserLoggerConfig, {
-  GuildUserLoggerConfigJson,
-} from "../../model/logger/GuildUserLoggerConfig";
+import GuildUserLoggerConfig, { GuildUserLoggerConfigJson } from "../../model/logger/GuildUserLoggerConfig";
 import { Repository } from "../constructor/Repository";
 
-export default class GuildUserLoggerConfigRepo extends Repository<
-  GuildUserLoggerConfig,
-  GuildUserLoggerConfigJson
-> {
+export default class GuildUserLoggerConfigRepo extends Repository<GuildUserLoggerConfig, GuildUserLoggerConfigJson> {
   protected readonly model = GuildUserLoggerConfig;
 
   protected readonly createTableQuery = `
@@ -28,7 +23,7 @@ export default class GuildUserLoggerConfigRepo extends Repository<
     await this.executeQuery(
       `INSERT INTO ${this.fullTableName} (id, channel_id, active)
        VALUES (?, ?, ?)`,
-      [json.id, json.channel_id, json.active]
+      [json.id, json.channel_id, json.active],
     );
 
     return data;
@@ -41,7 +36,7 @@ export default class GuildUserLoggerConfigRepo extends Repository<
       `UPDATE ${this.fullTableName}
        SET channel_id = ?, active = ?
        WHERE id = ?`,
-      [json.channel_id, json.active, json.id]
+      [json.channel_id, json.active, json.id],
     );
 
     return data;
@@ -53,13 +48,10 @@ export default class GuildUserLoggerConfigRepo extends Repository<
     return true;
   }
 
-  async get(id: string): Promise<GuildUserLoggerConfig | null> {
-    const rows = await this.executeQuery(
-      `SELECT * FROM ${this.fullTableName} WHERE id = ? LIMIT 1`,
-      [id]
-    );
+  async get(id: string): Promise<GuildUserLoggerConfig | undefined> {
+    const rows = await this.executeQuery(`SELECT * FROM ${this.fullTableName} WHERE id = ? LIMIT 1`, [id]);
 
-    if (!rows.length) return null;
+    if (!rows.length) return;
 
     return this.model.fromJSON(rows[0] as GuildUserLoggerConfigJson);
   }

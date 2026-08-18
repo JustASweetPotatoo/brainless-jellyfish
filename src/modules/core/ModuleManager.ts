@@ -9,13 +9,10 @@ export type ModuleMap = {
   }
     ? N
     : never]: InstanceType<Registry[K]>;
-};
+};  
 
 export default class ModuleManager extends ClientModule<"module-manager"> {
-  private readonly instances = new Map<
-    keyof ModuleMap,
-    ModuleMap[keyof ModuleMap]
-  >();
+  private readonly instances = new Map<keyof ModuleMap, ModuleMap[keyof ModuleMap]>();
 
   public loadModules(): void {
     const moduleOptions = { client: this.client };

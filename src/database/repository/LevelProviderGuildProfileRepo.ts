@@ -2,7 +2,7 @@ import DatabaseManager from "../DatabaseManager";
 import LevelProviderGuildProfile, { RankProviderGuildProfileJson } from "../model/RankProviderGuildProfile";
 import { Repository } from "./constructor/Repository";
 
-export default class LevelProviderGuildConfigRepo extends Repository<
+export default class LevelProviderGuildProfileRepo extends Repository<
   LevelProviderGuildProfile,
   RankProviderGuildProfileJson
 > {

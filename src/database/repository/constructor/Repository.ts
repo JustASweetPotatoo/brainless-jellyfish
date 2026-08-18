@@ -13,7 +13,7 @@ export abstract class BaseRepository<TModel, TJSON> {
   abstract update(data: TModel): Promise<TModel>;
   abstract delete(id: string): Promise<boolean>;
 
-  abstract get(options: any): Promise<TModel | null>;
+  abstract get(options: any): Promise<TModel | undefined>;
   abstract getAll(): Promise<TModel[]>;
   abstract getOrderBy(column: keyof TJSON, desc?: boolean): Promise<TModel[]>;
 }

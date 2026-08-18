@@ -20,26 +20,24 @@ const getRank = new ClientSlashCommandSubcommandBuilder()
   .setDescription("Check your level or someone else's")
   .setExecutor(async (client, interaction) =>
     client.moduleManager
-      .get("guild-level-manager")
+      .get("level-provider")
       .getMemberLevel(interaction as ChatInputCommandInteraction<"cached">),
   )
-  .addUserOption(new SlashCommandUserOption().setName("target").setDescription("Member to check").setRequired(false));
+  .addUserOption(
+    new SlashCommandUserOption()
+      .setName("target")
+      .setDescription("Member to check")
+      .setRequired(false),
+  );
 
 const moduleOn = new ClientSlashCommandSubcommandBuilder()
   .setName("on")
   .setDescription("Activate level system")
-  .setExecutor(async (client, interaction) => {
-    await autoDeferReply(interaction, { ephemeral: true });
-
-    if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
-      await interaction.editReply({
-        content: `You don't have permission ${getPermissionName(PermissionFlagsBits.Administrator)} to use this command !`,
-      });
-      return;
-    }
-
-    await client.moduleManager.get("guild-level-manager").activeGuild(interaction as ChatInputCommandInteraction);
-  });
+  .setExecutor(async (client, interaction) =>
+    client.moduleManager
+      .get("level-provider")
+      .activeGuild(interaction as ChatInputCommandInteraction<"cached">),
+  );
 
 const blacklistAdd = new ClientSlashCommandSubcommandBuilder()
   .setName("ignored")
@@ -64,13 +62,26 @@ const blacklistAdd = new ClientSlashCommandSubcommandBuilder()
 const createMilestone = new ClientSlashCommandSubcommandBuilder()
   .setName("create-milestone")
   .setDescription("No description")
-  .addRoleOption(new SlashCommandRoleOption().setName("role").setDescription("Role to set").setRequired(true))
-  .addNumberOption(new SlashCommandNumberOption().setName("low").setDescription("Start level").setRequired(true))
-  .addNumberOption(new SlashCommandNumberOption().setName("high").setDescription("End level").setRequired(true))
-  .addStringOption(new SlashCommandStringOption().setName("name").setDescription("Milestone name").setRequired(false))
+  .addRoleOption(
+    new SlashCommandRoleOption().setName("role").setDescription("Role to set").setRequired(true),
+  )
+  .addNumberOption(
+    new SlashCommandNumberOption().setName("low").setDescription("Start level").setRequired(true),
+  )
+  .addNumberOption(
+    new SlashCommandNumberOption().setName("high").setDescription("End level").setRequired(true),
+  )
+  .addStringOption(
+    new SlashCommandStringOption()
+      .setName("name")
+      .setDescription("Milestone name")
+      .setRequired(false),
+  )
   .setExecutor(async (client, interaction) => {
     await autoDeferReplyInteraction(interaction, { flags: [MessageFlags.Ephemeral] });
-    client.moduleManager.get("guild-level-manager").createMilestone(interaction as ChatInputCommandInteraction);
+    client.moduleManager
+      .get("level-provider")
+      .createMilestone(interaction as ChatInputCommandInteraction);
   });
 
 const listingMilestone = new ClientSlashCommandSubcommandBuilder()
@@ -78,7 +89,9 @@ const listingMilestone = new ClientSlashCommandSubcommandBuilder()
   .setDescription("No description")
   .setExecutor(async (client, interaction) => {
     await autoDeferReplyInteraction(interaction, { flags: MessageFlags.Ephemeral });
-    await client.moduleManager.get("guild-level-manager").listingMilestone(interaction as ChatInputCommandInteraction);
+    await client.moduleManager
+      .get("level-provider")
+      .listingMilestone(interaction as ChatInputCommandInteraction);
   });
 
 const updateLevel = new ClientSlashCommandSubcommandBuilder()
@@ -91,15 +104,24 @@ const updateLevel = new ClientSlashCommandSubcommandBuilder()
       .setRequired(true)
       .setAutocomplete(true),
   )
-  .addUserOption(new SlashCommandUserOption().setName("user").setDescription("User to update").setRequired(true))
-  .addNumberOption(new SlashCommandNumberOption().setName("amount").setDescription("Amount to set").setRequired(true))
+  .addUserOption(
+    new SlashCommandUserOption().setName("user").setDescription("User to update").setRequired(true),
+  )
+  .addNumberOption(
+    new SlashCommandNumberOption()
+      .setName("amount")
+      .setDescription("Amount to set")
+      .setRequired(true),
+  )
   .addBooleanOption(
     new SlashCommandBooleanOption()
       .setName("is-voice-level")
       .setDescription("Add to voice exp ? (default is message exp)"),
   )
   .setExecutor(async (client, interaction) =>
-    client.moduleManager.get("guild-level-manager").updateMemberLevel(interaction as ChatInputCommandInteraction),
+    client.moduleManager
+      .get("level-provider")
+      .updateMemberLevel(interaction as ChatInputCommandInteraction),
   )
   .setAutocompleteExecutor(async (client, interaction) => {
     const focusedValue = interaction.options.getFocused();
@@ -115,13 +137,25 @@ const updateLevel = new ClientSlashCommandSubcommandBuilder()
 const getTop = new ClientSlashCommandSubcommandBuilder()
   .setName("top")
   .setDescription("Get top 10 member level.")
-  .addBooleanOption(new SlashCommandBooleanOption().setName("is-voice").setDescription("Get top voice"))
+  .addBooleanOption(
+    new SlashCommandBooleanOption().setName("is-voice").setDescription("Get top voice"),
+  )
   .setExecutor(async (client, interaction) =>
-    client.moduleManager.get("guild-level-manager").getTopMember(interaction as ChatInputCommandInteraction<"cached">),
+    client.moduleManager
+      .get("level-provider")
+      .getTopMember(interaction as ChatInputCommandInteraction<"cached">),
   );
 
 export default new ClientSlashCommandBuilder({
-  subcommands: [updateLevel, getRank, getTop, moduleOn, blacklistAdd, createMilestone, listingMilestone],
+  subcommands: [
+    updateLevel,
+    getRank,
+    getTop,
+    moduleOn,
+    blacklistAdd,
+    createMilestone,
+    listingMilestone,
+  ],
 })
   .setName("level")
   .setDescription("Check user level")

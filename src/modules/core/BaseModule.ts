@@ -14,7 +14,13 @@ import { EventEmitter } from "node:events";
 
 import MassClient from "../../Client";
 import { Logger } from "../../logger/Logger";
-import { DISCORD_EVENT_KEY, MODULE_EVENT_KEY, REPOSITORIES_KEY, REPOSITORY_KEY } from "./decorators";
+import {
+  DISCORD_EVENT_KEY,
+  DiscordModuleEventMetadata,
+  MODULE_EVENT_KEY,
+  REPOSITORIES_KEY,
+  REPOSITORY_KEY,
+} from "./decorators";
 import { kebabCase } from "../../utils/functions";
 import DatabaseManager from "../../database/DatabaseManager";
 import ClientError from "../../error/ClientError";
@@ -502,16 +508,18 @@ export default abstract class BaseModule<TName extends string, TEvent extends Mo
           continue;
         }
 
-        const event = Reflect.getOwnMetadata(DISCORD_EVENT_KEY, proto, key);
+        const metadata: DiscordModuleEventMetadata = Reflect.getOwnMetadata(DISCORD_EVENT_KEY, proto, key);
 
-        if (!event) {
+        if (!metadata) {
           continue;
         }
 
         const handler = (this as any)[key].bind(this);
 
-        this.client.on(event, (...args: unknown[]) => {
-          void this.execute(String(event), handler, ...args).catch((error) => this.handleClientError(error));
+        this.client.on(metadata.event, (...args: unknown[]) => {
+          if (!(this.isBotEvent(args) && metadata.botRejected)) {
+            void this.execute(String(metadata.event), handler, ...args).catch((error) => this.handleClientError(error));
+          }
         });
 
         this.count.event++;
@@ -521,6 +529,30 @@ export default abstract class BaseModule<TName extends string, TEvent extends Mo
     }
 
     return this;
+  }
+
+  private isBotEvent(...args: unknown[]): boolean {
+    for (const arg of args) {
+      if (!arg || typeof arg !== "object") {
+        continue;
+      }
+
+      const value = arg as any;
+
+      if (value.author?.bot === true) {
+        return true;
+      }
+
+      if (value.user?.bot === true) {
+        return true;
+      }
+
+      if (value.member?.user?.bot === true) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   /**

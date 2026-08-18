@@ -27,8 +27,10 @@ export default class GuildMessageLoggerConfigRepo extends Repository<
 
     await this.executeQuery(
       `INSERT INTO ${this.fullTableName} (id, channel_id, active)
-       VALUES (?, ?, ?)`,
-      [json.id, json.channel_id, json.active]
+       VALUES (?, ?, ?)
+       ON DUPLICATE KEY
+       UPDATE channel_id = ?, active = ?;`,
+      [json.id, json.channel_id, json.active, json.channel_id, json.active],
     );
 
     return data;
@@ -41,7 +43,7 @@ export default class GuildMessageLoggerConfigRepo extends Repository<
       `UPDATE ${this.fullTableName}
        SET channel_id = ?, active = ?
        WHERE id = ?`,
-      [json.channel_id, json.active, json.id]
+      [json.channel_id, json.active, json.id],
     );
 
     return data;
@@ -53,13 +55,26 @@ export default class GuildMessageLoggerConfigRepo extends Repository<
     return true;
   }
 
-  async get(id: string): Promise<GuildMessageLoggerConfig | null> {
+  async get(options: { id: string; autoCreate?: boolean }): Promise<GuildMessageLoggerConfig>;
+
+  async get(options: {
+    id: string;
+    autoCreate?: boolean;
+  }): Promise<GuildMessageLoggerConfig | undefined>;
+
+  async get(options: {
+    id: string;
+    autoCreate?: boolean;
+  }): Promise<GuildMessageLoggerConfig | undefined> {
     const rows = await this.executeQuery(
-      `SELECT * FROM ${this.fullTableName} WHERE id = ? LIMIT 1`,
-      [id]
+      `SELECT * FROM ${this.fullTableName} WHERE id = ? LIMIT 1;`,
+      [options.id],
     );
 
-    if (!rows.length) return null;
+    if (options.autoCreate && rows.length == 0) {
+      const newProf = new GuildMessageLoggerConfig({ id: options.id, active: true });
+      return await this.create(newProf);
+    }
 
     return this.model.fromJSON(rows[0] as GuildMessageLoggerConfigJson);
   }

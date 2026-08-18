@@ -10,7 +10,7 @@ import {
   TextChannel,
 } from "discord.js";
 import ClientModule from "./core/ClientModule";
-import GuilUserLoggerConfigRepo from "../database/repository/logger/GuilUserLoggerConfigRepo";
+import GuilUserLoggerConfigRepo from "../database/repository/guildLogger/GuilUserLoggerConfigRepo";
 import GuilUserLoggerConfig from "../database/model/logger/GuildUserLoggerConfig";
 import { autoDeferReplyInteraction } from "../slashCommandBuilder/function";
 import { On, Repository } from "./core/decorators";

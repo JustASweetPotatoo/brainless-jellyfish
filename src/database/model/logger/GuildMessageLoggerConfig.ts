@@ -19,6 +19,8 @@ export default class GuildMessageLoggerConfig extends BaseModel<GuildMessageLogg
     this.active = json.active;
   }
 
+  getChannelCacheId = () => `${this.channelId}|${this.id}`;
+
   toJSON(): GuildMessageLoggerConfigJson {
     return {
       id: this.id,

@@ -11,199 +11,234 @@ import {
   PermissionFlagsBits,
   TextChannel,
 } from "discord.js";
+
 import ClientModule from "./core/ClientModule";
-import GuildMessageLoggerConfigRepo from "../database/repository/logger/GuildMessageLoggerConfigRepo";
-import { ModuleOptions } from "./core/BaseModule";
-import { On, Repository } from "./core/decorators";
+import GuildMessageLoggerConfigRepo from "../database/repository/guildLogger/GuildMessageLoggerConfigRepo";
+import { On, Repository, SlashCommandExecutor } from "./core/decorators";
 import { EMBED_DESCRIPTION_MAX_LENGTH } from "../utils/const";
 import GuildMessageLoggerConfig from "../database/model/logger/GuildMessageLoggerConfig";
-import { autoDeferReply } from "../utils/functions";
 import { sendInteractionMessageReply } from "../utils/replier";
+import { GetChannelResultCode } from "./VoiceEventHandler";
 
-export default class MessageEventLogger extends ClientModule<"message-event-logger"> {
+export default class MessageEventHandler extends ClientModule<"message-event-handler"> {
   @Repository()
   private readonly repo: GuildMessageLoggerConfigRepo;
-  private readonly configCache: Collection<string, GuildMessageLoggerConfig> = new Collection();
+  private readonly guildProfileCache: Collection<string, GuildMessageLoggerConfig> =
+    new Collection();
   private readonly channelCache: Collection<string, TextChannel> = new Collection();
 
-  private async initChannel(channleId: string, guild: Guild) {
-    let channelCache = this.channelCache.get(`${channleId}:${guild.id}`);
+  private async getGuildProfile(guild: Guild) {
+    let guildProfile = this.guildProfileCache.get(guild.id);
 
-    if (!channelCache) {
-      let fetchChannel = await guild.channels.fetch(channleId);
-      if (!fetchChannel) return undefined;
-      this.channelCache.set(`${channleId}:${guild.id}`, fetchChannel as TextChannel);
+    if (!guildProfile) {
+      guildProfile = await this.repo.get({ id: guild.id, autoCreate: true });
+      this.guildProfileCache.set(guildProfile.id, guildProfile);
     }
 
-    return channelCache;
+    return guildProfile;
   }
 
-  private async initConfig(guild: Guild): Promise<GuildMessageLoggerConfig> {
-    let config = await this.repo.get(guild.id);
+  private async getChannel(
+    guildProfile: GuildMessageLoggerConfig,
+  ): Promise<TextChannel | GetChannelResultCode> {
+    let channel = this.channelCache.get(guildProfile.getChannelCacheId());
 
-    if (!config) {
-      const json = await this.repo.get(guild.id);
-      if (json) config = new GuildMessageLoggerConfig(json);
+    if (!channel) {
+      if (!guildProfile.channelId || guildProfile.channelId.length == 0) {
+        return GetChannelResultCode.NO_ID;
+      }
+
+      let error;
+      const guild = await this.client.guilds.fetch(guildProfile.id);
+      channel = await guild.channels
+        .fetch(guildProfile.channelId ?? "")
+        .catch((error) => (error = error));
+      if (error) return GetChannelResultCode.FETCH_FAILED;
+
+      if (!channel) return GetChannelResultCode.NOT_EXIST;
     }
-    if (!config) {
-      config = new GuildMessageLoggerConfig({ id: guild.id, active: false });
-      await this.repo.create(config);
-    }
-    this.configCache.set(guild.id, config);
-    return config;
-  }
 
-  private async check(guild: Guild): Promise<TextChannel | undefined> {
-    let prolfieCache = await this.initConfig(guild);
-    if (!prolfieCache.active) return;
-
-    return await this.initChannel(prolfieCache.channelId!, guild);
+    return channel;
   }
 
   @On(Events.MessageUpdate)
   protected async onMessageUpdate(oldMessage: Message, newMessage: Message): Promise<any> {
     if (oldMessage.author.bot || !oldMessage.inGuild()) return;
-    let channel = await this.check(oldMessage.guild);
-    if (!channel) return;
+    if (oldMessage.content == newMessage.content) return;
+    const guildProfile = await this.getGuildProfile(oldMessage.guild);
+    const logChannel = await this.getChannel(guildProfile);
+
+    if (!guildProfile.active || !guildProfile.channelId) {
+      return;
+    }
 
     const locale = oldMessage.guild.preferredLocale;
 
-    await channel.send({
-      embeds: [
-        new EmbedBuilder()
-          .setAuthor({
-            name: `${oldMessage.author.tag}/${oldMessage.author.id}`,
-            iconURL: oldMessage.author.displayAvatarURL(),
-          })
-          .setTitle(
-            `${
-              locale == Locale.Vietnamese ? "Tin nhắn đã chỉnh sửa trong" : "Message edited in"
-            } <#${oldMessage.channelId}>`,
-          )
-          .addFields([
-            {
-              name: "Before:",
-              value: oldMessage.partial ? "*No content*" : oldMessage.content,
-            },
-            {
-              name: "After:",
-              value: newMessage.partial ? "*No content*" : newMessage.content,
-            },
-          ])
-          .setDescription(
-            `${locale == Locale.Vietnamese ? "Đã chỉnh sửa" : "Edited"} <t:${Math.floor(Date.now() / 1000)}:R>`,
-          )
-          .setColor(Colors.Yellow)
-          .setFooter({ text: `MSG-ID: ${oldMessage.id}` })
-          .setTimestamp(),
-      ],
-    });
+    if (logChannel instanceof TextChannel) {
+      await logChannel.send({
+        embeds: [
+          new EmbedBuilder()
+            .setAuthor({
+              name: `${oldMessage.author.tag}`,
+              iconURL: oldMessage.author.displayAvatarURL(),
+            })
+            .addFields([
+              {
+                name: `${locale == Locale.Vietnamese ? "Trước:" : "Before:"}`,
+                value: oldMessage.partial ? "*No content*" : oldMessage.content,
+              },
+              {
+                name: `${locale == Locale.Vietnamese ? "Sau:" : "After:"}`,
+                value: newMessage.partial ? "*No content*" : newMessage.content,
+              },
+            ])
+            .setDescription(
+              `${
+                locale == Locale.Vietnamese ? "**Tin nhắn đã chỉnh sửa trong" : "Message edited in"
+              } <#${oldMessage.channelId}>** <t:${Math.floor(Date.now() / 1000)}:R>`,
+            )
+            .setColor(Colors.Yellow)
+            .setFooter({
+              text: `message ID: ${oldMessage.id} - Author ID: ${oldMessage.author.id}`,
+            })
+            .setTimestamp(),
+        ],
+      });
+    } else {
+      this.logger.warn(
+        `Can't get channel with cached id: ${guildProfile.getChannelCacheId()} - CODE: ${logChannel}`,
+      );
+    }
   }
 
   @On(Events.MessageDelete)
   protected async onMessageDelete(message: Message<true>): Promise<any> {
-    if (message.author.bot) return;
-    if (!message.inGuild()) return;
+    if (message.author.bot || !message.inGuild()) return;
+    const guildProfile = await this.getGuildProfile(message.guild);
+    const logChannel = await this.getChannel(guildProfile);
 
-    let channel = await this.check(message.guild);
+    if (!guildProfile.active || !guildProfile.channelId) {
+      return;
+    }
 
-    if (!channel) return;
+    if (logChannel instanceof TextChannel) {
+      const isOverSizeMessage = message.content.length > EMBED_DESCRIPTION_MAX_LENGTH;
 
-    const isOverSizeMessage = message.content.length > EMBED_DESCRIPTION_MAX_LENGTH;
+      const descriptions: string[] = [
+        `**Message deleted in <#${message.channelId}> <t:${Math.floor(Date.now() / 1000)}:R>**`,
+        `**Content:** ${message.content.length == 0 ? "*No content*" : message.content}`,
+      ];
 
-    const embed = new EmbedBuilder()
-      .setAuthor({
-        name: `${message.author.tag}/${message.author.id}`,
-        iconURL: message.author.displayAvatarURL(),
-      })
-      .setTitle(`Message deleted in <#${message.channelId}>`)
-      .setDescription(
-        `Deleted <t:${Math.floor(Date.now() / 1000)}:R>\n**Content:** ${
-          message.content.length == 0 ? "*No content*" : message.content
-        }`.slice(0, EMBED_DESCRIPTION_MAX_LENGTH - 3) + (isOverSizeMessage ? "..." : ""),
-      )
-      .setColor(Colors.Red)
-      .setFooter({ text: `MSG-ID: ${message.id}` })
-      .setTimestamp();
+      const embedDescription =
+        descriptions.join("\n").slice(0, EMBED_DESCRIPTION_MAX_LENGTH - 3) +
+        (isOverSizeMessage ? "..." : "");
 
-    await channel.send({
-      embeds: [embed],
-      files: isOverSizeMessage
-        ? [
-            {
-              attachment: Buffer.from(message.content, "utf-8"),
-              name: "message.txt",
-            },
-            ...message.attachments.map((att) => att),
-          ]
-        : [...message.attachments.map((att) => att)],
-    });
+      const embed = new EmbedBuilder()
+        .setAuthor({
+          name: `${message.author.tag}/${message.author.id}`,
+          iconURL: message.author.displayAvatarURL(),
+        })
+        .setDescription(embedDescription)
+        .setColor(Colors.Red)
+        .setFooter({
+          text: `message ID: ${message.id} - Author ID: ${message.author.id}`,
+        })
+        .setTimestamp();
+
+      await logChannel.send({
+        embeds: [embed],
+        files: isOverSizeMessage
+          ? [
+              {
+                attachment: Buffer.from(message.content, "utf-8"),
+                name: "message.txt",
+              },
+              ...message.attachments.map((att) => att),
+            ]
+          : [...message.attachments.map((att) => att)],
+      });
+    } else {
+      this.logger.warn(
+        `Can't get channel with cached id: ${guildProfile.getChannelCacheId()} - CODE: ${logChannel}`,
+      );
+    }
   }
 
   @On(Events.MessageBulkDelete)
   protected async onMessageBulkDelete(messages: Collection<string, Message<true>>): Promise<any> {
-    if (!messages.first()?.inGuild()) return;
-
-    let chunk: string = "";
-
-    let firstEmbedFullContent = false;
-    const firstEmbedTimeData = `Deleted <t:${Math.floor(Date.now() / 1000)}:R>`;
-    const firstEmbed = new EmbedBuilder()
-      .setTitle(`${messages.size} messages deleted in <#${messages.first()?.channelId}>`)
-      .setColor(Colors.Red);
-
-    const embeds = [];
-
-    const lastEmbed = new EmbedBuilder()
-      .setColor(Colors.Red)
-      .setFooter({ text: `Channel ID: ${messages.first()?.channelId}` })
-      .setTimestamp();
-
-    messages
-      .map((msg) => msg)
-      .forEach((msg, index) => {
-        const rowContent = `**${msg.author.username}**: ${msg.content}`;
-
-        if (!firstEmbedFullContent) {
-          if (chunk.length + rowContent.length + firstEmbedTimeData.length < EMBED_DESCRIPTION_MAX_LENGTH) {
-            chunk += rowContent + "\n";
-          } else {
-            firstEmbed.setDescription(firstEmbedTimeData + "\n" + chunk);
-            firstEmbedFullContent = true;
-            embeds.push(firstEmbed);
-          }
-          return;
-        }
-
-        if (chunk.length + rowContent.length > EMBED_DESCRIPTION_MAX_LENGTH) {
-          chunk += rowContent + "\n";
-        } else if (index == messages.size - 1) {
-          embeds.push(lastEmbed.setDescription(chunk));
-        } else {
-          embeds.push(new EmbedBuilder().setDescription(chunk));
-        }
-      });
-  }
-
-  private async autoReplyNotInGuildCommandInteraction(interaction: ChatInputCommandInteraction) {
-    await autoDeferReply(interaction);
-
-    if (!interaction.inCachedGuild()) {
-      await sendInteractionMessageReply(interaction, {
-        content: "You can't use this command in here !",
-      });
+    const firstMessage = messages.at(0);
+    if (!firstMessage || firstMessage.author.bot) {
       return;
     }
 
-    return interaction;
+    const guildProfile = await this.getGuildProfile(firstMessage.guild);
+    const logChannel = await this.getChannel(guildProfile);
+
+    if (!guildProfile.active || !guildProfile.channelId) {
+      return;
+    }
+
+    if (logChannel instanceof TextChannel) {
+      let chunk: string = "";
+
+      let firstEmbedFullContent = false;
+      const firstEmbedTimeData = `Deleted <t:${Math.floor(Date.now() / 1000)}:R>`;
+      const firstEmbed = new EmbedBuilder()
+        .setTitle(`${messages.size} messages deleted in <#${messages.first()?.channelId}>`)
+        .setColor(Colors.Red);
+
+      const embeds = [];
+
+      const lastEmbed = new EmbedBuilder()
+        .setColor(Colors.Red)
+        .setFooter({ text: `Channel ID: ${messages.first()?.channelId}` })
+        .setTimestamp();
+
+      messages
+        .map((msg) => msg)
+        .forEach((msg, index) => {
+          const rowContent = `**${msg.author.username}**: ${msg.content}`;
+
+          if (!firstEmbedFullContent) {
+            if (
+              chunk.length + rowContent.length + firstEmbedTimeData.length <
+              EMBED_DESCRIPTION_MAX_LENGTH
+            ) {
+              chunk += rowContent + "\n";
+            } else {
+              firstEmbed.setDescription(firstEmbedTimeData + "\n" + chunk);
+              firstEmbedFullContent = true;
+              embeds.push(firstEmbed);
+            }
+            return;
+          }
+
+          if (chunk.length + rowContent.length > EMBED_DESCRIPTION_MAX_LENGTH) {
+            chunk += rowContent + "\n";
+          } else if (index == messages.size - 1) {
+            embeds.push(lastEmbed.setDescription(chunk));
+          } else {
+            embeds.push(new EmbedBuilder().setDescription(chunk));
+          }
+        });
+    } else {
+      this.logger.warn(
+        `Can't get channel with cached id: ${guildProfile.getChannelCacheId()} - CODE: ${logChannel}`,
+      );
+    }
   }
 
   // Command executor
-  async createChannelCommandInteraction(itrt: ChatInputCommandInteraction) {
-    let interaction = await this.autoReplyNotInGuildCommandInteraction(itrt);
-    if (!interaction) return;
+  @SlashCommandExecutor({
+    guildOnly: true,
+    deferred: true,
+    ephemeral: true,
+    requiredAdminPermission: true,
+  })
+  async createChannel(interaction: ChatInputCommandInteraction) {
+    if (!interaction || !interaction.guild) return;
 
-    const config = await this.initConfig(interaction.guild);
+    const config = await this.getGuildProfile(interaction.guild);
     config.active = true;
 
     let channelName = interaction.options.getString("name");
@@ -228,36 +263,38 @@ export default class MessageEventLogger extends ClientModule<"message-event-logg
 
     config.channelId = logChannel.id;
     this.channelCache.set(`${logChannel.guildId}:${logChannel.id}`, logChannel);
-    this.configCache.set(config.id, config);
+    this.guildProfileCache.set(config.id, config);
     await this.repo.update(config);
   }
 
-  async setChannelCommandInteraction(itrt: ChatInputCommandInteraction) {
-    let interaction = await this.autoReplyNotInGuildCommandInteraction(itrt);
-    if (!interaction) return;
+  @SlashCommandExecutor({ deferred: true, ephemeral: true, requiredAdminPermission: true })
+  async setChannel(interaction: ChatInputCommandInteraction) {
+    if (!interaction || !interaction.guild) return;
 
-    const config = await this.initConfig(interaction.guild);
-    if (!config.active) config.active = true;
+    const guildProfile = await this.getGuildProfile(interaction.guild);
+    if (!guildProfile.active) {
+      guildProfile.active = true;
+    }
 
-    if (config.channelId) {
-      this.channelCache.delete(`${config.channelId}:${config.id}`);
+    if (guildProfile.channelId) {
+      this.channelCache.delete(`${guildProfile.channelId}:${guildProfile.id}`);
       await sendInteractionMessageReply(interaction, {
         embeds: [
           {
             title: "Operation Complete !",
-            description: `Record for message event in channel <#${config.channelId}> disabled`,
+            description: `Record for message event in channel <#${guildProfile.channelId}> disabled`,
             color: Colors.Green,
             timestamp: new Date().toISOString(),
           },
         ],
       });
 
-      config.channelId = undefined;
+      guildProfile.channelId = undefined;
     } else {
       const channel = interaction.options.getChannel("channel", true, [ChannelType.GuildText]);
 
-      config.channelId = channel.id;
-      this.channelCache.set(`${config.channelId}:${config.id}`, channel);
+      guildProfile.channelId = channel.id;
+      this.channelCache.set(`${guildProfile.channelId}:${guildProfile.id}`, channel);
 
       await sendInteractionMessageReply(interaction, {
         embeds: [
@@ -271,7 +308,7 @@ export default class MessageEventLogger extends ClientModule<"message-event-logg
       });
     }
 
-    this.configCache.set(config.id, config);
-    await this.repo.update(config);
+    this.guildProfileCache.set(guildProfile.id, guildProfile);
+    await this.repo.update(guildProfile);
   }
 }
