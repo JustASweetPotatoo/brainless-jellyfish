@@ -4,6 +4,7 @@
     "@heroicons/react": "^2.2.0",
     "@material-tailwind/react": "^2.1.10",
     "canvas": "^3.2.3",
+    "cheerio": "^1.2.0",
     "discord-api-types": "^0.37.101",
     "discord.js": "^14.16.3",
     "fastify": "^5.7.4",
