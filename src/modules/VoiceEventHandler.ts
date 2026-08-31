@@ -194,8 +194,6 @@ export default class VoiceEventHandler extends ClientModule<"voice-event-handler
         await channel.send({ embeds: [embed] });
         this.voiceSessions.delete(cacheId);
       }
-    } else {
-      this.handleClientError(channel);
     }
   }
 }

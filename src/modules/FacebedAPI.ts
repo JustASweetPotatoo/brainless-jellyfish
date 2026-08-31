@@ -5,11 +5,11 @@ import * as cheerio from "cheerio";
 
 configDotenv();
 import {
+  ChatInputCommandInteraction,
   Collection,
   Colors,
   EmbedBuilder,
   Events,
-  Guild,
   Message,
   TextChannel,
   ThreadChannel,
@@ -19,14 +19,20 @@ import {
 } from "discord.js";
 
 import ClientModule from "./core/ClientModule";
-import { On, Repository } from "./core/decorators";
+import { On, Repository, SlashCommandExecutor } from "./core/decorators";
 import FacebookAttachmentSourceRepo from "../database/repository/FacebookUrlRepo";
-import { extractFacebookShareUrl, getAttachmentType } from "../utils/functions";
+import {
+  extractFacebookReelId,
+  extractFacebookShareUrl,
+  getAttachmentType,
+  removeQueryUrl,
+} from "../utils/functions";
 import {
   DiscordImageSources,
   DiscordVideoSources,
   FacebookAttachmentSource,
 } from "../database/model/FacebookAttactmentSource";
+import { EventEmitter } from "stream";
 
 interface FacebookUrlCrawledData {
   reelId: string | undefined;
@@ -46,6 +52,12 @@ export default class FacebedAPI extends ClientModule<"facebed-api"> {
   private founderEmbed: EmbedBuilder = new EmbedBuilder()
     .setDescription(`> *Sứa#2120 - Powered by **Potarozz***\n> *Facebed API by **pi.kt***`)
     .setColor(Colors.Blurple);
+
+  private readonly failedEmbed = (extractedUrl: string) =>
+    new EmbedBuilder()
+      .setTitle("This post is private or unavailable !")
+      .setDescription(`[See posts, photos and more on Facebook](<${extractedUrl}>)`)
+      .setColor(Colors.Yellow);
 
   private async getAttCachedSource(
     facebookSource: string,
@@ -78,7 +90,7 @@ export default class FacebedAPI extends ClientModule<"facebed-api"> {
     };
 
     return {
-      reelId: get("og:url").at(0),
+      reelId: extractFacebookReelId(get("og:url").at(0) ?? ""),
       videoLinks: get("og:video:secure_url"),
       imageLinks: get("og:image"),
       title: get("og:title").at(0),
@@ -104,7 +116,7 @@ export default class FacebedAPI extends ClientModule<"facebed-api"> {
     return path;
   }
 
-  async getWebhookClient(
+  private async getWebhookClient(
     channel: TextChannel | VoiceChannel | ThreadChannel,
   ): Promise<WebhookClient> {
     const cacheId = `${channel.id}|${channel.guild.id}`;
@@ -134,158 +146,264 @@ export default class FacebedAPI extends ClientModule<"facebed-api"> {
     return webhookClient;
   }
 
-  @On(Events.MessageCreate)
-  async onMessageCreate(message: Message<true>) {
-    if (message.author.bot) return;
+  private async getFacebookAttachmentSources(url: string) {
+    const apiLink = url.replace("https://www.facebook.com", this.ApiUrl);
+    const response = await fetch(apiLink).catch((error) => this.handleModuleError(error));
 
-    // Get facebook URL
-    const extractedUrl = extractFacebookShareUrl(message.content);
-    if (!extractedUrl) return;
+    if (!response) return undefined;
 
-    // Get refMessage
-    const refMessage = await message.channel.messages
-      .fetch(message.reference?.messageId ?? "")
-      .catch((error) => this.logger.error(error));
+    const responseText = await response.text();
+    return this.parseHtml(responseText);
+  }
 
-    // Get webhook client
-    let webhookClient: WebhookClient | undefined = await this.getWebhookClient(
-      message.channel as TextChannel | VoiceChannel | ThreadChannel,
-    );
+  private readonly emitter = new EventEmitter({ captureRejections: true });
 
-    if (!webhookClient) {
-      this.logger.warn(`Can't get webhook client! ${message.channelId}|${message.guildId}`);
-      return;
+  private async enable(guildId: string) {
+    let isActive = await this.client.moduleManager
+      .get("guild-status-manager")
+      .isActive(guildId, this.name);
+
+    if (isActive) {
+      return false;
     }
 
-    // Get cached attachments
-    const cachedAtts = await this.getAttCachedSource(extractedUrl);
-    const cachedVideos = cachedAtts?.discordVideoSources;
-    if (cachedVideos && cachedVideos.length != 0) {
-      if (webhookClient) {
-        await webhookClient.send({
-          content: this.wrapLinks(message.content) + `\n${cachedVideos.at(0)?.discordMediaSource}`,
+    this.emitter.on(guildId, this.processMessageOnGuild);
+    await this.client.moduleManager.get("guild-status-manager").enableModule(guildId, this.name);
+    return true;
+  }
+
+  private async disable(guildId: string) {
+    let isActive = await this.client.moduleManager
+      .get("guild-status-manager")
+      .isActive(guildId, this.name);
+
+    if (isActive) {
+      this.emitter.removeListener(guildId, this.processMessageOnGuild);
+      await this.client.moduleManager.get("guild-status-manager").disableModule(guildId, this.name);
+      return true;
+    }
+
+    return false;
+  }
+
+  private async processMessageOnGuild(message: Message<true>) {
+    try {
+      // Get facebook URL
+      const extractedUrl = extractFacebookShareUrl(message.content);
+      if (!extractedUrl) return;
+
+      // Get refMessage
+      const refMessage = await message.channel.messages
+        .fetch(message.reference?.messageId ?? "")
+        .catch((error) => this.logger.error(error));
+
+      // Get webhook client
+      let webhookClient: WebhookClient | undefined = await this.getWebhookClient(
+        message.channel as TextChannel | VoiceChannel | ThreadChannel,
+      );
+
+      if (!webhookClient) {
+        this.logger.warn(`Can't get webhook client! ${message.channelId}|${message.guildId}`);
+        return;
+      }
+
+      const displayWebhookUsername = `${message.author.displayName}-Sứa#2120`;
+
+      // Get cached video sources
+      const cachedAtts = await this.getAttCachedSource(extractedUrl);
+      const cachedVideos = cachedAtts?.discordVideoSources;
+      if (cachedVideos && cachedVideos.length != 0) {
+        const messagePayload: WebhookMessageCreateOptions = {
+          content:
+            this.wrapLinks(message.content) +
+            `\n${removeQueryUrl(cachedVideos.at(0)?.discordMediaSource ?? "")}` +
+            `\n\n> -# *UID: ${message.author.id} <t:${message.createdTimestamp}:f>*`,
+          username:
+            displayWebhookUsername.length > 32
+              ? `${message.author.displayName}`
+              : displayWebhookUsername,
+          avatarURL: message.author.avatarURL()!,
+          threadId: message.channel instanceof ThreadChannel ? message.channelId : undefined,
+        };
+
+        await webhookClient.send(messagePayload);
+        await message.delete().catch(() => {});
+        return;
+      }
+
+      // Crawling Data
+      const crawledData = await this.getFacebookAttachmentSources(extractedUrl);
+      if (!crawledData) {
+        await message.reply({ embeds: [this.failedEmbed(extractedUrl)] });
+        return;
+      }
+
+      // If has video source link
+      if (crawledData.videoLinks.length != 0) {
+        const path = await this.downloadVideo(
+          crawledData.videoLinks[0],
+          `${crawledData.reelId}.mp4`,
+        );
+
+        // If can't download the video
+        if (!path) {
+          await message.reply({ embeds: [this.failedEmbed(extractedUrl)] });
+          this.logger.error("Can't get the video with source: " + crawledData.videoLinks);
+          return;
+        }
+
+        const videoStats = fs.statSync(path);
+
+        if (videoStats.size >= 10 * 1024 * 1024) {
+          const embed = new EmbedBuilder()
+            .setTitle("This video in post is too large to direct conversion")
+            .setURL(crawledData.videoLinks[0])
+            .setColor(Colors.Green);
+          await message.reply({ embeds: [embed, this.founderEmbed] });
+          this.logger.warn("Too large video: " + crawledData.videoLinks);
+          return;
+        }
+
+        const messagePayload: WebhookMessageCreateOptions = {
+          content:
+            `${this.wrapLinks(message.content)}` +
+            (refMessage && refMessage.member
+              ? `\n> -# ↪ [Reply to ↗ ${refMessage.member.displayName}](<${refMessage.url}>)`
+              : ""),
           embeds: [
             this.founderEmbed.setFooter({ text: `UID: ${message.author.id}` }).setTimestamp(),
           ],
           username: message.author.displayName,
           avatarURL: message.author.avatarURL()!,
           threadId: message.channel instanceof ThreadChannel ? message.channelId : undefined,
+          files: [path],
+        };
+
+        const apiMessage = await webhookClient.send(messagePayload);
+        const att = apiMessage.attachments.at(0);
+
+        const attachmentSource: DiscordVideoSources = {
+          index: 0,
+          discordMediaSource: removeQueryUrl(att?.url ?? ""),
+          facebookSource: extractedUrl,
+        };
+
+        const cacheAtts: FacebookAttachmentSource = new FacebookAttachmentSource({
+          facebookSource: extractedUrl,
+          discordVideoSources: [attachmentSource],
+          discordFileSources: [],
+          discordImageSources: [],
         });
+
+        await this.repo.create(cacheAtts);
         await message.delete().catch((error) => undefined);
-      }
-      return;
-    }
+      } else if (crawledData.imageLinks) {
+        const postEmbedDescription = `\n> **[${crawledData.title}](${this.wrapLinks(
+          extractedUrl,
+        )})**\n> ${crawledData.description}`;
 
-    // Crawling Data
-    const apiLink = extractedUrl.replace("https://www.facebook.com", this.ApiUrl);
-    const response = await fetch(apiLink).catch((error) => this.handleClientError(error));
+        const messagePayload1: WebhookMessageCreateOptions = {
+          content:
+            this.wrapLinks(message.content) +
+            postEmbedDescription +
+            (refMessage && refMessage.member
+              ? `s\n> -# ↪ [Reply to ↗ ${refMessage.member.displayName}](<${refMessage.url}>)`
+              : ""),
+          files: crawledData.imageLinks.slice(0, 9),
+          embeds: [this.founderEmbed],
+          username: message.author.displayName,
+          avatarURL: message.author.avatarURL() ?? undefined,
+          threadId: message.channel instanceof ThreadChannel ? message.channelId : undefined,
+        };
 
-    if (!response) {
-      const warnEmbed = new EmbedBuilder()
-        .setTitle("This post is private or unavailable !")
-        .setDescription(`[See posts, photos and more on Facebook](<${extractedUrl}>)`)
-        .setColor(Colors.Yellow);
-      await message.reply({ embeds: [warnEmbed] });
-      return;
-    }
+        // const messagePayload2: WebhookMessageCreateOptions = {
+        //   content:
+        //     this.wrapLinks(message.content) +
+        //     postEmbedDescription +
+        //     (refMessage && refMessage.member
+        //       ? `s\n> -# ↪ [Reply to ↗ ${refMessage.member.displayName}](<${refMessage.url}>)`
+        //       : ""),
+        //   files: crawledData.imageLinks.slice(0, 0),
+        //   embeds: [this.founderEmbed],
+        //   username: message.author.displayName,
+        //   avatarURL: message.author.avatarURL() ?? undefined,
+        //   threadId: message.channel instanceof ThreadChannel ? message.channelId : undefined,
+        // };
 
-    const responseText = await response.text();
-    const crawledData = this.parseHtml(responseText);
+        const replyMessage = await webhookClient.send(messagePayload1);
 
-    // If has video source link
-    if (crawledData.videoLinks.length != 0) {
-      const path = await this.downloadVideo(crawledData.videoLinks[0], `${crawledData.reelId}.mp4`);
+        const attachments = replyMessage.attachments
+          .filter((att) => getAttachmentType(att.contentType) == "image")
+          .map((item) => item)
+          .map((item, index): DiscordImageSources => {
+            return {
+              facebookSource: extractedUrl,
+              discordMediaSource: removeQueryUrl(item.url),
+              index: index,
+            };
+          });
 
-      // If can't download the video
-      if (!path) {
-        const embed = new EmbedBuilder()
-          .setTitle("This post is private or unavailable !")
-          .setDescription(`[See post or photos and more on Facebook](<${extractedUrl}>)`)
-          .setColor(Colors.Yellow);
-        await message.reply({ embeds: [embed, this.founderEmbed] });
-        this.logger.error("Can't get the video with source: " + crawledData.videoLinks);
-        return;
-      }
-
-      const videoStats = fs.statSync(path);
-
-      if (videoStats.size >= 10 * 1024 * 1024) {
-        const embed = new EmbedBuilder()
-          .setTitle("This video in post is too large to direct conversion")
-          .setURL(crawledData.videoLinks[0])
-          .setColor(Colors.Green);
-        await message.reply({ embeds: [embed, this.founderEmbed] });
-        this.logger.warn("Too large video: " + crawledData.videoLinks);
-        return;
-      }
-
-      const messagePayload: WebhookMessageCreateOptions = {
-        content:
-          `${this.wrapLinks(message.content)}` +
-          (refMessage && refMessage.member
-            ? `\n> -# ↪ [Reply to ↗ ${refMessage.member.displayName}](<${refMessage.url}>)`
-            : ""),
-        embeds: [this.founderEmbed.setFooter({ text: `UID: ${message.author.id}` }).setTimestamp()],
-        username: message.author.displayName,
-        avatarURL: message.author.avatarURL()!,
-        threadId: message.channel instanceof ThreadChannel ? message.channelId : undefined,
-        files: [path],
-      };
-
-      const apiMessage = await webhookClient.send(messagePayload);
-      const att = apiMessage.attachments.at(0);
-
-      const attachmentSource: DiscordVideoSources = {
-        index: 0,
-        discordMediaSource: att?.url ?? "",
-        facebookSource: extractedUrl,
-      };
-
-      const cacheAtts: FacebookAttachmentSource = new FacebookAttachmentSource({
-        facebookSource: extractedUrl,
-        discordVideoSources: [attachmentSource],
-        discordfileSources: [],
-        discordImageSources: [],
-      });
-
-      await this.repo.create(cacheAtts);
-      await message.delete().catch((error) => undefined);
-    } else if (crawledData.imageLinks) {
-      const postEmbedDescription = `\n> **[${crawledData.title}](${this.wrapLinks(
-        extractedUrl,
-      )})**\n> ${crawledData.description}`;
-
-      const replyMessage = await webhookClient.send({
-        content:
-          this.wrapLinks(message.content) +
-          postEmbedDescription +
-          (refMessage && refMessage.member
-            ? `s\n> -# ↪ [Reply to ↗ ${refMessage.member.displayName}](<${refMessage.url}>)`
-            : ""),
-        files: crawledData.imageLinks.slice(0, 9),
-        embeds: [this.founderEmbed],
-        username: message.author.displayName,
-        avatarURL: message.author.avatarURL() ?? undefined,
-        threadId: message.channel instanceof ThreadChannel ? message.channelId : undefined,
-      });
-
-      const attachments = replyMessage.attachments
-        .filter((att) => getAttachmentType(att.contentType) == "image")
-        .map((item) => item)
-        .map((item, index): DiscordImageSources => {
-          return { facebookSource: extractedUrl, discordMediaSource: item.url, index: index };
+        const cacheAtts: FacebookAttachmentSource = new FacebookAttachmentSource({
+          facebookSource: extractedUrl,
+          discordVideoSources: [],
+          discordFileSources: [],
+          discordImageSources: attachments,
         });
 
-      const cacheAtts: FacebookAttachmentSource = new FacebookAttachmentSource({
-        facebookSource: extractedUrl,
-        discordVideoSources: [],
-        discordfileSources: [],
-        discordImageSources: attachments,
-      });
-
-      await this.repo.create(cacheAtts);
-      await message.delete().catch((error) => undefined);
-    } else {
+        await this.repo.create(cacheAtts);
+        await message.delete().catch((error) => undefined);
+      } else {
+        // File attachments
+      }
+    } catch (error) {
+      this.handleModuleError(error);
     }
+  }
+
+  @SlashCommandExecutor({ guildOnly: true, requiredAdminPermission: true })
+  async activeModule(interaction: ChatInputCommandInteraction<"cached">) {
+    const turnOn = interaction.options.getBoolean("turn-on");
+
+    if (turnOn) {
+      const res = await this.enable(interaction.guildId);
+
+      if (res) {
+        await interaction.editReply({
+          embeds: [new EmbedBuilder().setColor(Colors.Green).setTitle("Operation complete !")],
+        });
+      } else {
+        await interaction.editReply({
+          embeds: [
+            new EmbedBuilder()
+              .setColor(Colors.Yellow)
+              .setTitle("Operation Failed !")
+              .setDescription("Feature already turned on !"),
+          ],
+        });
+      }
+    } else {
+      const res = await this.disable(interaction.guildId);
+
+      if (res) {
+        await interaction.editReply({
+          embeds: [new EmbedBuilder().setColor(Colors.Green).setTitle("Operation complete !")],
+        });
+      } else {
+        await interaction.editReply({
+          embeds: [
+            new EmbedBuilder()
+              .setColor(Colors.Yellow)
+              .setTitle("Operation Failed !")
+              .setDescription("Feature already turned off !"),
+          ],
+        });
+      }
+    }
+  }
+
+  @On(Events.MessageCreate)
+  async onMessageCreate(message: Message<true>) {
+    if (message.author.bot) return;
+    this.emitter.emit(message.guildId, message);
   }
 }

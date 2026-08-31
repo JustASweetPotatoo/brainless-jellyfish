@@ -27,7 +27,7 @@ export default class RankProviderGuildProfile extends BaseModel<RankProviderGuil
   blacklist: Collection<string, RankProviderGuildProfileBlacklistItem> = new Collection();
 
   constructor(json: RankProviderGuildProfileJson) {
-    super(json);
+    super();
 
     this.id = json.id;
     this.active = json.active ?? false;

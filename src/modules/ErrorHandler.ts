@@ -6,6 +6,7 @@ import {
   Colors,
   CommandInteraction,
   EmbedBuilder,
+  Message,
   MessageFlags,
 } from "discord.js";
 
@@ -30,19 +31,16 @@ export default class ClientErrorHandler extends ClientModule<"client-error-handl
     }
   }
 
-  handleClientError(data: ClientErrorData) {
-    const error = this.parseError(data.error);
-    data.logger.error({ message: error.createMessage(true) });
-  }
-
-  async handleSlashCommandError(
+  async handleSlashCommandInteractionError(
     interaction: CommandInteraction | ChatInputCommandInteraction,
     err: ClientError | Error,
   ) {
     const doneTimestamp = Date.now();
     const doneTimestampBySeconds = Math.floor(doneTimestamp / 1000);
     const durationByMiliseconds = doneTimestamp - interaction.createdTimestamp;
-    const commandName = ClientSlashCommandBuilder.getStackName(interaction as ChatInputCommandInteraction);
+    const commandName = ClientSlashCommandBuilder.getStackName(
+      interaction as ChatInputCommandInteraction,
+    );
 
     const responseTime = doneTimestamp - interaction.createdTimestamp;
     const error = new ClientError(ErrorCode.UNKNOWN_ERROR, err);
@@ -90,7 +88,6 @@ export default class ClientErrorHandler extends ClientModule<"client-error-handl
         `,
       color: Colors.Red,
       timestamp: doneTimestamp,
-      // not done yet ${this.client.getStatus(interaction).latency}
       footer: { text: `⏳ Response Time: ${responseTime} ms` },
       author: { name: "Command Error", iconURL: dangerIconUrl },
     });

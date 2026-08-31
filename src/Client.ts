@@ -9,6 +9,7 @@ import ModuleManager from "./modules/core/ModuleManager";
 import ClientErrorHandler from "./modules/ErrorHandler";
 import SlashCommandManager from "./slashCommands/SlashCommandManager";
 import DatabaseManager from "./database/DatabaseManager";
+import GuildStatusManager from "./modules/GuildStatusManager";
 
 export type OperationMode = "default" | "debug";
 
@@ -30,7 +31,6 @@ export default class MassClient extends Client {
   // Client Services
   public readonly logger: Logger;
   public readonly logPrinter: LogPrinter;
-  public readonly moduleManager: ModuleManager;
   public readonly errorHandler: ClientErrorHandler;
   public readonly database: DataSource;
 
@@ -38,6 +38,7 @@ export default class MassClient extends Client {
   public readonly databaseManager: DatabaseManager;
 
   // Init module
+  public readonly moduleManager: ModuleManager;
   public readonly slashCommandManager: SlashCommandManager;
 
   // Client dev aliances

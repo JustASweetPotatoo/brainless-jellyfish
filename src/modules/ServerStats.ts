@@ -17,17 +17,15 @@ export default class ServerStatsManager extends ClientModule<"server-stats-manag
   private systemTimeMinutes = Math.floor(Date.now() / 1000 / 60);
 
   private interactionRate: Collection<number, number> = new Collection();
-  private messageRatePerSec: Collection<string, Collection<number, number>> =
-    new Collection();
-  private messageRatePerMin: Collection<string, Collection<number, number>> =
-    new Collection();
+  private messageRatePerSec: Collection<string, Collection<number, number>> = new Collection();
+  private messageRatePerMin: Collection<string, Collection<number, number>> = new Collection();
 
   private readonly fastifyServer: FastifyServer;
 
   constructor(options: ModuleOptions) {
     super(options);
 
-    this.fastifyServer = new FastifyServer(options.client);
+    this.fastifyServer = new FastifyServer(options);
 
     // update time
     setInterval(() => {
@@ -99,9 +97,7 @@ export default class ServerStatsManager extends ClientModule<"server-stats-manag
   }
 
   // ================= DISCORD EVENTS =================
-  protected async onButtonInteractionCreate(
-    interaction: ButtonInteraction,
-  ): Promise<any> {
+  protected async onButtonInteractionCreate(interaction: ButtonInteraction): Promise<any> {
     const second = Math.floor(interaction.createdTimestamp / 1000);
     const rate = this.interactionRate.get(second) ?? 0;
     this.interactionRate.set(second, rate + 1);

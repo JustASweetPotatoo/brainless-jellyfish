@@ -38,8 +38,14 @@ export default class SlashCommandManager extends ClientModule<"slash-command-man
   private readonly commands: Collection<string, ClientSlashCommandBuilder> = new Collection();
   private slashCommandJSONBody: Array<RESTPostAPIApplicationCommandsJSONBody> = [];
   private readonly maxHeavyCommands = readPositiveInteger(process.env.MAX_HEAVY_COMMANDS, 2);
-  private readonly heavyCommandCooldown = readPositiveInteger(process.env.HEAVY_COMMAND_COOLDOWN_MS, 5000);
-  private readonly heavyCommandMessageTimeout = readPositiveInteger(process.env.HEAVY_COMMAND_MESSAGE_TIMEOUT_MS, 5000);
+  private readonly heavyCommandCooldown = readPositiveInteger(
+    process.env.HEAVY_COMMAND_COOLDOWN_MS,
+    5000,
+  );
+  private readonly heavyCommandMessageTimeout = readPositiveInteger(
+    process.env.HEAVY_COMMAND_MESSAGE_TIMEOUT_MS,
+    5000,
+  );
   private readonly heavyCommandCooldowns = new Collection<string, number>();
   private heavyCommandsInFlight = 0;
 
@@ -54,7 +60,7 @@ export default class SlashCommandManager extends ClientModule<"slash-command-man
       await this.getCommands();
       await this.registerCommands();
     } catch (error) {
-      this.handleClientError(error);
+      this.handleModuleError(error);
     }
   }
 
@@ -83,10 +89,7 @@ export default class SlashCommandManager extends ClientModule<"slash-command-man
           this.logger.warn(`File at ${absolutePath} is not command buider !`);
         }
       } catch (error) {
-        this.client.errorHandler.handleClientError({
-          error: error,
-          logger: this.logger,
-        });
+        this.handleModuleError(error);
       }
     }
 
@@ -109,7 +112,9 @@ export default class SlashCommandManager extends ClientModule<"slash-command-man
       }
     }
 
-    this.logger.ok(`Crafting complete, command JSON body count: ${this.slashCommandJSONBody.length}`);
+    this.logger.ok(
+      `Crafting complete, command JSON body count: ${this.slashCommandJSONBody.length}`,
+    );
 
     return this.slashCommandJSONBody;
   }
@@ -129,7 +134,9 @@ export default class SlashCommandManager extends ClientModule<"slash-command-man
 
   async registerCommands() {
     if (this.client.operationMode === "debug") {
-      this.logger.warn("Client in development mode, skipping register (/) commands to regular server");
+      this.logger.warn(
+        "Client in development mode, skipping register (/) commands to regular server",
+      );
       return;
     }
 
@@ -147,7 +154,7 @@ export default class SlashCommandManager extends ClientModule<"slash-command-man
         await this.registerCommandsToGuild(guild);
         counter++;
       } catch (error) {
-        this.handleClientError(error);
+        this.handleModuleError(error);
       }
     }
 
@@ -197,7 +204,10 @@ export default class SlashCommandManager extends ClientModule<"slash-command-man
       );
     }
 
-    const rejectionMessage = this.acquireHeavyCommand(interaction as ChatInputCommandInteraction<"cached">, command);
+    const rejectionMessage = this.acquireHeavyCommand(
+      interaction as ChatInputCommandInteraction<"cached">,
+      command,
+    );
     if (rejectionMessage) {
       await interaction.editReply({ content: rejectionMessage });
       setTimeout(() => {
@@ -213,7 +223,9 @@ export default class SlashCommandManager extends ClientModule<"slash-command-man
     }
   }
 
-  protected override async onAutoCompleteInteractionCreate(interaction: AutocompleteInteraction): Promise<any> {
+  protected override async onAutoCompleteInteractionCreate(
+    interaction: AutocompleteInteraction,
+  ): Promise<any> {
     const command = this.commands.get(interaction.commandName);
 
     if (!command)
@@ -231,10 +243,7 @@ export default class SlashCommandManager extends ClientModule<"slash-command-man
 
       await autoCompleteExecutor(this.client, interaction);
     } catch (error) {
-      this.client.errorHandler.handleClientError({
-        error: new ClientError(ErrorCode.EXECUTE_COMMAND_FAILED, error),
-        logger: this.logger,
-      });
+      this.handleModuleError(new ClientError(ErrorCode.EXECUTE_COMMAND_FAILED, error));
     }
   }
 

@@ -1,5 +1,8 @@
 import DatabaseManager from "../DatabaseManager";
-import GuildStatistics, { GuildStatisticsJson } from "../model/GuildStatistics";
+import GuildStatistics, {
+  GuildStatisticsIncrementType,
+  GuildStatisticsJson,
+} from "../model/GuildStatistics";
 import { Repository } from "./constructor/Repository";
 
 export default class GuildStatisticsRepo extends Repository<GuildStatistics, GuildStatisticsJson> {
@@ -7,10 +10,9 @@ export default class GuildStatisticsRepo extends Repository<GuildStatistics, Gui
 
   protected readonly createTableQuery = `
     CREATE TABLE IF NOT EXISTS ${this.fullTableName} (
-      id VARCHAR(64) PRIMARY KEY,
-      message_count BIGINT UNSIGNED NOT NULL DEFAULT 0,
-      member_join_count BIGINT UNSIGNED NOT NULL DEFAULT 0,
-      member_leave_count BIGINT UNSIGNED NOT NULL DEFAULT 0
+      id VARCHAR(64) NOT NULL PRIMARY KEY,
+      timestamp_by_days VARCHAR(64) NOT NULL,
+      count_map JSON,
     );
   `;
 
@@ -18,20 +20,20 @@ export default class GuildStatisticsRepo extends Repository<GuildStatistics, Gui
     super("guild_statistics", database);
   }
 
-  async get(id: string): Promise<GuildStatistics> {
+  async get(options: { id: string; timestampByDays: string }): Promise<GuildStatistics> {
     const row = (
       await this.executeQuery(
         `
-      SELECT * FROM ${this.fullTableName}
-      WHERE id = ?
-      LIMIT 1;
-    `,
-        [id],
+        SELECT * FROM ${this.fullTableName}
+        WHERE id = ? AND timestamp_by_days = ?
+        LIMIT 1;
+      `,
+        [options.id, options.timestampByDays],
       )
     ).at(0);
 
     if (row) return this.model.fromJSON(row as GuildStatisticsJson);
-    return this.create(new GuildStatistics({ id }));
+    return this.create(new GuildStatistics({ id: options.id }));
   }
 
   async create(data: GuildStatistics): Promise<GuildStatistics> {
@@ -39,10 +41,12 @@ export default class GuildStatisticsRepo extends Repository<GuildStatistics, Gui
     await this.executeQuery(
       `
       INSERT INTO ${this.fullTableName}
-        (id, message_count, member_join_count, member_leave_count)
-      VALUES (?, ?, ?, ?);
+        (id, timestamp_by_days, count_map)
+      VALUES (?, ?, ?)
+      ON DUPLICATE KEY UPDATE timestamp_by_days = ?
+      ;
     `,
-      [json.id, json.message_count, json.member_join_count, json.member_leave_count],
+      [json.id, json.timestamp_by_days, JSON.stringify(json.count_map), json.timestamp_by_days],
     );
 
     return data;
@@ -53,24 +57,25 @@ export default class GuildStatisticsRepo extends Repository<GuildStatistics, Gui
     await this.executeQuery(
       `
       UPDATE ${this.fullTableName}
-      SET message_count = ?, member_join_count = ?, member_leave_count = ?
-      WHERE id = ?;
+      SET count_map = ?
+      WHERE id = ? AND timestamp_by_days = ?;
     `,
-      [json.message_count, json.member_join_count, json.member_leave_count, json.id],
+      [JSON.stringify(json.count_map), json.id, json.timestamp_by_days],
     );
 
     return data;
   }
 
-  async increment(id: string, column: "message_count" | "member_join_count" | "member_leave_count"): Promise<void> {
-    await this.executeQuery(
-      `
-      INSERT INTO ${this.fullTableName} (id, ${column})
-      VALUES (?, 1)
-      ON DUPLICATE KEY UPDATE ${column} = ${column} + 1;
-    `,
-      [id],
-    );
+  async increment(
+    id: string,
+    type: GuildStatisticsIncrementType,
+    statistic?: GuildStatistics,
+  ): Promise<void> {
+    const timestampByDays = Math.floor(new Date().getTime() / 1000 / 60 / 24).toString();
+    if (!statistic) statistic = await this.get({ id: id, timestampByDays: timestampByDays });
+    if (!statistic) statistic = await this.create(new GuildStatistics({ id: id }));
+    statistic.incement(type);
+    await this.update(statistic);
   }
 
   async delete(id: string): Promise<boolean> {

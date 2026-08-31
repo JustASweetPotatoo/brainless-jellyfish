@@ -16,7 +16,7 @@ export default class RankProviderMilestone extends BaseModel<RankProviderMilesto
   endAt: number;
 
   constructor(json: RankProviderMilestoneObj) {
-    super(json);
+    super();
 
     this.id = json.id;
     this.guildId = json.guild_id;

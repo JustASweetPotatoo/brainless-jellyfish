@@ -18,7 +18,10 @@ export abstract class BaseRepository<TModel, TJSON> {
   abstract getOrderBy(column: keyof TJSON, desc?: boolean): Promise<TModel[]>;
 }
 
-export abstract class Repository<TModel extends BaseModel<TJSON>, TJSON> extends BaseRepository<TModel, TJSON> {
+export abstract class Repository<TModel extends BaseModel<TJSON>, TJSON> extends BaseRepository<
+  TModel,
+  TJSON
+> {
   protected readonly database: DatabaseManager;
   protected readonly pool: Pool;
 
@@ -45,7 +48,8 @@ export abstract class Repository<TModel extends BaseModel<TJSON>, TJSON> extends
 
   async createTable(): Promise<boolean> {
     try {
-      const tableExists = (await this.executeQuery(`SHOW TABLES LIKE ?`, [this.tableName])).length > 0;
+      const tableExists =
+        (await this.executeQuery(`SHOW TABLES LIKE ?`, [this.tableName])).length > 0;
 
       if (!tableExists) {
         await this.executeQuery(this.createTableQuery);
@@ -54,7 +58,9 @@ export abstract class Repository<TModel extends BaseModel<TJSON>, TJSON> extends
       }
 
       const existingColumns = await this.executeQuery(`SHOW COLUMNS FROM ${this.fullTableName}`);
-      const existingColumnNames = new Set(existingColumns.map((column: any) => String(column.Field).toLowerCase()));
+      const existingColumnNames = new Set(
+        existingColumns.map((column: any) => String(column.Field).toLowerCase()),
+      );
       const columnDefinitions = this.parseCreateTableColumns(this.createTableQuery);
 
       for (const definition of columnDefinitions) {
@@ -109,9 +115,25 @@ export abstract class Repository<TModel extends BaseModel<TJSON>, TJSON> extends
     return this.mapRows(rows as TJSON[]);
   }
 
-  async executeQuery(query: string, values?: any[]): Promise<RowDataPacket[]> {
+  async executeQuery(query: string, values?: any[]): Promise<RowDataPacket[]>;
+
+  async executeQuery(query: string, values?: any[], unique?: boolean): Promise<RowDataPacket>;
+
+  /**
+   *
+   * @returns {RowDataPacket[] | RowDataPacket} If error, return an empty array
+   */
+  async executeQuery(
+    query: string,
+    values?: any[],
+    unique?: boolean,
+  ): Promise<RowDataPacket[] | RowDataPacket> {
     try {
       const [rows] = await this.pool.query<RowDataPacket[]>(query, values);
+
+      if (unique) {
+        return rows[0];
+      }
       return rows;
     } catch (error) {
       console.log(error);

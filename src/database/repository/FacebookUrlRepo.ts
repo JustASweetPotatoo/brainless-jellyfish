@@ -3,7 +3,6 @@ import {
   FacebookAttachmentSource,
   FacebookAttachmentSourceJSON,
 } from "../model/FacebookAttactmentSource";
-import { FacebookVideoGuildCache, FacebookVideoGuildCacheJson } from "../model/VideoCache";
 import { Repository } from "./constructor/Repository";
 
 export default class FacebookAttachmentSourceRepo extends Repository<
@@ -28,17 +27,16 @@ export default class FacebookAttachmentSourceRepo extends Repository<
     const json = data.toJSON();
 
     const query = `
-      INSERT INTO ${this.fullTableName}
+      INSERT IGNORE INTO ${this.fullTableName}
       (facebook_source, video_attachments, image_attachments, file_attachments)
       VALUES (?, ?, ?, ?)
-      ON DUPLICATE KEY UPDATE facebook_source = facebook_source,
     `;
 
     const values = [
       json.facebookSource,
       JSON.stringify(json.discordVideoSources),
       JSON.stringify(json.discordImageSources),
-      JSON.stringify(json.discordfileSources),
+      JSON.stringify(json.discordFileSources),
     ];
 
     await this.executeQuery(query, values);
@@ -61,7 +59,7 @@ export default class FacebookAttachmentSourceRepo extends Repository<
     await this.executeQuery(query, [
       JSON.stringify(json.discordVideoSources),
       JSON.stringify(json.discordImageSources),
-      JSON.stringify(json.discordfileSources),
+      JSON.stringify(json.discordFileSources),
       json.facebookSource,
     ]);
 
@@ -75,27 +73,29 @@ export default class FacebookAttachmentSourceRepo extends Repository<
 
     return true;
   }
-  async get(facebookSource: string): Promise<FacebookAttachmentSource> {
+  async get(facebookSource: string): Promise<FacebookAttachmentSource | undefined> {
     const query = `SELECT * FROM ${this.fullTableName} WHERE facebook_source = ? LIMIT 1`;
 
     const row = (await this.executeQuery(query, [facebookSource])).at(0);
 
     if (!row) {
-      const fbAttSource = new FacebookAttachmentSource({
-        facebookSource: facebookSource,
-        discordfileSources: [],
-        discordImageSources: [],
-        discordVideoSources: [],
-      });
-      await this.create(fbAttSource);
-      return fbAttSource;
+      // const fbAttSource = new FacebookAttachmentSource({
+      //   facebookSource: facebookSource,
+      //   discordFileSources: [],
+      //   discordImageSources: [],
+      //   discordVideoSources: [],
+      // });
+      // await this.create(fbAttSource);
+      // return fbAttSource;
+
+      return undefined;
     }
 
     return new FacebookAttachmentSource({
       facebookSource: facebookSource,
-      discordfileSources: JSON.parse(row.file_attachments),
-      discordImageSources: JSON.parse(row.image_attachments),
-      discordVideoSources: JSON.parse(row.video_attachments),
+      discordFileSources: row.file_attachments,
+      discordImageSources: row.image_attachments,
+      discordVideoSources: row.video_attachments,
     });
   }
 

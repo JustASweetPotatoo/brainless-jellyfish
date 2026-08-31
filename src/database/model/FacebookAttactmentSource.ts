@@ -17,29 +17,29 @@ export interface FacebookAttachmentSourceJSON {
   readonly facebookSource: string;
   readonly discordImageSources: DiscordImageSources[];
   readonly discordVideoSources: DiscordVideoSources[];
-  readonly discordfileSources: DiscordfileSources[];
+  readonly discordFileSources: DiscordfileSources[];
 }
 
 export class FacebookAttachmentSource extends BaseModel<FacebookAttachmentSourceJSON> {
   readonly facebookSource: string;
   readonly discordImageSources: DiscordImageSources[];
   readonly discordVideoSources: DiscordVideoSources[];
-  readonly discordfileSources: DiscordfileSources[];
+  readonly discordFileSources: DiscordfileSources[];
 
   constructor(options: FacebookAttachmentSourceJSON) {
-    super(options);
+    super();
 
     this.facebookSource = options.facebookSource;
     this.discordImageSources = options.discordImageSources;
     this.discordVideoSources = options.discordVideoSources;
-    this.discordfileSources = options.discordfileSources;
+    this.discordFileSources = options.discordFileSources;
   }
 
   toJSON(): FacebookAttachmentSourceJSON {
     return {
       facebookSource: this.facebookSource,
       discordVideoSources: this.discordVideoSources,
-      discordfileSources: this.discordfileSources,
+      discordFileSources: this.discordFileSources,
       discordImageSources: this.discordImageSources,
     };
   }

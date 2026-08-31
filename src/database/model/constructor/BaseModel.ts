@@ -1,6 +1,4 @@
 export abstract class BaseModel<TJSON> {
-  constructor(_: TJSON) {}
-
   abstract toJSON(): TJSON;
 
   static fromJSON<T, J>(this: new (json: J) => T, json: J): T {

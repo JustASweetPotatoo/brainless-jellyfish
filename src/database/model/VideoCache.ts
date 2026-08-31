@@ -17,7 +17,7 @@ export class FacebookAttSource extends BaseModel<FacebookAttSourceObj> {
   readonly type: FacebookAttSourceType;
 
   constructor(options: FacebookAttSourceObj) {
-    super(options);
+    super();
     this.sourceUrl = options.sourceUrl;
     this.discordUrl = options.discordProxyUrl;
     this.type = options.type;
@@ -42,7 +42,7 @@ export class FacebookVideoGuildCache extends BaseModel<FacebookVideoGuildCacheJs
   attachments: FacebookAttSource[] = [];
 
   constructor(options: FacebookVideoGuildCacheJson) {
-    super(options);
+    super();
 
     this.guildId = options.guiidId;
     this.attachments = options.attachments.map((obj) => new FacebookAttSource(obj));

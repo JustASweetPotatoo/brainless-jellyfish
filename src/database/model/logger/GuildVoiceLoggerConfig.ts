@@ -12,7 +12,7 @@ export default class GuildVoiceLoggerConfig extends BaseModel<GuildVoiceLoggerCo
   active: boolean;
 
   constructor(json: GuildVoiceLoggerConfigJson) {
-    super(json);
+    super();
 
     this.id = json.id;
     this.channelId = json.channel_id;

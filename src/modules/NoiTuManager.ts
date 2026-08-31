@@ -46,10 +46,16 @@ export enum NoiTuMessageCreateEvent {
 export default class NoiTuManager extends ClientModule<"noi-tu-manager"> {
   static readonly moduleName = "noi-tu-manager";
 
-  readonly discordEvents: Events[] = [Events.ClientReady, Events.MessageCreate, Events.GuildCreate, Events.GuildDelete];
+  readonly discordEvents: Events[] = [
+    Events.ClientReady,
+    Events.MessageCreate,
+    Events.GuildCreate,
+    Events.GuildDelete,
+  ];
 
   private readonly guildConfigCollection: Collection<string, NoituGuildConfig> = new Collection();
-  private readonly guildChannelConfigCollection: Collection<string, NoituChannelConfig> = new Collection();
+  private readonly guildChannelConfigCollection: Collection<string, NoituChannelConfig> =
+    new Collection();
   private readonly channels: Collection<string, TextChannel> = new Collection();
 
   private readonly wordDictionary: { [key: string]: { [key2: string]: {} } } = noituDictionary;
@@ -57,7 +63,9 @@ export default class NoiTuManager extends ClientModule<"noi-tu-manager"> {
   @On(Events.ClientReady)
   protected async onClientReady(client: MassClient): Promise<any> {
     // debug
-    const debugChannel = this.client.guilds.cache.get("811939594882777128")?.channels.cache.get("1439476287163994212");
+    const debugChannel = this.client.guilds.cache
+      .get("811939594882777128")
+      ?.channels.cache.get("1439476287163994212");
     if (debugChannel && debugChannel instanceof TextChannel) {
       this.channels.set(debugChannel?.id, debugChannel);
       this.guildChannelConfigCollection.set(
@@ -67,7 +75,9 @@ export default class NoiTuManager extends ClientModule<"noi-tu-manager"> {
     }
   }
 
-  async createChannel(interaction: ChatInputCommandInteraction<"cached">): Promise<NoiTuCreateChannelEvent> {
+  async createChannel(
+    interaction: ChatInputCommandInteraction<"cached">,
+  ): Promise<NoiTuCreateChannelEvent> {
     if (!interaction.inGuild()) return NoiTuCreateChannelEvent.FAILURE;
 
     try {
@@ -78,15 +88,14 @@ export default class NoiTuManager extends ClientModule<"noi-tu-manager"> {
       this.guildChannelConfigCollection.set(guild.id, new NoituChannelConfig(channel.id, guild.id));
       return NoiTuCreateChannelEvent.SUCCESS;
     } catch (error) {
-      this.client.errorHandler.handleClientError({
-        error: error as Error,
-        logger: this.logger,
-      });
+      this.handleModuleError(error);
       return NoiTuCreateChannelEvent.FAILURE;
     }
   }
 
-  async setChannel(interaction: ChatInputCommandInteraction<"cached">): Promise<NoiTuSetChannelEvent> {
+  async setChannel(
+    interaction: ChatInputCommandInteraction<"cached">,
+  ): Promise<NoiTuSetChannelEvent> {
     const targetChannel = interaction.options.getChannel("channel", true);
 
     if (targetChannel instanceof TextChannel) {
@@ -164,7 +173,8 @@ export default class NoiTuManager extends ClientModule<"noi-tu-manager"> {
 
     if (!this.wordDictionary[args[0]]) return NoiTuMessageCreateEvent.INCORRECT_STARTING_WORD;
 
-    if (this.wordDictionary[args[0]][message.content]) return NoiTuMessageCreateEvent.INCORRECT_PHRASE;
+    if (this.wordDictionary[args[0]][message.content])
+      return NoiTuMessageCreateEvent.INCORRECT_PHRASE;
 
     channelConfig.lastUserId = message.author.id;
     channelConfig.lastPhrase = message.content;

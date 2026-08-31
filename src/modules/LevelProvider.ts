@@ -272,17 +272,19 @@ export default class LevelProvider extends ClientModule<"level-provider"> {
 
   @ModuleOn(MemberVoiceStateEvents.MUTE)
   private async userMuteEvent(member: GuildMember) {
+    const voiceState = member.voice;
+    if (!voiceState) return;
     const cacheId = `${member.id}|${member.guild.id}`;
     let session = this.voiceSessions.get(cacheId);
-    
+
     if (!session) {
       session = {
         id: member.id,
         guildId: member.guild.id,
         joinTimestamp: Date.now(),
-        isOpenMic: member.voice.mute ?? false,
+        isOpenMic: voiceState.mute ?? false,
         bonusEpx: 0,
-        lastOpenMicTimestamp: member.voice.mute ? undefined : Date.now(),
+        lastOpenMicTimestamp: voiceState.mute ? undefined : Date.now(),
       };
     }
 
@@ -353,7 +355,7 @@ export default class LevelProvider extends ClientModule<"level-provider"> {
     }
 
     void this.sendLevelUpMessage(member, newLevel, newMilestone).catch((error) =>
-      this.handleClientError(error),
+      this.handleModuleError(error),
     );
     await this.updateMemberProfile(profile);
     return profile;

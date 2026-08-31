@@ -26,7 +26,7 @@ export default class UserLevelProfile extends BaseModel<UserLevelProfileJson> {
   channelBlacklist: string[];
 
   constructor(options: UserLevelProfileJson) {
-    super(options);
+    super();
 
     this.id = options.id;
     this.guildId = options.guild_id;
@@ -63,7 +63,7 @@ export default class UserLevelProfile extends BaseModel<UserLevelProfileJson> {
   }
 
   getMessageLevel() {
-    return calcLevel(this.messageExp  );
+    return calcLevel(this.messageExp);
   }
 
   getCacheId() {

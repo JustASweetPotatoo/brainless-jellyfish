@@ -27,10 +27,11 @@ import ClientError from "../../error/ClientError";
 import { ErrorCode } from "../../error/ErrorCode";
 import { dangerIconUrl } from "../../assets/icon";
 import ClientSlashCommandBuilder from "../../slashCommandBuilder/SlashCommandBuilder";
-import ModuleManager from "./ModuleManager";
 import { Repository } from "../../database/repository/constructor/Repository";
 import { BaseModel } from "../../database/model/constructor/BaseModel";
 import { sendInteractionMessageReply } from "../../utils/replier";
+import { ClientErrorData } from "../../error/interface";
+import { parseError } from "../../utils/error";
 
 /**
  * MODULE OPTIONS
@@ -61,13 +62,19 @@ export type ModuleEvents = string | symbol;
  * INTERACTION TYPES
  */
 
-export type ErrorInteractionType = ChatInputCommandInteraction | ButtonInteraction | ModalSubmitInteraction;
+export type ErrorInteractionType =
+  | ChatInputCommandInteraction
+  | ButtonInteraction
+  | ModalSubmitInteraction;
 
 /**
  * BASE MODULE
  */
 
-export default abstract class BaseModule<TName extends string, TEvent extends ModuleEvents> extends EventEmitter {
+export default abstract class BaseModule<
+  TName extends string,
+  TEvent extends ModuleEvents,
+> extends EventEmitter {
   /**
    * Module name.
    */
@@ -159,9 +166,11 @@ export default abstract class BaseModule<TName extends string, TEvent extends Mo
       const repositories = (Reflect.getOwnMetadata(REPOSITORIES_KEY, proto) as PropertyKey[]) ?? [];
 
       for (const propertyKey of repositories) {
-        const RepoClass = Reflect.getMetadata(REPOSITORY_KEY, proto, propertyKey as string | symbol) as new (
-          db: DatabaseManager,
-        ) => unknown;
+        const RepoClass = Reflect.getMetadata(
+          REPOSITORY_KEY,
+          proto,
+          propertyKey as string | symbol,
+        ) as new (db: DatabaseManager) => unknown;
 
         const repo: R = new RepoClass(this.client.databaseManager) as R;
 
@@ -210,10 +219,9 @@ export default abstract class BaseModule<TName extends string, TEvent extends Mo
   }
 
   /**
-   * EXECUTE EVENT
+   * Event executor
    */
-
-  private async execute<T extends (...args: any[]) => any>(
+  private async executeEvent<T extends (...args: any[]) => any>(
     event: string,
     callback: T,
     ...args: Parameters<T>
@@ -223,7 +231,7 @@ export default abstract class BaseModule<TName extends string, TEvent extends Mo
     try {
       return await callback(...args);
     } catch (err) {
-      this.handleClientError(err);
+      this.handleModuleError(err);
 
       /**
        * Do not throw event handler errors.
@@ -279,11 +287,11 @@ export default abstract class BaseModule<TName extends string, TEvent extends Mo
       }
     } catch (error) {
       if (interaction.isChatInputCommand()) {
-        await this.handleSlashCommandInteractionError(error, interaction);
+        await this.handleSlashCommandInteractionError(interaction, error);
       } else if (interaction.isButton()) {
         await this.handleButtonInteractionErrorSafely(interaction, error);
-      } else {
-        this.handleClientError(error);
+      } else if (interaction.isModalSubmit()) {
+        await this.hanldeModalSubmitInteractionError(interaction, error);
       }
     }
   }
@@ -294,80 +302,51 @@ export default abstract class BaseModule<TName extends string, TEvent extends Mo
     interaction: CommandInteraction | ChatInputCommandInteraction,
   ): Promise<any>;
 
-  protected abstract onModalSubmitInteractionCreate(interaction: ModalSubmitInteraction): Promise<any>;
+  protected abstract onModalSubmitInteractionCreate(
+    interaction: ModalSubmitInteraction,
+  ): Promise<any>;
 
-  protected abstract onAutoCompleteInteractionCreate(interaction: AutocompleteInteraction): Promise<any>;
+  protected abstract onAutoCompleteInteractionCreate(
+    interaction: AutocompleteInteraction,
+  ): Promise<any>;
 
   /**
    * BUTTON ERROR
    */
 
-  private async handleButtonInteractionErrorSafely(interaction: ButtonInteraction, error: unknown): Promise<void> {
-    try {
-      await this.hanldeButtonInteractionError(interaction, this.parseError(error));
-    } catch (handlerError) {
-      this.handleClientError(handlerError);
-    }
-  }
-
-  /**
-   * ERROR HANDLING
-   */
-
-  protected handleClientError(error: any) {
-    this.client.errorHandler.handleClientError({
-      error,
-      logger: this.logger,
-    });
-  }
-
-  parseError(error: ClientError | unknown): ClientError {
-    if (error instanceof ClientError) {
-      return error;
-    }
-
-    if (error instanceof Error) {
-      return new ClientError(ErrorCode.UNKNOWN_ERROR, error);
-    }
-
-    return new ClientError(ErrorCode.UNKNOWN_ERROR);
-  }
-
-  /**
-   * SLASH COMMAND ERROR
-   */
-
-  protected async handleSlashCommandInteractionError<TInteraction extends Interaction>(
-    error: any,
-    interaction: TInteraction,
+  private async handleButtonInteractionErrorSafely(
+    interaction: ButtonInteraction,
+    error: unknown,
   ): Promise<void> {
-    if (interaction instanceof ChatInputCommandInteraction) {
-      const err = this.parseError(error);
-
-      try {
-        await this.handleSlashCommandError(interaction, error);
-      } catch (handlerError) {
-        this.handleClientError(handlerError);
-      }
-
-      this.logger.error({
-        message: err.createMessage(true),
-      });
+    try {
+      await this.hanldeButtonInteractionError(interaction, parseError(error));
+    } catch (handlerError) {
+      this.handleModuleError(handlerError);
     }
   }
 
   /**
-   * SLASH COMMAND ERROR RESPONSE
+   * Error hander
    */
 
-  async handleSlashCommandError(
+  protected handleModuleError(err: unknown) {
+    const error = parseError(err);
+    this.logger.error({ message: error.createMessage(true) });
+  }
+
+  /**
+   * Handle slash command execution error
+   */
+  async handleSlashCommandInteractionError(
     interaction: CommandInteraction | ChatInputCommandInteraction,
-    err: ClientError | Error,
+    err: unknown,
   ) {
     const doneTimestamp = Date.now();
     const doneTimestampBySeconds = Math.floor(doneTimestamp / 1000);
     const durationByMiliseconds = doneTimestamp - interaction.createdTimestamp;
-    const commandName = ClientSlashCommandBuilder.getStackName(interaction as ChatInputCommandInteraction);
+    const commandName = ClientSlashCommandBuilder.getStackName(
+      interaction as ChatInputCommandInteraction,
+    );
 
     const responseTime = doneTimestamp - interaction.createdTimestamp;
     const error = new ClientError(ErrorCode.UNKNOWN_ERROR, err);
@@ -401,9 +380,8 @@ export default abstract class BaseModule<TName extends string, TEvent extends Mo
   }
 
   /**
-   * BUTTON ERROR RESPONSE
+   * Handle button execution error
    */
-
   async hanldeButtonInteractionError(interaction: ButtonInteraction, error: ClientError) {
     const doneTimestamp = Date.now();
     const doneTimestampBySeconds = Math.floor(doneTimestamp / 1000);
@@ -446,10 +424,9 @@ export default abstract class BaseModule<TName extends string, TEvent extends Mo
     }
   }
 
-  /**
-   * MODULE MANAGER
-   */
-  protected getManager = (): ModuleManager => this.client.moduleManager;
+  async hanldeModalSubmitInteractionError(interaction: ModalSubmitInteraction, error: unknown) {}
+
+  async hanldeAutocompleteInteractionError(interaction: ModalSubmitInteraction, error: unknown) {}
 
   /**
    * REGISTER EVENTS
@@ -486,7 +463,6 @@ export default abstract class BaseModule<TName extends string, TEvent extends Mo
   /**
    * REGISTER DISCORD EVENTS
    */
-
   private registerDiscordEvents(): this {
     let proto = Object.getPrototypeOf(this);
 
@@ -508,7 +484,11 @@ export default abstract class BaseModule<TName extends string, TEvent extends Mo
           continue;
         }
 
-        const metadata: DiscordModuleEventMetadata = Reflect.getOwnMetadata(DISCORD_EVENT_KEY, proto, key);
+        const metadata: DiscordModuleEventMetadata = Reflect.getOwnMetadata(
+          DISCORD_EVENT_KEY,
+          proto,
+          key,
+        );
 
         if (!metadata) {
           continue;
@@ -518,7 +498,9 @@ export default abstract class BaseModule<TName extends string, TEvent extends Mo
 
         this.client.on(metadata.event, (...args: unknown[]) => {
           if (!(this.isBotEvent(args) && metadata.botRejected)) {
-            void this.execute(String(metadata.event), handler, ...args).catch((error) => this.handleClientError(error));
+            void this.executeEvent(String(metadata.event), handler, ...args).catch((error) =>
+              this.handleModuleError(error),
+            );
           }
         });
 
@@ -569,7 +551,6 @@ export default abstract class BaseModule<TName extends string, TEvent extends Mo
    * Therefore they are completely isolated
    * from Discord.js events.
    */
-
   private registerModuleEvents(): this {
     let proto = Object.getPrototypeOf(this);
 
@@ -588,7 +569,9 @@ export default abstract class BaseModule<TName extends string, TEvent extends Mo
         const handler = (this as any)[key].bind(this);
 
         this.on(event, (...args: unknown[]) => {
-          void this.execute(event as string, handler, ...args).catch((error) => this.handleClientError(error));
+          void this.executeEvent(event as string, handler, ...args).catch((error) =>
+            this.handleModuleError(error),
+          );
         });
 
         this.count.event++;

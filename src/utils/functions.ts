@@ -360,22 +360,44 @@ export function getAttachmentType(contentType: string | null): AttachmentType {
 }
 
 export function extractFacebookShareUrl(content: string): string | undefined {
-  const urls = content
-    .match(/https?:\/\/[^\s]+/g)
-    ?.filter((url) => url.startsWith("https://www.facebook.com"));
+  const urls = content.match(/https:\/\/www\.facebook\.com\/[^\s<>"']+/gi);
 
-  const fisrt = urls?.at(0);
-  if (fisrt) {
-    return normalizeFacebookShareUrl(fisrt);
+  const first = urls?.at(0);
+
+  if (!first) {
+    return undefined;
   }
 
-  return undefined;
+  return normalizeFacebookShareUrl(first);
 }
 
 function normalizeFacebookShareUrl(url: string): string | undefined {
-  const match = url.match(/https?:\/\/(?:www\.)?facebook\.com\/share\/([^/?#]+)\/([^/?#]+)\/?/i);
+  try {
+    const parsed = new URL(url);
 
-  if (!match) return undefined;
+    if (parsed.protocol !== "https:" || parsed.hostname !== "www.facebook.com") {
+      return undefined;
+    }
 
-  return `https://www.facebook.com/share/${match[1]}/${match[2]}/`;
+    return `${parsed.origin}${parsed.pathname}`;
+  } catch {
+    return undefined;
+  }
+}
+
+export function extractFacebookReelId(url: string): string | undefined {
+  return url.match(/https:\/\/www\.facebook\.com\/reel\/([^/?#]+)/i)?.[1];
+}
+
+export function removeQueryUrl(url: string): string {
+  const str = url.split("?")[0];
+
+  return str;
+}
+
+export function castToCdnUrl(medialUrl: string) {
+  return medialUrl.replace(
+    /\[https:\/\/media\.discordapp\.net\]\(https:\/\/media\.discordapp\.net\)/g,
+    "[https://cdn.discordapp.com](https://cdn.discordapp.com)",
+  );
 }
