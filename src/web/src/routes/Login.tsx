@@ -1,147 +1,75 @@
 import { useState, type FormEvent } from "react";
-
 import { useLocation, useNavigate } from "react-router-dom";
-
 import { useAuth } from "../auth/useAuth";
 
-interface LoginLocationState {
-  from?: {
-    pathname?: string;
-    search?: string;
-    hash?: string;
-  };
-}
-
 export default function LoginPage() {
-  const { login, isAuthenticated } = useAuth();
-
+  const { login } = useAuth();
   const navigate = useNavigate();
-
   const location = useLocation();
+  const [username, setUsername] = useState("admin");
+  const [password, setPassword] = useState("123456");
+  const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
-  const [username, setUsername] = useState("");
-
-  const [password, setPassword] = useState("");
-
-  const [error, setError] = useState<string | null>(null);
-
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  /**
-   * Nếu user đã login
-   * thì không cần ở login page.
-   */
-  if (isAuthenticated) {
-    return (
-      <button
-        onClick={() =>
-          navigate("/dashboard", {
-            replace: true,
-          })
-        }
-      >
-        Go to Dashboard
-      </button>
-    );
-  }
-
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function submit(event: FormEvent) {
     event.preventDefault();
-
-    if (isSubmitting) {
-      return;
-    }
-
-    setError(null);
-    setIsSubmitting(true);
-
+    setSubmitting(true);
+    setError("");
     try {
-      await login({
-        username,
-        password,
-      });
-
-      /**
-       * URL trước khi login.
-       */
-      const state = location.state as LoginLocationState | null;
-
-      const from = state?.from?.pathname ?? "/dashboard";
-
-      const search = state?.from?.search ?? "";
-
-      const hash = state?.from?.hash ?? "";
-
-      navigate(`${from}${search}${hash}`, {
-        replace: true,
-      });
-    } catch (error) {
-      setError(error instanceof Error ? error.message : "Login failed");
+      await login({ username, password });
+      const from =
+        (location.state as { from?: { pathname?: string } } | null)?.from?.pathname ?? "/dashboard";
+      navigate(from, { replace: true });
+    } catch {
+      setError("Tên đăng nhập hoặc mật khẩu không chính xác.");
     } finally {
-      setIsSubmitting(false);
+      setSubmitting(false);
     }
   }
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-      }}
-    >
-      <form
-        onSubmit={handleSubmit}
-        style={{
-          width: 350,
-          display: "flex",
-          flexDirection: "column",
-          gap: 16,
-        }}
-      >
-        <h1>Login</h1>
-
-        <input
-          type="text"
-          value={username}
-          onChange={(event) => setUsername(event.target.value)}
-          placeholder="Username"
-          autoComplete="username"
-          disabled={isSubmitting}
-        />
-
-        <input
-          type="password"
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-          placeholder="Password"
-          autoComplete="current-password"
-          disabled={isSubmitting}
-        />
-
-        {error && (
-          <div
-            style={{
-              color: "red",
-            }}
-          >
-            {error}
+    <main className="login-page">
+      <div className="login-glow glow-one" />
+      <div className="login-glow glow-two" />
+      <section className="login-card">
+        <div className="login-brand">
+          <div className="brand-mark">S</div>
+          <div>
+            <strong>Suwa</strong>
+            <span>BOT DASHBOARD</span>
           </div>
-        )}
-
-        <button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? "Logging in..." : "Login"}
-        </button>
-
-        <div>
-          <strong>Demo account</strong>
-
-          <div>Username: admin</div>
-
-          <div>Password: 123456</div>
         </div>
-      </form>
-    </div>
+        <div className="login-title">
+          <h1>Chào mừng trở lại</h1>
+          <p>Đăng nhập để quản lý Discord server của bạn.</p>
+        </div>
+        <form onSubmit={submit}>
+          <label>
+            Tên đăng nhập
+            <input
+              value={username}
+              onChange={(event) => setUsername(event.target.value)}
+              autoComplete="username"
+            />
+          </label>
+          <label>
+            Mật khẩu
+            <input
+              type="password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              autoComplete="current-password"
+            />
+          </label>
+          {error && <p className="login-error">{error}</p>}
+          <button className="primary-button login-button" disabled={submitting}>
+            {submitting ? "Đang đăng nhập..." : "Đăng nhập vào dashboard"}
+          </button>
+        </form>
+        <p className="demo-login">
+          Tài khoản demo: <b>admin</b> · <b>123456</b>
+        </p>
+      </section>
+    </main>
   );
 }
