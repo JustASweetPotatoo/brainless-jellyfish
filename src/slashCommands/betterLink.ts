@@ -8,7 +8,7 @@ import ClientSlashCommandBuilder from "../slashCommandBuilder/SlashCommandBuilde
 import ClientSlashCommandSubcommandBuilder from "../slashCommandBuilder/SlashCommandSubcommandBuilder";
 
 const facebedApi = new ClientSlashCommandSubcommandBuilder()
-  .setName("facebed-api")
+  .setName("facebook")
   .setDescription("Turn your facebook link to video or image with description !")
   .addBooleanOption(new SlashCommandBooleanOption().setName("turn-on").setDescription("any"))
   .setExecutor(async (client, interaction) =>
@@ -24,3 +24,4 @@ const betterLink = new ClientSlashCommandBuilder({ subcommands: [facebedApi] })
   .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages);
 
 export default betterLink;
+  

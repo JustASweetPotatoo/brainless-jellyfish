@@ -1,8 +1,12 @@
-import { AutocompleteInteraction, Collection, SlashCommandSubcommandGroupBuilder } from "discord.js";
+import {
+  AutocompleteInteraction,
+  Collection,
+  SlashCommandSubcommandGroupBuilder,
+} from "discord.js";
 import {
   AutocompleteExecutor,
   ClientSlashCommandSubcommandGroupBuilderOptions,
-  CommandInteractionType,
+  OptionableCommandInteractionType,
   SlashCommandExecuteFunction,
 } from "./interface";
 import ClientSlashCommandSubcommandBuilder from "./SlashCommandSubcommandBuilder";
@@ -12,8 +16,10 @@ export default class ClientSlashCommandSubcommandGroupBuilder extends SlashComma
   public execute: SlashCommandExecuteFunction = defaultExecutor;
 
   public readonly subcommands: Array<ClientSlashCommandSubcommandBuilder>;
-  public readonly subcommandExecutorCollection: Collection<string, SlashCommandExecuteFunction> = new Collection();
-  public readonly subcommandAutocompleteCollection: Collection<string, AutocompleteExecutor> = new Collection();
+  public readonly subcommandExecutorCollection: Collection<string, SlashCommandExecuteFunction> =
+    new Collection();
+  public readonly subcommandAutocompleteCollection: Collection<string, AutocompleteExecutor> =
+    new Collection();
 
   constructor(options: ClientSlashCommandSubcommandGroupBuilderOptions) {
     super();
@@ -31,19 +37,25 @@ export default class ClientSlashCommandSubcommandGroupBuilder extends SlashComma
     });
   }
 
-  public getAutocompleteExecutor(interaction: AutocompleteInteraction): AutocompleteExecutor | undefined {
-    const maybeOptions = (interaction as unknown as { options?: { getSubcommand(): string | null } }).options;
+  public getAutocompleteExecutor(
+    interaction: AutocompleteInteraction,
+  ): AutocompleteExecutor | undefined {
+    const maybeOptions = (
+      interaction as unknown as { options?: { getSubcommand(): string | null } }
+    ).options;
     const subcommandName = maybeOptions?.getSubcommand?.() ?? null;
     if (!subcommandName) return undefined;
 
     return this.subcommandAutocompleteCollection.get(subcommandName);
   }
 
-  public getExecutor(interaction: CommandInteractionType): SlashCommandExecuteFunction {
+  public getExecutor(interaction: OptionableCommandInteractionType): SlashCommandExecuteFunction {
     const commandArgs = [interaction.commandName];
 
     const maybeOptions = (
-      interaction as unknown as { options?: { getSubcommand(): string | null; getSubcommandGroup(): string | null } }
+      interaction as unknown as {
+        options?: { getSubcommand(): string | null; getSubcommandGroup(): string | null };
+      }
     ).options;
     const subcommandName = maybeOptions?.getSubcommand?.() ?? null;
     const subcommandGroupName = maybeOptions?.getSubcommandGroup?.() ?? null;

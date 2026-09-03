@@ -1,4 +1,8 @@
-import { AutocompleteInteraction, ChatInputCommandInteraction, CommandInteraction } from "discord.js";
+import {
+  AutocompleteInteraction,
+  ChatInputCommandInteraction,
+  CommandInteraction,
+} from "discord.js";
 import MassClient from "../Client";
 import ClientSlashCommandSubcommandBuilder from "./SlashCommandSubcommandBuilder";
 import ClientSlashCommandSubcommandGroupBuilder from "./SlashCommandSubcommandGroupBuilder";
@@ -18,10 +22,15 @@ export interface AutocompleteExecutorOptions {
   func: AutocompleteExecutor;
 }
 
-export type CommandInteractionType = CommandInteraction | ChatInputCommandInteraction | AutocompleteInteraction;
+export type OptionableCommandInteractionType =
+  | CommandInteraction<"cached">
+  | ChatInputCommandInteraction<"cached">
+  | AutocompleteInteraction;
 
 export interface ClientSlashCommandBuilderOptions {
-  subcommands?: Array<ClientSlashCommandSubcommandBuilder | ClientSlashCommandSubcommandGroupBuilder>;
+  subcommands?: Array<
+    ClientSlashCommandSubcommandBuilder | ClientSlashCommandSubcommandGroupBuilder
+  >;
   resourceCost?: CommandResourceCost;
 }
 

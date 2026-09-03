@@ -32,6 +32,7 @@ import { BaseModel } from "../../database/model/constructor/BaseModel";
 import { sendInteractionMessageReply } from "../../utils/replier";
 import { ClientErrorData } from "../../error/interface";
 import { parseError } from "../../utils/error";
+import { getCommandFullName } from "../../utils/slashCommand";
 
 /**
  * MODULE OPTIONS
@@ -344,7 +345,7 @@ export default abstract class BaseModule<
     const doneTimestamp = Date.now();
     const doneTimestampBySeconds = Math.floor(doneTimestamp / 1000);
     const durationByMiliseconds = doneTimestamp - interaction.createdTimestamp;
-    const commandName = ClientSlashCommandBuilder.getStackName(
+    const commandName = getCommandFullName(
       interaction as ChatInputCommandInteraction,
     );
 

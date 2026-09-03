@@ -101,7 +101,7 @@ export default class SlashCommandManager extends ClientModule<"slash-command-man
     this.logger.log("Crafting new (/) commands JSON body...");
     this.slashCommandJSONBody = [];
 
-    for (const commandBuilder of this.commands.values()) {
+    for (const [, commandBuilder] of this.commands) {
       try {
         this.slashCommandJSONBody.push(commandBuilder.toJSON());
       } catch (error) {

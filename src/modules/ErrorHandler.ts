@@ -17,6 +17,7 @@ import { ClientErrorData } from "../error/interface";
 import { dangerIconUrl } from "../assets/icon";
 import ClientSlashCommandBuilder from "../slashCommandBuilder/SlashCommandBuilder";
 import { sendInteractionMessageReply } from "../utils/replier";
+import { getCommandFullName } from "../utils/slashCommand";
 
 dotenv.config();
 
@@ -38,7 +39,7 @@ export default class ClientErrorHandler extends ClientModule<"client-error-handl
     const doneTimestamp = Date.now();
     const doneTimestampBySeconds = Math.floor(doneTimestamp / 1000);
     const durationByMiliseconds = doneTimestamp - interaction.createdTimestamp;
-    const commandName = ClientSlashCommandBuilder.getStackName(
+    const commandName = getCommandFullName(
       interaction as ChatInputCommandInteraction,
     );
 
