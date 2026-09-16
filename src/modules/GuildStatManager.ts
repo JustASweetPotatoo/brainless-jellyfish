@@ -1,8 +1,9 @@
 import { Collection, Events, Guild, GuildMember, Message, VoiceState } from "discord.js";
 import ClientModule from "./core/ClientModule";
-import { On, Repository } from "./core/decorators";
+import { ModuleOn, On, Repository } from "./core/decorators";
 import GuildStatistics, { GuildStatisticsIncrementType } from "../database/model/GuildStatistics";
 import GuildStatisticsRepo from "../database/repository/GuildStatisticsRepo";
+import { BucketCounter } from "./MessageStats";
 
 export default class GuildStatisticsManager extends ClientModule<"guild-statistics-manager"> {
   private readonly cacheCollection: Collection<string, GuildStatistics> = new Collection();
@@ -36,6 +37,13 @@ export default class GuildStatisticsManager extends ClientModule<"guild-statisti
 
   @Repository()
   private statisticsRepository!: GuildStatisticsRepo;
+
+  @ModuleOn("flush-message")
+  private flushMessage(queue: Map<number, BucketCounter>) {
+    for (const [timestampHours, bucketCounter] of queue) {
+      
+    }
+  }
 
   @On(Events.MessageCreate)
   protected async onMessageCreate(message: Message): Promise<void> {

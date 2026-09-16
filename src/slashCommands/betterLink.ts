@@ -13,8 +13,8 @@ const facebedApi = new ClientSlashCommandSubcommandBuilder()
   .addBooleanOption(new SlashCommandBooleanOption().setName("turn-on").setDescription("any"))
   .setExecutor(async (client, interaction) =>
     client.moduleManager
-      .get("facebed-api")
-      .activeModule(interaction as ChatInputCommandInteraction<"cached">),
+      .get("better-link")
+      .turnOnFacebedAPI(interaction as ChatInputCommandInteraction<"cached">),
   );
 
 const betterLink = new ClientSlashCommandBuilder({ subcommands: [facebedApi] })
@@ -24,4 +24,3 @@ const betterLink = new ClientSlashCommandBuilder({ subcommands: [facebedApi] })
   .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages);
 
 export default betterLink;
-  

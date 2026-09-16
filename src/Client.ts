@@ -9,11 +9,11 @@ import ModuleManager from "./modules/core/ModuleManager";
 import ClientErrorHandler from "./modules/ErrorHandler";
 import SlashCommandManager from "./slashCommands/SlashCommandManager";
 import DatabaseManager from "./database/DatabaseManager";
-import GuildStatusManager from "./modules/GuildStatusManager";
+import RedisManager from "./redis/RedisClient";
 
 export type OperationMode = "default" | "debug";
 
-const { DEV_SERVER } = process.env;
+const { DEV_SERVER, BOT_ID } = process.env;
 
 export default class MassClient extends Client {
   // Client info
@@ -24,7 +24,7 @@ export default class MassClient extends Client {
     restVersion: "10",
   };
   public readonly startAt: Date;
-  public readonly botId: string = "1168430797599019022";
+  public readonly botId: string = BOT_ID ?? "1168430797599019022";
 
   public readonly operationMode: OperationMode;
 
@@ -36,6 +36,7 @@ export default class MassClient extends Client {
 
   // Database
   public readonly databaseManager: DatabaseManager;
+  public readonly redisManager: RedisManager;
 
   // Init module
   public readonly moduleManager: ModuleManager;
@@ -67,6 +68,7 @@ export default class MassClient extends Client {
     this.logPrinter = new LogPrinter(this);
     this.logger = new Logger({ label: "main", printer: this.logPrinter });
     this.databaseManager = new DatabaseManager(this);
+    this.redisManager = new RedisManager({ client: this });
     this.moduleManager = new ModuleManager({ client: this });
     this.errorHandler = new ClientErrorHandler({ client: this });
 
@@ -86,15 +88,18 @@ export default class MassClient extends Client {
 
     this.logger.info("Starting bot...");
 
-    if (!(await this.databaseManager.createConnection())) {
-      this.logger.warn("Stoping bot");
+    this.redisManager.createClient();
+    const connectionStatusRedis = await this.redisManager.connect();
+    if (!connectionStatusRedis) {
+      this.logger.warn("Force stopping bot demman on redis connect failed");
       process.exit(0);
     }
 
-    // if (!(await this.databaseManager.createDataSourceConnection())) {
-    //   this.logger.warn("Force stopping bot demman on no database connection");
-    //   process.exit(0);
-    // }
+    const connectionStatusMysql = await this.databaseManager.createConnection();
+    if (!connectionStatusMysql) {
+      this.logger.warn("Force stopping bot demman on no database connection");
+      process.exit(0);
+    }
 
     this.moduleManager.loadModules();
     this.bootstrapped = true;

@@ -158,7 +158,7 @@ export default class FacebedAPI extends ClientModule<"facebed-api"> {
 
   private readonly emitter = new EventEmitter({ captureRejections: true });
 
-  private async enable(guildId: string) {
+  async enable(guildId: string) {
     let isActive = await this.client.moduleManager
       .get("guild-status-manager")
       .isActive(guildId, this.name);
@@ -172,7 +172,7 @@ export default class FacebedAPI extends ClientModule<"facebed-api"> {
     return true;
   }
 
-  private async disable(guildId: string) {
+  async disable(guildId: string) {
     let isActive = await this.client.moduleManager
       .get("guild-status-manager")
       .isActive(guildId, this.name);
@@ -360,50 +360,8 @@ export default class FacebedAPI extends ClientModule<"facebed-api"> {
     }
   }
 
-  @SlashCommandExecutor({ guildOnly: true, requiredAdminPermission: true })
-  async activeModule(interaction: ChatInputCommandInteraction<"cached">) {
-    const turnOn = interaction.options.getBoolean("turn-on");
-
-    if (turnOn) {
-      const res = await this.enable(interaction.guildId);
-
-      if (res) {
-        await interaction.editReply({
-          embeds: [new EmbedBuilder().setColor(Colors.Green).setTitle("Operation complete !")],
-        });
-      } else {
-        await interaction.editReply({
-          embeds: [
-            new EmbedBuilder()
-              .setColor(Colors.Yellow)
-              .setTitle("Operation Failed !")
-              .setDescription("Feature already turned on !"),
-          ],
-        });
-      }
-    } else {
-      const res = await this.disable(interaction.guildId);
-
-      if (res) {
-        await interaction.editReply({
-          embeds: [new EmbedBuilder().setColor(Colors.Green).setTitle("Operation complete !")],
-        });
-      } else {
-        await interaction.editReply({
-          embeds: [
-            new EmbedBuilder()
-              .setColor(Colors.Yellow)
-              .setTitle("Operation Failed !")
-              .setDescription("Feature already turned off !"),
-          ],
-        });
-      }
-    }
-  }
-
   @On(Events.MessageCreate)
   async onMessageCreate(message: Message<true>) {
-    if (message.author.bot) return;
     this.emitter.emit(message.guildId, message);
   }
 }

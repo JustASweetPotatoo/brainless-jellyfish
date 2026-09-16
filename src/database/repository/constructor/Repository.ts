@@ -136,8 +136,7 @@ export abstract class Repository<TModel extends BaseModel<TJSON>, TJSON> extends
       }
       return rows;
     } catch (error) {
-      console.log(error);
-      this.database.getLogger().error(new ClientError(ErrorCode.EXECUTE_QUERY_FAILED, error));
+      this.database.getLogger().error(error);
       return [];
     }
   }

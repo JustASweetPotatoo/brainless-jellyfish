@@ -3,14 +3,14 @@ import { BaseModel } from "./constructor/BaseModel";
 
 export interface GuildStatusObj {
   readonly id: string;
-  premiumStatus: PremiumStatus;
-  activeList: Array<keyof ModuleMap>;
+  premium_status?: PremiumStatus;
+  active_list?: Array<keyof ModuleMap>;
 }
 
 export enum PremiumStatus {
-  STANDARD,
-  PRO,
-  MAX,
+  STANDARD = 0,
+  PRO = 1,
+  MAX = 2,
 }
 
 export interface GuildStatusOptions {
@@ -24,16 +24,16 @@ export default class GuildStatus extends BaseModel<GuildStatusObj> {
   premiumStatus: PremiumStatus;
   activeList: Array<keyof ModuleMap>;
 
-  constructor(options: GuildStatusOptions) {
+  constructor(options: GuildStatusObj) {
     super();
 
     this.id = options.id;
-    this.premiumStatus = options.premiumStatus ?? PremiumStatus.STANDARD;
-    this.activeList = options.activeList ?? [];
+    this.premiumStatus = options.premium_status ?? PremiumStatus.STANDARD;
+    this.activeList = options.active_list ?? [];
   }
 
   toJSON(): GuildStatusObj {
-    return { id: this.id, premiumStatus: this.premiumStatus, activeList: this.activeList };
+    return { id: this.id, premium_status: this.premiumStatus, active_list: this.activeList };
   }
 
   setPremiumStatus(s: PremiumStatus) {

@@ -12,7 +12,7 @@ export default class GuildStatisticsRepo extends Repository<GuildStatistics, Gui
     CREATE TABLE IF NOT EXISTS ${this.fullTableName} (
       id VARCHAR(64) NOT NULL PRIMARY KEY,
       timestamp_by_days VARCHAR(64) NOT NULL,
-      count_map JSON,
+      count_map JSON
     );
   `;
 

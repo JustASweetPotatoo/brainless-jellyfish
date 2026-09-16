@@ -25,13 +25,12 @@ export default class GuildStatusManager extends ClientModule<"guild-status-manag
 
   async get(guildId: string): Promise<GuildStatus> {
     let $ = await this.repo.get(guildId);
-    if ($) {
-      return new GuildStatus($);
-    } else {
+    if (!$) {
       $ = new GuildStatus({ id: guildId });
       await this.repo.update($);
-      return $;
     }
+
+    return $;
   }
 
   async isActive(guildId: string, moduleName: keyof ModuleMap): Promise<boolean> {

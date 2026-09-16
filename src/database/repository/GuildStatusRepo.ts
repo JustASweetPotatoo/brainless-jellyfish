@@ -1,5 +1,5 @@
 import { Repository } from "./constructor/Repository";
-import GuildStatus, { GuildStatusObj } from "../model/GuildStatus";
+import GuildStatus, { GuildStatusObj, GuildStatusOptions } from "../model/GuildStatus";
 import DatabaseManager from "../DatabaseManager";
 
 export default class GuildStatusRepository extends Repository<GuildStatus, GuildStatusObj> {
