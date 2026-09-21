@@ -32,7 +32,6 @@ export default class MassClient extends Client {
   public readonly logger: Logger;
   public readonly logPrinter: LogPrinter;
   public readonly errorHandler: ClientErrorHandler;
-  public readonly database: DataSource;
 
   // Database
   public readonly databaseManager: DatabaseManager;
@@ -88,7 +87,6 @@ export default class MassClient extends Client {
 
     this.logger.info("Starting bot...");
 
-    this.redisManager.createClient();
     const connectionStatusRedis = await this.redisManager.connect();
     if (!connectionStatusRedis) {
       this.logger.warn("Force stopping bot demman on redis connect failed");
@@ -107,5 +105,12 @@ export default class MassClient extends Client {
     this.emit("system-operational", this);
 
     return super.login(token);
+  }
+
+  override async destroy() {
+    this.logger.info("Stopping bot");
+    this.redisManager.destroy();
+    this.databaseManager.defaultPool.destroy();
+    return super.destroy();
   }
 }

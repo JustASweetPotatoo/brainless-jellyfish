@@ -33,10 +33,10 @@ const getRank = new ClientSlashCommandSubcommandBuilder()
 const moduleOn = new ClientSlashCommandSubcommandBuilder()
   .setName("on")
   .setDescription("Activate level system")
-  .setExecutor(async (client, interaction) =>
-    client.moduleManager
-      .get("level-provider")
-      .activeGuild(interaction as ChatInputCommandInteraction<"cached">),
+  .setExecutor(async (client, interaction) => {}
+    // client.moduleManager
+    //   .get("level-provider")
+    //   .activeGuild(interaction as ChatInputCommandInteraction<"cached">),
   );
 
 const blacklistAdd = new ClientSlashCommandSubcommandBuilder()

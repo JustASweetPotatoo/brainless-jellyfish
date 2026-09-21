@@ -5,7 +5,6 @@ import * as cheerio from "cheerio";
 
 configDotenv();
 import {
-  ChatInputCommandInteraction,
   Collection,
   Colors,
   EmbedBuilder,
@@ -19,53 +18,49 @@ import {
 } from "discord.js";
 
 import ClientModule from "./core/ClientModule";
-import { On, Repository, SlashCommandExecutor } from "./core/decorators";
-import FacebookAttachmentSourceRepo from "../database/repository/FacebookUrlRepo";
-import {
-  extractFacebookReelId,
-  extractFacebookShareUrl,
-  getAttachmentType,
-  removeQueryUrl,
-} from "../utils/functions";
-import {
-  DiscordImageSources,
-  DiscordVideoSources,
-  FacebookAttachmentSource,
-} from "../database/model/FacebookAttactmentSource";
+import { On } from "./core/decorators";
+import { extractFacebookShareUrl } from "../utils/functions";
+
 import { EventEmitter } from "stream";
+import {
+  ExtractedMedia,
+  extractMedia,
+  extractPostInf,
+  extractFacebookReelId,
+} from "../utils/facebookCrawlerHelper";
+
+enum FacebookPostType {
+  POST,
+  REEL,
+}
 
 interface FacebookUrlCrawledData {
-  reelId: string | undefined;
-  videoLinks: string[];
-  imageLinks: string[];
-  title: string | undefined;
-  description: string | undefined;
+  readonly postType: FacebookPostType;
+  readonly reelId: string | undefined;
+  readonly title: string | undefined;
+  readonly description: string | undefined;
+  videos: ExtractedMedia[];
+  images: ExtractedMedia[];
+  audios: ExtractedMedia[];
+  files: ExtractedMedia[];
 }
 
 export default class FacebedAPI extends ClientModule<"facebed-api"> {
-  @Repository()
-  private readonly repo: FacebookAttachmentSourceRepo;
   private webhookClients: Collection<string, WebhookClient> = new Collection();
+  private guildCachedList: Collection<string, { enable: boolean }> = new Collection();
 
   private readonly ApiUrl = process.env.PYTHON_API || "http://localhost:9812";
 
   private founderEmbed: EmbedBuilder = new EmbedBuilder()
-    .setDescription(`> *Sứa#2120 - Powered by **Potarozz***\n> *Facebed API by **pi.kt***`)
+    .setDescription(`> *Sứa#2120 - Crawler API by **pi.kt***`)
     .setColor(Colors.Blurple);
 
-  private readonly failedEmbed = (extractedUrl: string) =>
-    new EmbedBuilder()
+  private readonly failedEmbed = (extractedUrl: string) => {
+    return new EmbedBuilder()
       .setTitle("This post is private or unavailable !")
       .setDescription(`[See posts, photos and more on Facebook](<${extractedUrl}>)`)
       .setColor(Colors.Yellow);
-
-  private async getAttCachedSource(
-    facebookSource: string,
-  ): Promise<FacebookAttachmentSource | undefined> {
-    let cache = await this.repo.get(facebookSource);
-
-    return cache ? new FacebookAttachmentSource(cache) : undefined;
-  }
+  };
 
   private wrapLinks = (text: string): string => {
     return text.replace(/\b((https?:\/\/|www\.)[^\s]+)/g, (url) => `<${url}>`);
@@ -74,27 +69,13 @@ export default class FacebedAPI extends ClientModule<"facebed-api"> {
   private parseHtml(html: string): FacebookUrlCrawledData {
     const $ = cheerio.load(html);
 
-    const metas: Array<{ propety: string; content: string }> = [];
-
-    $("meta[property]").each((_, el) => {
-      const property = $(el).attr("property");
-      const content = $(el).attr("content");
-
-      if (property && content) {
-        metas.push({ propety: property, content: content });
-      }
-    });
-
-    const get = (name: string): Array<string> => {
-      return metas.filter((value) => value.propety == name).map((item) => item.content);
-    };
+    const media = extractMedia($);
+    const postInf = extractPostInf($);
 
     return {
-      reelId: extractFacebookReelId(get("og:url").at(0) ?? ""),
-      videoLinks: get("og:video:secure_url"),
-      imageLinks: get("og:image"),
-      title: get("og:title").at(0),
-      description: get("og:description").at(0),
+      postType: postInf.reelId ? FacebookPostType.REEL : FacebookPostType.POST,
+      ...media,
+      ...postInf,
     };
   }
 
@@ -207,30 +188,6 @@ export default class FacebedAPI extends ClientModule<"facebed-api"> {
         return;
       }
 
-      const displayWebhookUsername = `${message.author.displayName}-Sứa#2120`;
-
-      // Get cached video sources
-      const cachedAtts = await this.getAttCachedSource(extractedUrl);
-      const cachedVideos = cachedAtts?.discordVideoSources;
-      if (cachedVideos && cachedVideos.length != 0) {
-        const messagePayload: WebhookMessageCreateOptions = {
-          content:
-            this.wrapLinks(message.content) +
-            `\n${removeQueryUrl(cachedVideos.at(0)?.discordMediaSource ?? "")}` +
-            `\n\n> -# *UID: ${message.author.id} <t:${message.createdTimestamp}:f>*`,
-          username:
-            displayWebhookUsername.length > 32
-              ? `${message.author.displayName}`
-              : displayWebhookUsername,
-          avatarURL: message.author.avatarURL()!,
-          threadId: message.channel instanceof ThreadChannel ? message.channelId : undefined,
-        };
-
-        await webhookClient.send(messagePayload);
-        await message.delete().catch(() => {});
-        return;
-      }
-
       // Crawling Data
       const crawledData = await this.getFacebookAttachmentSources(extractedUrl);
       if (!crawledData) {
@@ -238,130 +195,89 @@ export default class FacebedAPI extends ClientModule<"facebed-api"> {
         return;
       }
 
+      const description = `## [${crawledData.title}](${this.wrapLinks(extractedUrl)})\n${crawledData.description}\n> *Sứa#2120 Crawler api by **pi.kt***`;
+
+      const embed = new EmbedBuilder()
+        .setDescription(description)
+        .setFooter({
+          text: `UID: ${message.author.id}`,
+        })
+        .setTimestamp();
+
+      const messagePayload: WebhookMessageCreateOptions = {
+        content:
+          `${this.wrapLinks(message.content)}` +
+          (refMessage && refMessage.member
+            ? `\n> -# ↪ Reply to ↗ <@${refMessage.member.id}> \n-# [Content: ${refMessage.content.split(" ").slice(0, 10)}](<${refMessage.url}>)`
+            : ""),
+        embeds: [embed],
+        username: message.author.displayName,
+        avatarURL: message.author.avatarURL()!,
+        threadId: message.channel instanceof ThreadChannel ? message.channelId : undefined,
+        allowedMentions: { users: [] },
+      };
+
       // If has video source link
-      if (crawledData.videoLinks.length != 0) {
+      if (crawledData.videos.length != 0) {
         const path = await this.downloadVideo(
-          crawledData.videoLinks[0],
+          crawledData.videos[0].url,
           `${crawledData.reelId}.mp4`,
         );
 
         // If can't download the video
         if (!path) {
           await message.reply({ embeds: [this.failedEmbed(extractedUrl)] });
-          this.logger.error("Can't get the video with source: " + crawledData.videoLinks);
+          this.logger.error("Can't get the video with source: " + crawledData.videos);
           return;
         }
 
         const videoStats = fs.statSync(path);
 
         if (videoStats.size >= 10 * 1024 * 1024) {
-          const embed = new EmbedBuilder()
-            .setTitle("This video in post is too large to direct conversion")
-            .setURL(crawledData.videoLinks[0])
-            .setColor(Colors.Green);
-          await message.reply({ embeds: [embed, this.founderEmbed] });
-          this.logger.warn("Too large video: " + crawledData.videoLinks);
+          await message.reply({ embeds: [embed.setURL(crawledData.videos[0].url)] });
+          this.logger.warn("Too large video link: " + extractedUrl);
           return;
         }
 
-        const messagePayload: WebhookMessageCreateOptions = {
-          content:
-            `${this.wrapLinks(message.content)}` +
-            (refMessage && refMessage.member
-              ? `\n> -# ↪ [Reply to ↗ ${refMessage.member.displayName}](<${refMessage.url}>)`
-              : ""),
-          embeds: [
-            this.founderEmbed.setFooter({ text: `UID: ${message.author.id}` }).setTimestamp(),
-          ],
-          username: message.author.displayName,
-          avatarURL: message.author.avatarURL()!,
-          threadId: message.channel instanceof ThreadChannel ? message.channelId : undefined,
-          files: [path],
-        };
-
-        const apiMessage = await webhookClient.send(messagePayload);
-        const att = apiMessage.attachments.at(0);
-
-        const attachmentSource: DiscordVideoSources = {
-          index: 0,
-          discordMediaSource: removeQueryUrl(att?.url ?? ""),
-          facebookSource: extractedUrl,
-        };
-
-        const cacheAtts: FacebookAttachmentSource = new FacebookAttachmentSource({
-          facebookSource: extractedUrl,
-          discordVideoSources: [attachmentSource],
-          discordFileSources: [],
-          discordImageSources: [],
-        });
-
-        await this.repo.create(cacheAtts);
-        await message.delete().catch((error) => undefined);
-      } else if (crawledData.imageLinks) {
-        const postEmbedDescription = `\n> **[${crawledData.title}](${this.wrapLinks(
-          extractedUrl,
-        )})**\n> ${crawledData.description}`;
-
-        const messagePayload1: WebhookMessageCreateOptions = {
-          content:
-            this.wrapLinks(message.content) +
-            postEmbedDescription +
-            (refMessage && refMessage.member
-              ? `s\n> -# ↪ [Reply to ↗ ${refMessage.member.displayName}](<${refMessage.url}>)`
-              : ""),
-          files: crawledData.imageLinks.slice(0, 9),
-          embeds: [this.founderEmbed],
-          username: message.author.displayName,
-          avatarURL: message.author.avatarURL() ?? undefined,
-          threadId: message.channel instanceof ThreadChannel ? message.channelId : undefined,
-        };
-
-        // const messagePayload2: WebhookMessageCreateOptions = {
-        //   content:
-        //     this.wrapLinks(message.content) +
-        //     postEmbedDescription +
-        //     (refMessage && refMessage.member
-        //       ? `s\n> -# ↪ [Reply to ↗ ${refMessage.member.displayName}](<${refMessage.url}>)`
-        //       : ""),
-        //   files: crawledData.imageLinks.slice(0, 0),
-        //   embeds: [this.founderEmbed],
-        //   username: message.author.displayName,
-        //   avatarURL: message.author.avatarURL() ?? undefined,
-        //   threadId: message.channel instanceof ThreadChannel ? message.channelId : undefined,
-        // };
-
-        const replyMessage = await webhookClient.send(messagePayload1);
-
-        const attachments = replyMessage.attachments
-          .filter((att) => getAttachmentType(att.contentType) == "image")
-          .map((item) => item)
-          .map((item, index): DiscordImageSources => {
-            return {
-              facebookSource: extractedUrl,
-              discordMediaSource: removeQueryUrl(item.url),
-              index: index,
-            };
-          });
-
-        const cacheAtts: FacebookAttachmentSource = new FacebookAttachmentSource({
-          facebookSource: extractedUrl,
-          discordVideoSources: [],
-          discordFileSources: [],
-          discordImageSources: attachments,
-        });
-
-        await this.repo.create(cacheAtts);
-        await message.delete().catch((error) => undefined);
+        messagePayload.files = [path];
+      } else if (crawledData.images) {
+        messagePayload.files = crawledData.images.flatMap((image) => image.url).slice(0, 8);
       } else {
-        // File attachments
+        const guildStatus = await this.client.moduleManager
+          .get("guild-status-manager")
+          .get(message.guildId);
+
+        if ((guildStatus.premiumStatus = 0)) {
+          return;
+        }
+
+        // messagePayload.files = crawledData;
       }
+
+      await webhookClient.send(messagePayload);
+      await message.delete().catch((error) => undefined);
     } catch (error) {
       this.handleModuleError(error);
     }
   }
 
-  @On(Events.MessageCreate)
+  @On(Events.MessageCreate, true)
   async onMessageCreate(message: Message<true>) {
-    this.emitter.emit(message.guildId, message);
+    const isListening = this.emitter.emit(message.guildId, message);
+    if (!isListening) {
+      const guildCache = this.guildCachedList.get(message.guild.id);
+      if (guildCache) {
+        return;
+      }
+      const guildProfile = await this.client.moduleManager
+        .get("guild-status-manager")
+        .get(message.guild.id);
+      const isActive = !!guildProfile?.activeList.find((mname) => mname === this.name);
+      if (isActive) {
+        this.emitter.on(guildProfile.id, this.processMessageOnGuild.bind(this));
+        this.emitter.emit(guildProfile.id, message);
+      }
+      this.guildCachedList.set(message.guildId, { enable: isActive });
+    }
   }
 }

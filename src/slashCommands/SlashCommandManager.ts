@@ -195,7 +195,27 @@ export default class SlashCommandManager extends ClientModule<"slash-command-man
   protected override async onSlashCommandInteractionCreate(
     interaction: CommandInteraction<"cached"> | ChatInputCommandInteraction<"cached">,
   ): Promise<any> {
-    await autoDeferReplyInteraction(interaction);
+    let trackRes = this.limiter.track(interaction.user);
+    if (!trackRes && interaction.isRepliable()) {
+      const timeoutEndAt =
+        this.limiter.getDiscordTimestamp() + Math.floor(this.limiter.getTimeout() / 1000);
+      if (!interaction.replied) {
+        interaction
+          .reply({
+            content: `> ⏱ | **${interaction.user.displayName}** Too many request, please try again <t:${timeoutEndAt}:R>`,
+          })
+          .then((message) =>
+            setTimeout(() => {
+              message.delete().catch((error) => undefined);
+            }, this.limiter.getTimeout()),
+          )
+          .catch((error) => this.handleModuleError(error));
+      }
+
+      // ⏱ | Just A Sweet Potato! Slow down and try the command again 1 giây tới
+      return;
+    }
+
     const command = this.commands.get(interaction.commandName);
     if (!command) {
       throw new ClientError(

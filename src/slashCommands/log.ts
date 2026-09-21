@@ -32,12 +32,12 @@ const changeMesssageLogChannel = new ClientSlashCommandSubcommandBuilder()
   .setExecutor(async (client, interaction) =>
     client.moduleManager
       .get("message-event-handler")
-      .setChannel(interaction as ChatInputCommandInteraction),
+      .setChannelCommandInteraction(interaction as ChatInputCommandInteraction<"cached">),
   );
 
 const changeVoiceLogChannel = new ClientSlashCommandSubcommandBuilder()
   .setName("voice-channel")
-  .setDescription("Set the channel where user join or leave a voice channel")
+  .setDescription("Set the channel where member voice events are logged")
   .addChannelOption(
     new SlashCommandChannelOption()
       .setName("channel")
@@ -48,11 +48,32 @@ const changeVoiceLogChannel = new ClientSlashCommandSubcommandBuilder()
   .setExecutor(async (client, interaction) =>
     client.moduleManager
       .get("voice-event-handler")
-      .setChannel(interaction as ChatInputCommandInteraction<"cached">),
+      .setChannelCommandInteraction(interaction as ChatInputCommandInteraction<"cached">),
+  );
+
+const changeUserEventLogChannel = new ClientSlashCommandSubcommandBuilder()
+  .setName("user-channel")
+  .setDescription("Set the channel where member events are logged")
+  .addChannelOption(
+    new SlashCommandChannelOption()
+      .setName("channel")
+      .setDescription("Text channel to set")
+      .setRequired(true)
+      .addChannelTypes(ChannelType.GuildText),
+  )
+  .setExecutor(async (client, interaction) =>
+    client.moduleManager
+      .get("user-event-logger")
+      .setChannelCommandInteraction(interaction as ChatInputCommandInteraction<"cached">),
   );
 
 export default new ClientSlashCommandBuilder({
-  subcommands: [changeUserLeveUpChannel, changeMesssageLogChannel, changeVoiceLogChannel],
+  subcommands: [
+    changeUserLeveUpChannel,
+    changeMesssageLogChannel,
+    changeVoiceLogChannel,
+    changeUserEventLogChannel,
+  ],
 })
-  .setName("log")
+  .setName("set-log")
   .setDescription("No description");

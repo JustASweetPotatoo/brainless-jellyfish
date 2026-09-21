@@ -3,7 +3,7 @@ import { Icon, Toggle } from "../core/UI";
 
 interface Props {
   modules: BotModule[];
-  onToggle: (id: string) => void;
+  onToggle: (id: string) => Promise<void> | void;
 }
 
 export default function OverviewPanel({ modules, onToggle }: Props) {
@@ -109,11 +109,16 @@ export default function OverviewPanel({ modules, onToggle }: Props) {
                   <strong>{module.name}</strong>
                   <span>{module.enabled ? "Đang hoạt động" : "Đang tạm dừng"}</span>
                 </div>
-                <Toggle
-                  checked={module.enabled}
-                  onClick={() => onToggle(module.id)}
-                  label={`Bật tắt ${module.name}`}
-                />
+                <div className="toggle-control">
+                  {module.pending && <span className="toggle-loader visible" aria-label="Đang cập nhật module">⏳</span>}
+                  {!module.pending && <span className="toggle-loader placeholder" aria-hidden="true"> </span>}
+                  <Toggle
+                    checked={module.enabled}
+                    onClick={() => void onToggle(module.id)}
+                    label={`Bật tắt ${module.name}`}
+                    disabled={Boolean(module.pending)}
+                  />
+                </div>
               </div>
             ))}
           </div>

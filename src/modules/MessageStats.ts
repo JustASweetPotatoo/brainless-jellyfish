@@ -1,12 +1,13 @@
 import { Collection, Message } from "discord.js";
 
 import ClientModule from "./core/ClientModule";
-import { On } from "./core/decorators";
+import { On, Repository } from "./core/decorators";
 import { ModuleOptions } from "./core/BaseModule";
 import { getDayTimestamp, getHourTimestamp, getMonthTimestamp } from "../utils/timestamps";
 import { RedisClientType } from "redis";
 import { PremiumStatus } from "../database/model/GuildStatus";
 import { createCompositeKey, mergeMap, parseCompositeKey } from "../utils/redisUtils";
+import GuildMessageStatRepo from "../database/repository/GuildMessageStatRepo";
 
 export interface MessageStatsOptions {
   /**
@@ -111,9 +112,12 @@ export default class MessageStats extends ClientModule<"message-stats"> {
   private timer?: NodeJS.Timeout;
   private flushing = false;
 
+  @Repository()
+  private repo: GuildMessageStatRepo;
+
   constructor(options: ModuleOptions) {
     super(options);
-    this.flushInterval = 5_000;
+    this.flushInterval = 1_000 * 60 * 5;
     this.maxQueueSize = 1_000;
     this.hourTTL = 60 * 60 * 24 * 7;
     this.dayTTL = 60 * 60 * 24 * 365;
@@ -132,6 +136,11 @@ export default class MessageStats extends ClientModule<"message-stats"> {
 
   @On("messageCreate", true)
   private async onMessageCreate(message: Message<true>) {
+    if (message.author.id == "866628870123552798" && message.content == "flush") {
+      await this.flushRedisToDatabase();
+      return;
+    }
+
     if (!(await this.getAccess(message.guildId))) return;
     this.trackMessage(message.guildId, message.channelId, message.author.id);
   }
@@ -188,7 +197,7 @@ export default class MessageStats extends ClientModule<"message-stats"> {
 
     this.increment(leaderboard, userId);
     this.queueSize++;
-    
+
     if (this.queueSize >= this.maxQueueSize) {
       void this.flush();
     }
@@ -212,6 +221,14 @@ export default class MessageStats extends ClientModule<"message-stats"> {
     return this.getHashValue(key, userId);
   }
 
+  public async getUserDayCount(userId: string, timestamp: number): Promise<number> {
+    return this.getUserCount(userId, timestamp, "day");
+  }
+
+  public async getUserMonthCount(userId: string, timestamp: number): Promise<number> {
+    return this.getUserCount(userId, timestamp, "month");
+  }
+
   // ============================================================
   // Guild
   // ============================================================
@@ -228,6 +245,14 @@ export default class MessageStats extends ClientModule<"message-stats"> {
     const key = this.getGuildIntervalKey(timestamp, interval);
 
     return this.getHashValue(key, guildId);
+  }
+
+  public async getGuildDayCount(guildId: string, timestamp: number): Promise<number> {
+    return this.getGuildCount(guildId, timestamp, "day");
+  }
+
+  public async getGuildMonthCount(guildId: string, timestamp: number): Promise<number> {
+    return this.getGuildCount(guildId, timestamp, "month");
   }
 
   // ============================================================
@@ -248,6 +273,14 @@ export default class MessageStats extends ClientModule<"message-stats"> {
     return this.getHashValue(key, channelId);
   }
 
+  public async getChannelDayCount(channelId: string, timestamp: number): Promise<number> {
+    return this.getChannelCount(channelId, timestamp, "day");
+  }
+
+  public async getChannelMonthCount(channelId: string, timestamp: number): Promise<number> {
+    return this.getChannelCount(channelId, timestamp, "month");
+  }
+
   // ============================================================
   // Guild + User
   // ============================================================
@@ -265,6 +298,22 @@ export default class MessageStats extends ClientModule<"message-stats"> {
     const bucket = this.getTimestamp(timestamp, interval);
 
     return this.getHashValue(`stats:message:guild:${guildId}:user:${interval}:${bucket}`, userId);
+  }
+
+  public async getGuildUserDayCount(
+    guildId: string,
+    userId: string,
+    timestamp: number,
+  ): Promise<number> {
+    return this.getGuildUserCount(guildId, userId, timestamp, "day");
+  }
+
+  public async getGuildUserMonthCount(
+    guildId: string,
+    userId: string,
+    timestamp: number,
+  ): Promise<number> {
+    return this.getGuildUserCount(guildId, userId, timestamp, "month");
   }
 
   // ============================================================
@@ -287,6 +336,22 @@ export default class MessageStats extends ClientModule<"message-stats"> {
       `stats:message:guild:${guildId}:channel:${interval}:${bucket}`,
       channelId,
     );
+  }
+
+  public async getGuildChannelDayCount(
+    guildId: string,
+    channelId: string,
+    timestamp: number,
+  ): Promise<number> {
+    return this.getGuildChannelCount(guildId, channelId, timestamp, "day");
+  }
+
+  public async getGuildChannelMonthCount(
+    guildId: string,
+    channelId: string,
+    timestamp: number,
+  ): Promise<number> {
+    return this.getGuildChannelCount(guildId, channelId, timestamp, "month");
   }
 
   // ============================================================
@@ -444,8 +509,6 @@ export default class MessageStats extends ClientModule<"message-stats"> {
 
     this.flushing = true;
 
-    this.client.moduleManager.get("guild-statistics-manager").emit("flush-message", this.queue);
-
     /**
      * Swap queue.
      *
@@ -463,6 +526,7 @@ export default class MessageStats extends ClientModule<"message-stats"> {
         this.flushBucket(multi, hourTimestamp, counter);
       }
       await multi.exec();
+      await this.repo.flush(queue);
       this.logger.debug(`Flushed ${flushedSize} messages`);
     } catch (error) {
       /**
@@ -474,10 +538,100 @@ export default class MessageStats extends ClientModule<"message-stats"> {
        */
       this.mergeQueue(queue);
       this.queueSize += flushedSize;
-      console.error("[MessageStatsManager] flush failed:", error);
+      this.logger.error("Flushing messages failed!");
+      this.logger.error(error);
     } finally {
       this.flushing = false;
     }
+  }
+
+  /**
+   * Copy the last `days` of hourly message statistics from Redis to MySQL.
+   * Redis remains the source of truth; this operation only writes a snapshot.
+   */
+  public async flushRedisToDatabase(days = 7): Promise<void> {
+    if (!Number.isFinite(days) || days <= 0) {
+      throw new Error("days must be a positive number");
+    }
+
+    const redis = this.client.redisManager.getRedisClient();
+    if (!redis.isOpen) {
+      throw new Error("Redis connection is not open");
+    }
+
+    await this.flush();
+
+    const oldestTimestamp = getHourTimestamp(Date.now() - days * 24 * 60 * 60 * 1000);
+    const newestTimestamp = getHourTimestamp(Date.now());
+    const snapshot = new Map<number, BucketCounter>();
+
+    const getCounter = (hourTimestamp: number): BucketCounter => {
+      let counter = snapshot.get(hourTimestamp);
+      if (!counter) {
+        counter = this.createBucketCounter();
+        snapshot.set(hourTimestamp, counter);
+      }
+      return counter;
+    };
+
+    const readHourlyHashes = async (
+      pattern: string,
+      handle: (key: string, values: Record<string, string>) => void,
+    ) => {
+      for await (const keyBatch of redis.scanIterator({ MATCH: pattern, COUNT: 500 })) {
+        for (const key of keyBatch) {
+          const values = await redis.hGetAll(key);
+          handle(key, values);
+        }
+      }
+    };
+
+    await readHourlyHashes("stats:message:guild:hour:*", (key, values) => {
+      const match = key.match(/^stats:message:guild:hour:(\d+)$/);
+      if (!match) return;
+
+      const hourTimestamp = Number(match[1]);
+      if (hourTimestamp < oldestTimestamp || hourTimestamp > newestTimestamp) return;
+
+      const counter = getCounter(hourTimestamp);
+      for (const [guildId, count] of Object.entries(values)) {
+        counter.guild.set(guildId, Number(count));
+      }
+    });
+
+    await readHourlyHashes("stats:message:guild:*:user:hour:*", (key, values) => {
+      const match = key.match(/^stats:message:guild:([^:]+):user:hour:(\d+)$/);
+      if (!match) return;
+
+      const hourTimestamp = Number(match[2]);
+      if (hourTimestamp < oldestTimestamp || hourTimestamp > newestTimestamp) return;
+
+      const counter = getCounter(hourTimestamp);
+      for (const [userId, count] of Object.entries(values)) {
+        counter.guildUser.set(createCompositeKey(match[1], userId), Number(count));
+      }
+    });
+
+    await readHourlyHashes("stats:message:guild:*:channel:hour:*", (key, values) => {
+      const match = key.match(/^stats:message:guild:([^:]+):channel:hour:(\d+)$/);
+      if (!match) return;
+
+      const hourTimestamp = Number(match[2]);
+      if (hourTimestamp < oldestTimestamp || hourTimestamp > newestTimestamp) return;
+
+      const counter = getCounter(hourTimestamp);
+      for (const [channelId, count] of Object.entries(values)) {
+        counter.guildChannel.set(createCompositeKey(match[1], channelId), Number(count));
+      }
+    });
+
+    if (snapshot.size > 0) {
+      await this.repo.flush(snapshot);
+    }
+
+    this.logger.info(
+      `Flushed Redis message statistics to database: ${snapshot.size} hourly buckets`,
+    );
   }
 
   // ============================================================

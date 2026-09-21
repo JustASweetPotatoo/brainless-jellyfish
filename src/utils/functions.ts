@@ -385,10 +385,6 @@ function normalizeFacebookShareUrl(url: string): string | undefined {
   }
 }
 
-export function extractFacebookReelId(url: string): string | undefined {
-  return url.match(/https:\/\/www\.facebook\.com\/reel\/([^/?#]+)/i)?.[1];
-}
-
 export function removeQueryUrl(url: string): string {
   const str = url.split("?")[0];
 

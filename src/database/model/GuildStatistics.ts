@@ -1,5 +1,6 @@
 import { Collection } from "discord.js";
 import { BaseModel } from "./constructor/BaseModel";
+import { getHourTimestamp } from "../../utils/timestamps";
 
 export enum GuildStatisticsIncrementType {
   MSG,
@@ -10,7 +11,7 @@ export enum GuildStatisticsIncrementType {
 
 export interface GuildStatisticsJson {
   readonly id: string;
-  readonly timestamp_by_days: string;
+  readonly timestamp_hours: number;
   /**
    * @description Fomat per item: '[timestamp by minutes]-[messageCount]-[userJoinCount]-[userLeaveCount]-[userVoiceCount]'
    */
@@ -19,7 +20,7 @@ export interface GuildStatisticsJson {
 
 export interface GuildStatisticsOptions {
   readonly id: string;
-  readonly timestamp_by_days?: string;
+  readonly timestamp_hours?: number;
   /**
    * @description Fomat per item: '[timestamp by minutes]-[messageCount]-[userJoinCount]-[userLeaveCount]-[userVoiceCount]'
    */
@@ -35,22 +36,21 @@ export interface CountMapData {
 
 export default class GuildStatistics extends BaseModel<GuildStatisticsJson> {
   readonly id: string;
-  readonly timestampByDays: string;
+  readonly timestampHours: number;
   readonly countMap: Collection<string, CountMapData> = new Collection();
 
   constructor(options: GuildStatisticsOptions) {
     super();
     this.id = options.id;
-    this.timestampByDays =
-      options.timestamp_by_days ?? Math.floor(new Date().getTime() / 1000 / 60 / 24).toString();
+    this.timestampHours = options.timestamp_hours ?? getHourTimestamp(new Date().getTime());
     this.countMap = this.reverseCountMapJson(options.count_map);
   }
 
   /**
-   * 
+   *
    * @returns Return a string type `${this.id}|${this.timestampByDays}`
    */
-  getCachedId = () => `${this.id}|${this.timestampByDays}`;
+  getCachedId = () => `${this.id}|${this.timestampHours}`;
 
   reverseCountMapJson(countMap?: string[]): Collection<string, CountMapData> {
     let collection = new Collection<string, CountMapData>();
@@ -107,7 +107,7 @@ export default class GuildStatistics extends BaseModel<GuildStatisticsJson> {
   toJSON(): GuildStatisticsJson {
     return {
       id: this.id,
-      timestamp_by_days: this.timestampByDays.toString(),
+      timestamp_hours: this.timestampHours,
       count_map: this.countMap.map((counter, timestamp) =>
         [timestamp, ...Object.values(counter)].join("-"),
       ),

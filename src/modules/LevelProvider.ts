@@ -34,7 +34,7 @@ import {
   getTotalExpToReachLevel,
 } from "../utils/calculator";
 import { sendInteractionMessageReply } from "../utils/replier";
-import { generateRankCard } from "../utils/test";
+import { generateRankCard } from "../utils/rankCard";
 
 const avatarPath = path.join(__dirname, "../assets/avatar.png");
 
@@ -495,7 +495,7 @@ export default class LevelProvider extends ClientModule<"level-provider"> {
     });
   }
 
-  @SlashCommandExecutor({ guildOnly: true })
+  @SlashCommandExecutor({ guildOnly: true, deferred: true })
   async activeGuild(interaction: ChatInputCommandInteraction<"cached">) {
     const guildProfile = await this.getGuildProfile(interaction.guildId);
 

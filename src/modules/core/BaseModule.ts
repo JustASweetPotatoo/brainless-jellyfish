@@ -8,6 +8,10 @@ import {
   EmbedBuilder,
   Colors,
   Events,
+  Guild,
+  Collection,
+  User,
+  Channel,
 } from "discord.js";
 
 import { EventEmitter } from "node:events";
@@ -33,6 +37,8 @@ import { sendInteractionMessageReply } from "../../utils/replier";
 import { ClientErrorData } from "../../error/interface";
 import { parseError } from "../../utils/error";
 import { getCommandFullName } from "../../utils/slashCommand";
+import Limiter from "./Limiter";
+import { moduleRegistry } from "./moduleRegistry";
 
 /**
  * MODULE OPTIONS
@@ -59,6 +65,8 @@ export interface ModuleConstructor<T extends string = string> {
  */
 export type ModuleEvents = string | symbol;
 
+export type SpecifyModuleEvents = "guildUpdated";
+
 /**
  * INTERACTION TYPES
  */
@@ -74,7 +82,7 @@ export type ErrorInteractionType =
 
 export default abstract class BaseModule<
   TName extends string,
-  TEvent extends ModuleEvents,
+  TEvent extends ModuleEvents | SpecifyModuleEvents,
 > extends EventEmitter {
   /**
    * Module name.
@@ -106,6 +114,8 @@ export default abstract class BaseModule<
    * Prevent duplicate event registration.
    */
   private eventsRegistered = false;
+
+  readonly limiter: Limiter = new Limiter({ timeout: 5_000, limit: 2 });
 
   /**
    * CONSTRUCTOR
@@ -258,7 +268,6 @@ export default abstract class BaseModule<
        */
       if (interaction.isChatInputCommand()) {
         await this.onSlashCommandInteractionCreate(interaction);
-
         return;
       }
 
@@ -267,7 +276,6 @@ export default abstract class BaseModule<
        */
       if (interaction.isButton()) {
         await this.onButtonInteractionCreate(interaction);
-
         return;
       }
 
@@ -276,7 +284,6 @@ export default abstract class BaseModule<
        */
       if (interaction.isModalSubmit()) {
         await this.onModalSubmitInteractionCreate(interaction);
-
         return;
       }
 
@@ -310,6 +317,8 @@ export default abstract class BaseModule<
   protected abstract onAutoCompleteInteractionCreate(
     interaction: AutocompleteInteraction,
   ): Promise<any>;
+
+  protected abstract onGuildStatusUpdate(guild: Guild): Promise<void>;
 
   /**
    * BUTTON ERROR
@@ -345,9 +354,7 @@ export default abstract class BaseModule<
     const doneTimestamp = Date.now();
     const doneTimestampBySeconds = Math.floor(doneTimestamp / 1000);
     const durationByMiliseconds = doneTimestamp - interaction.createdTimestamp;
-    const commandName = getCommandFullName(
-      interaction as ChatInputCommandInteraction,
-    );
+    const commandName = getCommandFullName(interaction as ChatInputCommandInteraction);
 
     const responseTime = doneTimestamp - interaction.createdTimestamp;
     const error = new ClientError(ErrorCode.UNKNOWN_ERROR, err);
@@ -470,7 +477,7 @@ export default abstract class BaseModule<
     /**
      * Register interaction handler.
      */
-    if (this.hasInteractionHandler()) {
+    if (this.hasInteractionHandler() && this.name === "slash-command-manager") {
       this.client.on(Events.InteractionCreate, (interaction) => {
         void this.onInteractionCreate(interaction);
       });
@@ -514,13 +521,61 @@ export default abstract class BaseModule<
     return this;
   }
 
+  private parseTarget(...args: unknown[]): "system" | User | Channel | undefined {
+    for (const arg of args) {
+      if (!arg || typeof arg !== "object") {
+        continue;
+      }
+
+      let value = arg as any;
+
+      if (value instanceof Array) {
+        value = value[0];
+      }
+
+      if (value instanceof Collection) {
+        value = value.at(0);
+      }
+
+      if (value.author) {
+        return value.author;
+      }
+
+      if (value.user) {
+        return value.user;
+      }
+
+      if (value.member) {
+        return value.user;
+      }
+
+      if (value.guild) {
+        return value.guild;
+      }
+
+      if (value.channel) {
+        return value.channel;
+      }
+    }
+
+    return "system";
+  }
+
   private isBotEvent(...args: unknown[]): boolean {
     for (const arg of args) {
       if (!arg || typeof arg !== "object") {
         continue;
       }
 
-      const value = arg as any;
+      let value = arg as any;
+
+      if (value instanceof Array) {
+        value = value[0];
+      }
+
+      if (value instanceof Collection) {
+        value = value.at(0);
+      }
 
       if (value.author?.bot === true) {
         return true;
@@ -567,13 +622,17 @@ export default abstract class BaseModule<
           continue;
         }
 
-        const handler = (this as any)[key].bind(this);
+        if (event === "guildUpdate") {
+          this.on(event, this.onGuildStatusUpdate);
+        } else {
+          const handler = (this as any)[key].bind(this);
 
-        this.on(event, (...args: unknown[]) => {
-          void this.executeEvent(event as string, handler, ...args).catch((error) =>
-            this.handleModuleError(error),
-          );
-        });
+          this.on(event, (...args: unknown[]) => {
+            void this.executeEvent(event as string, handler, ...args).catch((error) =>
+              this.handleModuleError(error),
+            );
+          });
+        }
 
         this.count.event++;
       }

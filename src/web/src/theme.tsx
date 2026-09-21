@@ -189,7 +189,14 @@ export function useColors() {
 ========================================================= */
 
 export function useMode() {
-  const [mode, setMode] = useState<ColorMode>("dark");
+  const [mode, setMode] = useState<ColorMode>(() => {
+    if (typeof window === "undefined") {
+      return "dark";
+    }
+
+    const savedMode = window.localStorage.getItem("theme-mode");
+    return savedMode === "light" || savedMode === "dark" ? savedMode : "dark";
+  });
 
   /* =======================================================
      COLOR MODE
@@ -203,7 +210,7 @@ export function useMode() {
         setMode((prev) => (prev === "dark" ? "light" : "dark"));
       },
     }),
-    [],
+    [mode],
   );
 
   /* =======================================================
@@ -214,11 +221,13 @@ export function useMode() {
     const html = document.documentElement;
 
     html.classList.toggle("dark", mode === "dark");
+    html.classList.toggle("light", mode === "light");
 
     /*
      * Hỗ trợ CSS thuần nếu cần
      */
     html.dataset.theme = mode;
+    window.localStorage.setItem("theme-mode", mode);
   }, [mode]);
 
   /* =======================================================

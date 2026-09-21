@@ -7,7 +7,7 @@ import {
   PermissionFlagsBits,
 } from "discord.js";
 import { autoDeferReplyInteraction } from "../../slashCommandBuilder/function";
-import { ModuleEvents } from "./BaseModule";
+import { ModuleEvents, SpecifyModuleEvents } from "./BaseModule";
 
 export const MODULE_KEY = Symbol("module");
 
@@ -74,7 +74,7 @@ export const MODULE_EVENT_KEY = Symbol("module-event");
  * @ModuleOn(MessageLevelProviderEvents.USER_LEVEL_UP)
  * private async onUserLevelUp(...) {}
  */
-export function ModuleOn<E extends ModuleEvents>(event: E): MethodDecorator {
+export function ModuleOn<E extends ModuleEvents | SpecifyModuleEvents>(event: E): MethodDecorator {
   return (target, propertyKey, descriptor) => {
     if (typeof propertyKey !== "string" && typeof propertyKey !== "symbol") {
       throw new TypeError("@ModuleOn can only decorate a method.");

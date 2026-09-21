@@ -4,6 +4,7 @@ import {
   ChatInputCommandInteraction,
   CommandInteraction,
   AutocompleteInteraction,
+  Guild,
 } from "discord.js";
 
 import BaseModule, { ModuleEvents } from "./BaseModule";
@@ -13,7 +14,10 @@ import BaseModule, { ModuleEvents } from "./BaseModule";
  *
  * Provides default interaction handlers for Discord interactions.
  */
-export default abstract class ClientModule<TName extends string> extends BaseModule<TName, ModuleEvents> {
+export default abstract class ClientModule<TName extends string> extends BaseModule<
+  TName,
+  ModuleEvents
+> {
   /**
    * Button interaction.
    */
@@ -29,10 +33,16 @@ export default abstract class ClientModule<TName extends string> extends BaseMod
   /**
    * Modal submit interaction.
    */
-  protected async onModalSubmitInteractionCreate(_interaction: ModalSubmitInteraction): Promise<any> {}
+  protected async onModalSubmitInteractionCreate(
+    _interaction: ModalSubmitInteraction,
+  ): Promise<any> {}
 
   /**
    * Autocomplete interaction.
    */
-  protected async onAutoCompleteInteractionCreate(_interaction: AutocompleteInteraction): Promise<any> {}
+  protected async onAutoCompleteInteractionCreate(
+    _interaction: AutocompleteInteraction,
+  ): Promise<any> {}
+
+  protected async onGuildStatusUpdate(guild: Guild): Promise<void> {}
 }
