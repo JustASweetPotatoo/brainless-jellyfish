@@ -14,11 +14,13 @@ const describeError = (error: unknown): string => {
 };
 
 process.on("unhandledRejection", (reason) => {
-  client.logger.error({ message: "Unhandled promise rejection.", error: reason });
+  client.logger.error(new Error("Unhandled promise rejection.", { cause: reason }));
 });
 
 process.on("uncaughtException", (error) => {
-  client.logger.error({ message: "Uncaught exception. The shard will be restarted.", error });
+  client.logger.error(
+    new Error("Uncaught exception. The shard will be restarted.", { cause: error }),
+  );
   process.exitCode = 1;
 });
 

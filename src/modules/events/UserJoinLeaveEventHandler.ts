@@ -1,15 +1,18 @@
 import { Colors, EmbedBuilder, Events, GuildMember, TextChannel } from "discord.js";
 
-import { ModuleOptions } from "../core/BaseModule";
-import { On } from "../core/decorators";
+import { ModuleOptions } from "../core/module/BaseModule";
+import { On } from "../core/decorators/decorators";
 import {
   formatDiscordTimestampDuration,
   formatDiscordTimestampDurationBetween,
 } from "../../utils/timestamps";
 import EventHandler from "./EventHandler";
 import { LogChannelType } from "../GuildStatusManager";
+import { PremiumStatus } from "../../database/model/GuildStatus";
 
 export default class UserJoinLeaveEventHandler extends EventHandler<"join-leave-event-handler"> {
+  protected readonly premiumLevel: PremiumStatus = PremiumStatus.STANDARD;
+
   protected override getLogChannelType(): LogChannelType {
     return LogChannelType.JOIN_LEAVE;
   }

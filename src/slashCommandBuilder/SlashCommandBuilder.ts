@@ -21,7 +21,7 @@ import {
 import ClientSlashCommandSubcommandBuilder from "./SlashCommandSubcommandBuilder";
 import ClientSlashCommandSubcommandGroupBuilder from "./SlashCommandSubcommandGroupBuilder";
 import { defaultExecutor } from "./function";
-import { getCommandFullName } from "../utils/slashCommand";
+import { getFullCommandName } from "../utils/slashCommand";
 
 export default class ClientSlashCommandBuilder extends SlashCommandBuilder {
   public readonly subcommands: Array<
@@ -103,7 +103,7 @@ export default class ClientSlashCommandBuilder extends SlashCommandBuilder {
   public getExecutor(
     interaction: ChatInputCommandInteraction | CommandInteraction,
   ): SlashCommandExecuteFunction {
-    const cmdArgs = getCommandFullName(interaction);
+    const cmdArgs = getFullCommandName(interaction);
     const subCommand = this.subcommandExecutorCollection.get(cmdArgs.join(" "));
     return subCommand ?? this.execute;
   }

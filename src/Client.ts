@@ -2,12 +2,11 @@ import dotenv from "dotenv";
 dotenv.config();
 
 import { Client, Events, GatewayIntentBits, version } from "discord.js";
-import { DataSource } from "typeorm";
 
 import { Logger, LogPrinter } from "./logger/Logger";
 import ModuleManager from "./modules/core/ModuleManager";
 import ClientErrorHandler from "./modules/ErrorHandler";
-import SlashCommandManager from "./slashCommands/SlashCommandManager";
+import SlashCommandManager from "./modules/system/SlashCommandManager";
 import DatabaseManager from "./database/DatabaseManager";
 import RedisManager from "./redis/RedisClient";
 
@@ -87,22 +86,20 @@ export default class MassClient extends Client {
 
     this.logger.info("Starting bot...");
 
-    const connectionStatusRedis = await this.redisManager.connect();
-    if (!connectionStatusRedis) {
-      this.logger.warn("Force stopping bot demman on redis connect failed");
-      process.exit(0);
-    }
-
     const connectionStatusMysql = await this.databaseManager.createConnection();
     if (!connectionStatusMysql) {
       this.logger.warn("Force stopping bot demman on no database connection");
       process.exit(0);
     }
 
+    const connectionStatusRedis = await this.redisManager.connect();
+    if (!connectionStatusRedis) {
+      this.logger.warn("Force stopping bot demman on redis connect failed");
+      process.exit(0);
+    }
+
     this.moduleManager.loadModules();
     this.bootstrapped = true;
-
-    this.emit("system-operational", this);
 
     return super.login(token);
   }

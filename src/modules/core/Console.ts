@@ -2,11 +2,14 @@ import readline from "node:readline";
 
 import { Events } from "discord.js";
 
-import ClientModule from "./ClientModule";
-import { On } from "./decorators";
-import { ModuleOptions } from "./BaseModule";
+import DiscordModule from "./module/DiscordModule";
+import { On } from "./decorators/decorators";
+import { ModuleOptions } from "./module/BaseModule";
+import { PremiumStatus } from "../../database/model/GuildStatus";
 
-export default class Console extends ClientModule<"console"> {
+export default class Console extends DiscordModule<"console"> {
+  protected readonly premiumLevel: PremiumStatus = PremiumStatus.STANDARD;
+
   private readonly rl: readline.Interface;
   private debugCommandLine: boolean = false;
 
@@ -49,18 +52,22 @@ export default class Console extends ClientModule<"console"> {
       console.log("[Console] args:", args);
     }
 
-    switch (command) {
-      case "status":
+    const commandList: { [key: string]: Function } = {
+      status: () => {
         this.logger.info("Bot is running!");
-        break;
-      case "cmdl":
+      },
+      cmdl: () => {
         this.debugCommandLine = !this.debugCommandLine;
         this.logger.info("Debug command line: " + this.debugCommandLine ? "on" : "off");
-        break;
+      },
+    };
 
-      default:
-        this.logger.warn(`Command '${command}' not found, use help to see available commands`);
-        break;
+    const execute = commandList[command];
+
+    if (!execute) {
+      this.logger.warn(`Command '${command}' not found, use help to see available commands`);
+    } else {
+      execute();
     }
 
     this.rl.prompt();

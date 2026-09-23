@@ -13,9 +13,10 @@ import noituDictionary from "../assets/noituDictionary.json";
 import MassClient from "../Client";
 import NoituGuildConfig from "../database/model/noituGuildConfig";
 import NoituChannelConfig from "../database/model/noituChannelConfig";
-import { Module, On } from "./core/decorators";
-import ClientModule from "./core/ClientModule";
+import { Module, On } from "./core/decorators/decorators";
+import DiscordModule from "./core/module/DiscordModule";
 import { sendTemporatyMessageReply } from "../utils/replier";
+import { PremiumStatus } from "../database/model/GuildStatus";
 
 export enum NoiTuCreateChannelEvent {
   SUCCESS,
@@ -43,7 +44,9 @@ export enum NoiTuMessageCreateEvent {
 }
 
 @Module("noi-tu-manager")
-export default class NoiTuManager extends ClientModule<"noi-tu-manager"> {
+export default class NoiTuManager extends DiscordModule<"noi-tu-manager"> {
+  protected readonly premiumLevel: PremiumStatus = PremiumStatus.STANDARD;
+
   static readonly moduleName = "noi-tu-manager";
 
   readonly discordEvents: Events[] = [

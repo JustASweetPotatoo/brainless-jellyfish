@@ -1,8 +1,8 @@
 import { Collection, Message } from "discord.js";
 
-import ClientModule from "./core/ClientModule";
-import { On, Repository } from "./core/decorators";
-import { ModuleOptions } from "./core/BaseModule";
+import DiscordModule from "./core/module/DiscordModule";
+import { On, Repository } from "./core/decorators/decorators";
+import { ModuleOptions } from "./core/module/BaseModule";
 import { getDayTimestamp, getHourTimestamp, getMonthTimestamp } from "../utils/timestamps";
 import { RedisClientType } from "redis";
 import { PremiumStatus } from "../database/model/GuildStatus";
@@ -75,7 +75,7 @@ export interface MessageStatsOptions {
 
 export type StatsInterval = "hour" | "day" | "month";
 
-type RedisMulti = ReturnType<RedisClientType["multi"]>;
+export type RedisMulti = ReturnType<RedisClientType["multi"]>;
 
 export interface BucketCounter {
   guild: Map<string, number>;
@@ -88,7 +88,9 @@ export interface BucketCounter {
   leaderboard: Map<string, Map<string, number>>;
 }
 
-export default class MessageStats extends ClientModule<"message-stats"> {
+export default class MessageStats extends DiscordModule<"message-stats"> {
+  protected readonly premiumLevel: PremiumStatus = PremiumStatus.PRO;
+
   private readonly flushInterval: number;
   private readonly maxQueueSize: number;
 
@@ -115,6 +117,8 @@ export default class MessageStats extends ClientModule<"message-stats"> {
   @Repository()
   private repo: GuildMessageStatRepo;
 
+  private redisClient: RedisClientType;
+
   constructor(options: ModuleOptions) {
     super(options);
     this.flushInterval = 1_000 * 60 * 5;
@@ -125,9 +129,18 @@ export default class MessageStats extends ClientModule<"message-stats"> {
     this.totalTTL = 0;
     this.leaderboardTTL = 0;
 
+    this.redisClient = this.client.redisManager.getRedisClient();
+
     this.timer = setInterval(() => {
       void this.flush();
     }, this.flushInterval);
+
+    setInterval(
+      () => {
+        this.flushRedisToDatabase();
+      },
+      1_000 * 60 * 60,
+    );
   }
 
   // ============================================================
@@ -386,7 +399,7 @@ export default class MessageStats extends ClientModule<"message-stats"> {
   public async getUserRank(guildId: string, userId: string): Promise<number | null> {
     const key = `stats:message:guild:${guildId}:leaderboard:user`;
 
-    const rank = await this.client.redisManager.getRedisClient().zRevRank(key, userId);
+    const rank = await this.redisClient.zRevRank(key, userId);
 
     if (rank === null) {
       return null;
@@ -398,7 +411,7 @@ export default class MessageStats extends ClientModule<"message-stats"> {
   public async getUserLeaderboardScore(guildId: string, userId: string): Promise<number> {
     const key = `stats:message:guild:${guildId}:leaderboard:user`;
 
-    const score = await this.client.redisManager.getRedisClient().zScore(key, userId);
+    const score = await this.redisClient.zScore(key, userId);
 
     return score ?? 0;
   }
@@ -460,8 +473,7 @@ export default class MessageStats extends ClientModule<"message-stats"> {
   }
 
   private async getHashValue(key: string, field: string): Promise<number> {
-    const value = await this.client.redisManager.getRedisClient().hGet(key, field);
-
+    const value = await this.redisClient.hGet(key, field);
     return value === null ? 0 : Number(value);
   }
 
@@ -503,7 +515,11 @@ export default class MessageStats extends ClientModule<"message-stats"> {
       return;
     }
 
-    if (!this.client.redisManager.getRedisClient().isOpen || this.queueSize === 0) {
+    if (!this.redisClient) {
+      this.redisClient = this.client.redisManager.getRedisClient();
+    }
+
+    if (!this.redisClient.isOpen || this.queueSize === 0) {
       return;
     }
 
@@ -521,7 +537,7 @@ export default class MessageStats extends ClientModule<"message-stats"> {
     this.queueSize = 0;
 
     try {
-      const multi = this.client.redisManager.getRedisClient().multi();
+      const multi = this.redisClient.multi();
       for (const [hourTimestamp, counter] of queue) {
         this.flushBucket(multi, hourTimestamp, counter);
       }
@@ -546,23 +562,20 @@ export default class MessageStats extends ClientModule<"message-stats"> {
   }
 
   /**
-   * Copy the last `days` of hourly message statistics from Redis to MySQL.
+   * Copy the last full day from `days` of hourly message statistics from Redis to MySQL.
    * Redis remains the source of truth; this operation only writes a snapshot.
    */
-  public async flushRedisToDatabase(days = 7): Promise<void> {
-    if (!Number.isFinite(days) || days <= 0) {
-      throw new Error("days must be a positive number");
-    }
-
-    const redis = this.client.redisManager.getRedisClient();
-    if (!redis.isOpen) {
+  private async getSnapshot(days: number = 3, guildId?: string) {
+    if (!this.redisClient.isOpen) {
       throw new Error("Redis connection is not open");
     }
 
-    await this.flush();
+    guildId = guildId ?? "*";
 
-    const oldestTimestamp = getHourTimestamp(Date.now() - days * 24 * 60 * 60 * 1000);
-    const newestTimestamp = getHourTimestamp(Date.now());
+    const timestamp = Date.now() - days * 24 * 60 * 60 * 1000;
+
+    const oldestHourTimestamp = getDayTimestamp(timestamp);
+    const newestHourTimestamp = getHourTimestamp();
     const snapshot = new Map<number, BucketCounter>();
 
     const getCounter = (hourTimestamp: number): BucketCounter => {
@@ -574,56 +587,61 @@ export default class MessageStats extends ClientModule<"message-stats"> {
       return counter;
     };
 
-    const readHourlyHashes = async (
-      pattern: string,
-      handle: (key: string, values: Record<string, string>) => void,
-    ) => {
-      for await (const keyBatch of redis.scanIterator({ MATCH: pattern, COUNT: 500 })) {
-        for (const key of keyBatch) {
-          const values = await redis.hGetAll(key);
-          handle(key, values);
-        }
-      }
+    const setCounter = (hourTimestamp: number, bucket: BucketCounter) => {
+      snapshot.set(hourTimestamp, bucket);
     };
 
-    await readHourlyHashes("stats:message:guild:hour:*", (key, values) => {
+    await this.readHourlyHashes(`stats:message:guild:hour:*`, (key, values) => {
       const match = key.match(/^stats:message:guild:hour:(\d+)$/);
       if (!match) return;
 
       const hourTimestamp = Number(match[1]);
-      if (hourTimestamp < oldestTimestamp || hourTimestamp > newestTimestamp) return;
+      if (hourTimestamp < oldestHourTimestamp || hourTimestamp > newestHourTimestamp) return;
 
       const counter = getCounter(hourTimestamp);
       for (const [guildId, count] of Object.entries(values)) {
         counter.guild.set(guildId, Number(count));
       }
+
+      setCounter(hourTimestamp, counter);
     });
 
-    await readHourlyHashes("stats:message:guild:*:user:hour:*", (key, values) => {
+    await this.readHourlyHashes(`stats:message:guild:${guildId}:user:hour:*`, (key, values) => {
       const match = key.match(/^stats:message:guild:([^:]+):user:hour:(\d+)$/);
       if (!match) return;
 
       const hourTimestamp = Number(match[2]);
-      if (hourTimestamp < oldestTimestamp || hourTimestamp > newestTimestamp) return;
+      if (hourTimestamp < oldestHourTimestamp || hourTimestamp > newestHourTimestamp) return;
 
       const counter = getCounter(hourTimestamp);
       for (const [userId, count] of Object.entries(values)) {
         counter.guildUser.set(createCompositeKey(match[1], userId), Number(count));
       }
+
+      setCounter(hourTimestamp, counter);
     });
 
-    await readHourlyHashes("stats:message:guild:*:channel:hour:*", (key, values) => {
+    await this.readHourlyHashes(`stats:message:guild:${guildId}:channel:hour:*`, (key, values) => {
       const match = key.match(/^stats:message:guild:([^:]+):channel:hour:(\d+)$/);
       if (!match) return;
 
       const hourTimestamp = Number(match[2]);
-      if (hourTimestamp < oldestTimestamp || hourTimestamp > newestTimestamp) return;
+      if (hourTimestamp < oldestHourTimestamp || hourTimestamp > newestHourTimestamp) return;
 
       const counter = getCounter(hourTimestamp);
       for (const [channelId, count] of Object.entries(values)) {
         counter.guildChannel.set(createCompositeKey(match[1], channelId), Number(count));
       }
+
+      setCounter(hourTimestamp, counter);
     });
+
+    return snapshot;
+  }
+
+  public async flushRedisToDatabase(days = 2): Promise<void> {
+    await this.flush();
+    const snapshot = await this.getSnapshot(days);
 
     if (snapshot.size > 0) {
       await this.repo.flush(snapshot);
@@ -834,5 +852,34 @@ export default class MessageStats extends ClientModule<"message-stats"> {
     if (ttl > 0) {
       multi.expire(key, ttl);
     }
+  }
+
+  private readHourlyHashes = async (
+    pattern: string,
+    handle: (key: string, values: Record<string, string>) => void,
+  ) => {
+    for await (const keyBatch of this.redisClient.scanIterator({ MATCH: pattern, COUNT: 500 })) {
+      for (const key of keyBatch) {
+        const values = await this.redisClient.hGetAll(key);
+        handle(key, values);
+      }
+    }
+  };
+
+  public async getStatAnalyzer(guildId: string, days: number = 7) {
+    const snapshot = await this.getSnapshot(days, guildId);
+
+    const analysis = {
+      guildId: guildId,
+      hourlyGuildAnalisysMap: new Collection<number, number>(),
+    };
+
+    for (const [bucket, bucketCounter] of snapshot) {
+      let hourlyGuildAnalisys = analysis.hourlyGuildAnalisysMap.get(bucket) ?? 0;
+      bucketCounter.guild.forEach((count) => (hourlyGuildAnalisys += count));
+      analysis.hourlyGuildAnalisysMap.set(bucket, hourlyGuildAnalisys);
+    }
+
+    return analysis;
   }
 }

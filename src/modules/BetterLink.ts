@@ -1,8 +1,11 @@
 import { ChatInputCommandInteraction, Colors, EmbedBuilder, Events, Message } from "discord.js";
-import ClientModule from "./core/ClientModule";
-import { On, SlashCommandExecutor } from "./core/decorators";
+import DiscordModule from "./core/module/DiscordModule";
+import { On, SlashCommandExecutor } from "./core/decorators/decorators";
+import { PremiumStatus } from "../database/model/GuildStatus";
 
-export default class BetterLink extends ClientModule<"better-link"> {
+export default class BetterLink extends DiscordModule<"better-link"> {
+  protected readonly premiumLevel: PremiumStatus = PremiumStatus.STANDARD;
+
   @On(Events.MessageCreate)
   protected async onMessageCreate(message: Message<true>): Promise<any> {}
 

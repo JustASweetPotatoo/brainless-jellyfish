@@ -19,10 +19,10 @@ import {
   VoiceState,
 } from "discord.js";
 
-import ClientModule from "./core/ClientModule";
+import DiscordModule from "./core/module/DiscordModule";
 import GuildLevelProviderProfile from "../database/model/RankProviderGuildProfile";
 import UserLevelProfile from "../database/model/UserLevelProfile";
-import { ModuleOn, On, Repository, SlashCommandExecutor } from "./core/decorators";
+import { ModuleOn, On, Repository, SlashCommandExecutor } from "./core/decorators/decorators";
 import LevelProviderGuildProfileRepo from "../database/repository/LevelProviderGuildProfileRepo";
 import UserlevelProfileRepo from "../database/repository/UserLevelProfileRepo";
 import RankProviderMilestone from "../database/model/RankProviderMilestone";
@@ -35,6 +35,10 @@ import {
 } from "../utils/calculator";
 import { sendInteractionMessageReply } from "../utils/replier";
 import { generateRankCard } from "../utils/rankCard";
+import { RedisClientType } from "redis";
+import { ModuleOptions } from "./core/module/BaseModule";
+import { RedisMulti } from "./MessageStats";
+import { PremiumStatus } from "../database/model/GuildStatus";
 
 const avatarPath = path.join(__dirname, "../assets/avatar.png");
 
@@ -72,17 +76,49 @@ export enum VoiceLevelEvents {
   GUILD_PROFILE_UPDATE = "guildProfileUpdate",
 }
 
-export default class LevelProvider extends ClientModule<"level-provider"> {
+export default class LevelProvider extends DiscordModule<"level-provider"> {
+  protected readonly premiumLevel: PremiumStatus = PremiumStatus.STANDARD;
   private readonly guildProfileCache: Collection<string, GuildLevelProviderProfile> =
     new Collection();
   private readonly memberProfileCache: Collection<string, UserLevelProfile> = new Collection();
   private readonly voiceSessions: Collection<string, MemberVoiceSession> = new Collection();
+
+  private readonly ttl: number = 60;
+  private readonly queue: Map<string, number>;
 
   @Repository()
   readonly guildRepo: LevelProviderGuildProfileRepo;
 
   @Repository()
   readonly memberRepo: UserlevelProfileRepo;
+
+  private redisClient: RedisClientType;
+
+  constructor(options: ModuleOptions) {
+    super(options);
+    this.redisClient = options.client.redisManager.getRedisClient();
+  }
+
+  private async getHashValue(key: string, field: string): Promise<number> {
+    const value = await this.redisClient.hGet(key, field);
+    return value === null ? 0 : Number(value);
+  }
+
+  private async incrementVoiceExp(userProfile: UserLevelProfile, amount = 1) {
+    await this.redisClient.hIncrBy(
+      `level:voice:guild:${userProfile.guildId}`,
+      userProfile.id,
+      amount,
+    );
+  }
+
+  private async incrementMessageExp(userProfile: UserLevelProfile, amount = 1) {
+    await this.redisClient.hIncrBy(
+      `level:message:guild:${userProfile.guildId}`,
+      userProfile.id,
+      amount,
+    );
+  }
 
   private async updateMemberProfile(p: UserLevelProfile) {
     await this.memberRepo.update(p);
@@ -359,46 +395,6 @@ export default class LevelProvider extends ClientModule<"level-provider"> {
     );
     await this.updateMemberProfile(profile);
     return profile;
-  }
-
-  @On(Events.MessageCreate)
-  protected async onMessageCreate(message: Message<boolean>): Promise<void> {
-    const member = message.member;
-
-    if (!member || member.user.bot) {
-      return;
-    }
-
-    const guildProfile = await this.getGuildProfile(member.guild.id);
-
-    if (!guildProfile.active) {
-      return;
-    }
-
-    let memberProfile = await this.getMemberProfile(member);
-    const oldLevel = calcLevel(memberProfile.messageExp);
-    const newMessageExp = memberProfile.messageExp + this.contentToExp(message.content);
-    const newLevel = calcLevel(newMessageExp);
-
-    memberProfile.messageExp = newMessageExp;
-
-    if (oldLevel !== newLevel) {
-      await this.onUserLevelUp(member, memberProfile);
-    }
-
-    await this.memberRepo.updateByMessageLevel(memberProfile);
-  }
-
-  @On(Events.VoiceStateUpdate)
-  protected async onVoiceStateUpdate(oldState: VoiceState, newState: VoiceState): Promise<any> {
-    const member = oldState.member || newState.member;
-    if (!member || member.user.bot) return;
-    const guildProfile = await this.getGuildProfile(member.guild.id);
-    if (!guildProfile.active) return;
-
-    const memberEvent = this.classifyVoiceState(oldState, newState);
-
-    this.emit(memberEvent, oldState, newState);
   }
 
   /**
@@ -945,5 +941,47 @@ export default class LevelProvider extends ClientModule<"level-provider"> {
 
       await interaction.editReply({ files: [attachment] });
     }
+  }
+
+  @On(Events.MessageCreate, true)
+  protected async onMessageCreate(message: Message<true>): Promise<void> {
+    const member = message.member;
+
+    if (!member) return;
+
+    const guildProfile = await this.getGuildProfile(member.guild.id);
+
+    if (!guildProfile.active) {
+      return;
+    }
+
+    let memberProfile = await this.getMemberProfile(member);
+    const oldLevel = calcLevel(memberProfile.messageExp);
+    const newMessageExp = memberProfile.messageExp + this.contentToExp(message.content);
+    const newLevel = calcLevel(newMessageExp);
+
+    memberProfile.messageExp = newMessageExp;
+
+    if (oldLevel !== newLevel) {
+      await this.onUserLevelUp(member, memberProfile);
+    }
+
+    await this.memberRepo.updateByMessageLevel(memberProfile);
+  }
+
+  @On(Events.VoiceStateUpdate)
+  protected async onVoiceStateUpdate(oldState: VoiceState, newState: VoiceState): Promise<any> {
+    const member = oldState.member || newState.member;
+    if (!member || member.user.bot) return;
+    const guildProfile = await this.getGuildProfile(member.guild.id);
+    if (!guildProfile.active) return;
+
+    const memberEvent = this.classifyVoiceState(oldState, newState);
+
+    this.emit(memberEvent, oldState, newState);
+  }
+
+  private async processActivation(guildId: string): Promise<boolean> {
+    return await this.client.moduleManager.get("guild-status-manager").isActive(guildId, this.name);
   }
 }

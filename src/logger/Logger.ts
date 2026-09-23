@@ -24,6 +24,13 @@ export function getStringTimestamp(date?: Date): string {
   return `${inYearTime.join("/")} ${inDayTime.join(":")}`;
 }
 
+export interface ErrorLogOptions {
+  error: Error;
+  message: string | undefined;
+}
+
+export type ErrorLogOptionsType = ErrorLogOptions;
+
 export interface PrintOptions {
   readonly content: string;
   readonly type: LogMessageType | LogMessageType.LOG;
@@ -43,7 +50,9 @@ export class LogPrinter {
   constructor(client: MassClient) {
     this.client = client;
     this.logFolderPath = path.join(__dirname, "../logs");
-    this.fileName = this.client.startAt.toISOString().replace(/T/g, " ").replace(/[:]/g, "-").slice(0, -4) + "txt";
+    this.fileName =
+      this.client.startAt.toISOString().replace(/T/g, " ").replace(/[:]/g, "-").slice(0, -4) +
+      "txt";
     this.logCurrentFilePath = path.join(this.logFolderPath, this.fileName);
   }
 
@@ -113,7 +122,8 @@ export class Logger {
   print(options: PrintOptions) {
     let infoLabel = `${getStringTimestamp()} [${options.type.toUpperCase()}] [${this.label.toUpperCase()}]`;
     if (infoLabel.length >= labelStringLength) labelStringLength = infoLabel.length;
-    if (infoLabel.length < labelStringLength) infoLabel += " ".repeat(labelStringLength - infoLabel.length);
+    if (infoLabel.length < labelStringLength)
+      infoLabel += " ".repeat(labelStringLength - infoLabel.length);
 
     if (options.noLabel) infoLabel = " ".repeat(infoLabel.length);
 
@@ -185,27 +195,46 @@ export class Logger {
     });
   }
 
-  error(error: Error | any): void;
+  private isErrorLogOptions(x: unknown): x is ErrorLogOptions {
+    if (typeof x !== "object" || x === null) {
+      return false;
+    }
+    const obj = x as Record<string, unknown>;
+    return obj.error instanceof Error && typeof obj.message === "string";
+  }
 
-  error(
-    options:
-      | {
-          message?: string;
-          error?: Error | any;
-          noLabel?: boolean;
-          printToFile?: boolean;
-        }
-      | Error
-      | any,
-  ) {
-    const content = `${options.message ?? ""}${
-      options.error ? `\n${options.error?.message}\n${options.error?.stack}` : ""
-    }`;
+  error(options: string): void;
+  error(options: ErrorLogOptions): void;
+  error(options: Error): void;
+  error(options: unknown): void;
+
+  error(options: ErrorLogOptions | Error | string | unknown): void {
+    let message: string = "";
+    let cause: unknown | undefined;
+    let stack: string | undefined;
+    if (typeof options == "string") {
+      message = options;
+    } else if (options instanceof Error) {
+      message = options.message ?? "Error message not found. This may be a not exception error";
+      stack = options.stack;
+      cause = options.cause;
+    } else if (this.isErrorLogOptions(options)) {
+      message = options.message ?? "Error message not found. This may be a not exception error";
+      stack = options.error.stack;
+      cause = options.error.cause;
+    } else {
+      let otps = options as Error;
+      message = otps.message ?? "Error message not found. This may be a not exception error";
+      stack = otps.stack;
+      cause = otps.cause;
+    }
+
+    const content = `${message}${cause ? `\n${stack}\n${cause}` : `\n${stack}`}`;
     this.print({
       content: content,
       type: LogMessageType.ERROR,
-      noLabel: options.noLabel,
-      printToFile: options.printToFile ?? true,
+      noLabel: false,
+      printToFile: true,
     });
   }
 

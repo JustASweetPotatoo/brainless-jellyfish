@@ -1,6 +1,6 @@
 import { ChatInputCommandInteraction, CommandInteraction } from "discord.js";
 
-export function getCommandFullName(
+export function getFullCommandName(
   interaction: ChatInputCommandInteraction | CommandInteraction,
 ): string[] {
   const cmdArgs = [interaction.commandName];

@@ -6,9 +6,9 @@ import {
   Guild,
   TextChannel,
 } from "discord.js";
-import ClientModule from "../core/ClientModule";
-import { ModuleOptions } from "../core/BaseModule";
-import { SlashCommandExecutor } from "../core/decorators";
+import DiscordModule from "../core/module/DiscordModule";
+import { ModuleOptions } from "../core/module/BaseModule";
+import { SlashCommandExecutor } from "../core/decorators/decorators";
 import { LogChannelType } from "../GuildStatusManager";
 
 export enum GetChannelResultCode {
@@ -18,7 +18,7 @@ export enum GetChannelResultCode {
   FETCH_FAILED = 3,
 }
 
-export default abstract class EventHandler<E extends string> extends ClientModule<E> {
+export default abstract class EventHandler<E extends string> extends DiscordModule<E> {
   protected readonly channelIdCache: Collection<string, string | undefined> = new Collection();
   protected readonly channelCache: Collection<string, TextChannel> = new Collection();
 

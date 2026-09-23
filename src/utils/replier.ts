@@ -16,7 +16,9 @@ export type SendTemporatyInteractionMessageInteractionType =
   | ButtonInteraction
   | ModalSubmitInteraction;
 
-export type SendTemporatyInteractionMessageOptions = InteractionEditReplyOptions | InteractionReplyOptions;
+export type SendTemporatyInteractionMessageOptions =
+  | InteractionEditReplyOptions
+  | InteractionReplyOptions;
 
 export async function sendTemporatyInteractionMessageReply(
   interaction: SendTemporatyInteractionMessageInteractionType,
@@ -24,15 +26,16 @@ export async function sendTemporatyInteractionMessageReply(
   timeout: number = 5000,
 ) {
   options = options ? langService.formatPayload(options, interaction.locale) : options;
-  const replyMessage = interaction.deferred
-    ? await interaction.editReply(options as InteractionEditReplyOptions)
-    : await interaction.reply(options as InteractionReplyOptions);
+  const replyMessage =
+    interaction.deferred || interaction.replied
+      ? await interaction.editReply(options as InteractionEditReplyOptions)
+      : await interaction.reply(options as InteractionReplyOptions);
 
   setTimeout(() => {
     if (replyMessage instanceof Message) {
-      replyMessage.deletable ? replyMessage.delete() : "";
-    } else {
-      interaction.deferred ? replyMessage.delete() : "";
+      if (replyMessage.deletable) {
+        void replyMessage.delete();
+      }
     }
   }, timeout);
 }
@@ -59,7 +62,7 @@ export async function sendInteractionMessageReply(
   options?: SendTemporatyInteractionMessageOptions,
 ) {
   options = options ? langService.formatPayload(options, interaction.locale) : options;
-  if (interaction.deferred) {
+  if (interaction.deferred || interaction.replied) {
     return await interaction.editReply(options as InteractionEditReplyOptions);
   } else {
     return await interaction.reply(options as InteractionReplyOptions);

@@ -1,10 +1,13 @@
 import { Channel, Colors, EmbedBuilder, Events, GuildEmoji, Role, TextChannel } from "discord.js";
 
-import { On } from "../core/decorators";
+import { On } from "../core/decorators/decorators";
 import EventHandler from "./EventHandler";
 import { LogChannelType } from "../GuildStatusManager";
+import { PremiumStatus } from "../../database/model/GuildStatus";
 
 export default class GuildEventHandler extends EventHandler<"guild-event-logger"> {
+  protected readonly premiumLevel: PremiumStatus = PremiumStatus.STANDARD;
+
   protected override getLogChannelType(): LogChannelType {
     return LogChannelType.GUILD;
   }

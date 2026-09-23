@@ -4,37 +4,41 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-import ClientModule from "../modules/core/ClientModule";
+import DiscordModule from "../core/module/DiscordModule";
 import {
   AutocompleteInteraction,
+  ButtonInteraction,
   ChatInputCommandInteraction,
   Collection,
   CommandInteraction,
   Events,
   Guild,
+  ModalSubmitInteraction,
   REST,
   RESTPostAPIApplicationCommandsJSONBody,
   Routes,
 } from "discord.js";
-import ClientSlashCommandBuilder from "../slashCommandBuilder/SlashCommandBuilder";
-import ClientError from "../error/ClientError";
-import { ErrorCode } from "../error/ErrorCode";
-import { autoDeferReplyInteraction } from "../slashCommandBuilder/function";
-import { On } from "../modules/core/decorators";
-import { ModuleOptions } from "../modules/core/BaseModule";
+import ClientSlashCommandBuilder from "../../slashCommandBuilder/SlashCommandBuilder";
+import ClientError from "../../error/ClientError";
+import { ErrorCode } from "../../error/ErrorCode";
+import { On } from "../core/decorators/decorators";
+import { PremiumStatus } from "../../database/model/GuildStatus";
+import { ModuleOptions } from "../core/module/BaseModule";
 
 function readPositiveInteger(value: string | undefined, fallback: number): number {
   const parsed = Number.parseInt(value ?? "", 10);
   return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
 }
 
-export default class SlashCommandManager extends ClientModule<"slash-command-manager"> {
+export default class SlashCommandManager extends DiscordModule<"slash-command-manager"> {
+  protected readonly premiumLevel: PremiumStatus = PremiumStatus.STANDARD;
+
   readonly discordEvents: Events[] = [Events.GuildAvailable, Events.InteractionCreate];
 
   private readonly guildLoaded = new Collection<string, string>();
   private rest: REST;
 
-  private readonly workDir: string = path.join(__dirname, "./");
+  private readonly workDir: string = path.join(__dirname, "../../slashCommands/");
   private readonly commands: Collection<string, ClientSlashCommandBuilder> = new Collection();
   private slashCommandJSONBody: Array<RESTPostAPIApplicationCommandsJSONBody> = [];
   private readonly maxHeavyCommands = readPositiveInteger(process.env.MAX_HEAVY_COMMANDS, 2);
@@ -51,11 +55,14 @@ export default class SlashCommandManager extends ClientModule<"slash-command-man
 
   constructor(options: ModuleOptions) {
     super(options);
-    this.client.on("system-operational", this.onSystemOperational.bind(this));
+    this.client.on(Events.ClientReady, async () => {
+      await this.syncCommands()
+      this.registerDiscordEvents();
+    });
   }
 
   /** Loads command modules and registers the current shard's guild commands. */
-  protected async onSystemOperational(): Promise<any> {
+  async syncCommands(): Promise<any> {
     try {
       await this.getCommands();
       await this.registerCommands();
@@ -279,5 +286,15 @@ export default class SlashCommandManager extends ClientModule<"slash-command-man
     }
 
     await this.registerCommandsToGuild(guild);
+  }
+
+  protected onButtonInteractionCreate(interaction: ButtonInteraction): Promise<any> {
+    throw new Error("Method not implemented.");
+  }
+  protected onModalSubmitInteractionCreate(interaction: ModalSubmitInteraction): Promise<any> {
+    throw new Error("Method not implemented.");
+  }
+  protected onGuildStatusUpdate(guild: Guild): Promise<void> {
+    throw new Error("Method not implemented.");
   }
 }

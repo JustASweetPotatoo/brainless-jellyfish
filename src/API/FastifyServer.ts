@@ -8,8 +8,11 @@ import { readConfigFile } from "../utils/readConfig";
 import { RouteShorthandOptions } from "fastify/types/route";
 import websocket from "@fastify/websocket";
 import WebSocket from "ws";
-import ClientModule from "../modules/core/ClientModule";
-import { On } from "../modules/core/decorators";
+import DiscordModule from "../modules/core/module/DiscordModule";
+import { On } from "../modules/core/decorators/decorators";
+import { PremiumStatus } from "../database/model/GuildStatus";
+import ClientError from "../error/ClientError";
+import { ErrorCode } from "../error/ErrorCode";
 
 export interface FastifyConfig {
   host: string;
@@ -24,7 +27,9 @@ export interface FastifyGetRequestHandler {
   (websocket: WebSocket, request: FastifyRequest): any;
 }
 
-export default class FastifyServer extends ClientModule<"API-server"> {
+export default class FastifyServer extends DiscordModule<"API-server"> {
+  protected readonly premiumLevel: PremiumStatus = PremiumStatus.STANDARD;
+
   public instance: FastifyInstance;
   private websocketRegisted: boolean = false;
   public get: RouteShorthandMethod;
@@ -55,10 +60,13 @@ export default class FastifyServer extends ClientModule<"API-server"> {
 
       this.logger.ok("Config loaded!");
     } catch (error) {
-      this.logger.error({
-        message: "Loading config failed, using default settings!",
-      });
-      this.logger.error({ error: error });
+      this.logger.error(
+        new ClientError(
+          ErrorCode.DATABASE_CONNECT_FAILED,
+          error,
+          "Get file .config failed, using default settings",
+        ),
+      );
     }
   }
 

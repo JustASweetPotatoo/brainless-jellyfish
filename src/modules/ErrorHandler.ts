@@ -10,18 +10,21 @@ import {
   MessageFlags,
 } from "discord.js";
 
-import ClientModule from "./core/ClientModule";
+import DiscordModule from "./core/module/DiscordModule";
 import ClientError from "../error/ClientError";
 import { ErrorCode } from "../error/ErrorCode";
 import { ClientErrorData } from "../error/interface";
 import { dangerIconUrl } from "../assets/icon";
 import ClientSlashCommandBuilder from "../slashCommandBuilder/SlashCommandBuilder";
 import { sendInteractionMessageReply } from "../utils/replier";
-import { getCommandFullName } from "../utils/slashCommand";
+import { getFullCommandName } from "../utils/slashCommand";
+import { PremiumStatus } from "../database/model/GuildStatus";
 
 dotenv.config();
 
-export default class ClientErrorHandler extends ClientModule<"client-error-handler"> {
+export default class ClientErrorHandler extends DiscordModule<"client-error-handler"> {
+  protected readonly premiumLevel: PremiumStatus = PremiumStatus.STANDARD;
+
   parseError(error: ClientError | unknown): ClientError {
     if (error instanceof ClientError) {
       return error;
@@ -39,9 +42,7 @@ export default class ClientErrorHandler extends ClientModule<"client-error-handl
     const doneTimestamp = Date.now();
     const doneTimestampBySeconds = Math.floor(doneTimestamp / 1000);
     const durationByMiliseconds = doneTimestamp - interaction.createdTimestamp;
-    const commandName = getCommandFullName(
-      interaction as ChatInputCommandInteraction,
-    );
+    const commandName = getFullCommandName(interaction as ChatInputCommandInteraction);
 
     const responseTime = doneTimestamp - interaction.createdTimestamp;
     const error = new ClientError(ErrorCode.UNKNOWN_ERROR, err);
@@ -67,6 +68,8 @@ export default class ClientErrorHandler extends ClientModule<"client-error-handl
       embeds: [embed],
       flags: MessageFlags.Ephemeral,
     });
+
+    this.logger.error(error.createMessage());
   }
 
   async hanldeButtonInteractionError(interaction: ButtonInteraction, error: ClientError) {

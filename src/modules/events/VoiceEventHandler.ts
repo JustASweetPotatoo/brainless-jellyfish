@@ -10,10 +10,11 @@ import {
   VoiceState,
 } from "discord.js";
 
-import { On } from "../core/decorators";
-import { ModuleOptions } from "../core/BaseModule";
+import { On } from "../core/decorators/decorators";
+import { ModuleOptions } from "../core/module/BaseModule";
 import EventHandler from "./EventHandler";
 import { LogChannelType } from "../GuildStatusManager";
+import { PremiumStatus } from "../../database/model/GuildStatus";
 
 export enum MemberVoiceStateEvents {
   MUTE = "voiceMute",
@@ -21,6 +22,7 @@ export enum MemberVoiceStateEvents {
   JOIN = "voiceJoin",
   LEAVE = "voiceLeave",
   CHANGE = "voiceChannelChange",
+  UNDEFINED = "undefined",
 }
 
 export enum GetChannelResultCode {
@@ -38,6 +40,8 @@ export interface VoiceSession {
 }
 
 export default class VoiceEventHandler extends EventHandler<"voice-event-handler"> {
+  protected readonly premiumLevel: PremiumStatus = PremiumStatus.STANDARD;
+
   private readonly voiceSessions: Collection<string, VoiceSession> = new Collection();
 
   protected override getLogChannelType(): LogChannelType {
@@ -57,8 +61,10 @@ export default class VoiceEventHandler extends EventHandler<"voice-event-handler
       return MemberVoiceStateEvents.MUTE;
     } else if (oldState.mute && !newState.mute) {
       return MemberVoiceStateEvents.UNMUTE;
-    } else {
+    } else if (oldState.channel?.id != newState.channel?.id) {
       return MemberVoiceStateEvents.CHANGE;
+    } else {
+      return MemberVoiceStateEvents.UNDEFINED;
     }
   }
 

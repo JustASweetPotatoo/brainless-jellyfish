@@ -1,19 +1,9 @@
-import {
-  Channel,
-  ChannelType,
-  ChatInputCommandInteraction,
-  Collection,
-  Colors,
-  EmbedBuilder,
-  Events,
-  GuildMember,
-  TextChannel,
-} from "discord.js";
-import ClientModule from "../core/ClientModule";
-import { On, SlashCommandExecutor } from "../core/decorators";
-import { ModuleOptions } from "../core/BaseModule";
+import { Channel, Colors, EmbedBuilder, Events, GuildMember, TextChannel } from "discord.js";
+import { On } from "../core/decorators/decorators";
+import { ModuleOptions } from "../core/module/BaseModule";
 import EventHandler from "./EventHandler";
 import { LogChannelType } from "../GuildStatusManager";
+import { PremiumStatus } from "../../database/model/GuildStatus";
 
 export type UserUpdateEvents =
   | "username"
@@ -26,6 +16,8 @@ export type UserUpdateEvents =
   | "roleRemoved";
 
 export default class UserEventLogger extends EventHandler<"user-event-logger"> {
+  protected readonly premiumLevel: PremiumStatus = PremiumStatus.STANDARD;
+
   protected override getLogChannelType(): LogChannelType {
     return LogChannelType.USER;
   }

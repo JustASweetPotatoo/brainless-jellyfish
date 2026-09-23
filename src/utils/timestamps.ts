@@ -55,6 +55,7 @@ function formatDurationMilliseconds(startTimestamp: number, endTimestamp: number
  * 20:35:42
  * ↓
  * 20:00:00
+ * @param [timestamp=new Date().getTime()] Default is newest timestamp
  */
 export function getHourTimestamp(timestamp: number = new Date().getTime()): number {
   return Math.floor(timestamp / HOUR) * HOUR;
@@ -63,6 +64,7 @@ export function getHourTimestamp(timestamp: number = new Date().getTime()): numb
 /**
  * Round timestamp down to the beginning
  * of the UTC day.
+ * @param [timestamp=new Date().getTime()] Default is newest timestamp
  */
 export function getDayTimestamp(timestamp: number = new Date().getTime()): number {
   return Math.floor(timestamp / DAY) * DAY;
@@ -70,9 +72,9 @@ export function getDayTimestamp(timestamp: number = new Date().getTime()): numbe
 
 /**
  * Get the beginning of the UTC month.
+ * @param [timestamp=new Date().getTime()] Default is newest timestamp
  */
 export function getMonthTimestamp(timestamp: number = new Date().getTime()): number {
   const date = new Date(timestamp);
-
   return Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1);
 }

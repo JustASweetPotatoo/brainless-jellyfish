@@ -1,27 +1,15 @@
-import {
-  ChannelType,
-  ChatInputCommandInteraction,
-  Collection,
-  Colors,
-  EmbedBuilder,
-  Events,
-  Guild,
-  Locale,
-  Message,
-  PermissionFlagsBits,
-  TextChannel,
-} from "discord.js";
+import { Collection, Colors, EmbedBuilder, Events, Locale, Message, TextChannel } from "discord.js";
 
-import ClientModule from "../core/ClientModule";
-import { On, Repository, SlashCommandExecutor } from "../core/decorators";
-import { EMBED_DESCRIPTION_MAX_LENGTH } from "../../utils/const";
-import { sendInteractionMessageReply } from "../../utils/replier";
-import { GetChannelResultCode } from "./VoiceEventHandler";
-import { ModuleOptions } from "../core/BaseModule";
+import { On } from "../core/decorators/decorators";
+import { EMBED_DESCRIPTION_MAX_LENGTH, EMBED_FIELD_VALUE_MAX_LENGTH } from "../../utils/const";
 import EventHandler from "./EventHandler";
 import { LogChannelType } from "../GuildStatusManager";
+import { PremiumStatus } from "../../database/model/GuildStatus";
+import { ModuleOptions } from "../core/module/BaseModule";
 
 export default class MessageEventHandler extends EventHandler<"message-event-handler"> {
+  protected readonly premiumLevel: PremiumStatus = PremiumStatus.STANDARD;
+
   protected override getLogChannelType(): LogChannelType {
     return LogChannelType.MESSSAGE;
   }
@@ -45,35 +33,44 @@ export default class MessageEventHandler extends EventHandler<"message-event-han
       const locale = oldMessage.guild.preferredLocale;
 
       if (logChannel instanceof TextChannel) {
+        const descriptionStarter = `${
+          locale == Locale.Vietnamese ? "**[Tin nhắn đã chỉnh sửa trong" : "**Message edited in"
+        } ${oldMessage.channel.name}](${oldMessage.url})**`;
+
+        const isOverSizeMessageContent = `Old content:\n${oldMessage.content}\nNew Content:\n${newMessage.content}`;
+        const messageBuffer = Buffer.from(isOverSizeMessageContent);
+        const isOverSizeMessage =
+          isOverSizeMessageContent.length >= EMBED_FIELD_VALUE_MAX_LENGTH * 2;
+
+        const fields = isOverSizeMessage
+          ? []
+          : [
+              {
+                name: `${locale == Locale.Vietnamese ? "Trước:" : "Before:"}`,
+                value: oldMessage.partial ? "*No content*" : oldMessage.content,
+              },
+              {
+                name: `${locale == Locale.Vietnamese ? "Sau:" : "After:"}`,
+                value: newMessage.partial ? "*No content*" : newMessage.content,
+              },
+            ];
+
         await logChannel.send({
+          files: isOverSizeMessage
+            ? [{ name: "editmsg", attachment: messageBuffer, contentType: "txt" }]
+            : [],
           embeds: [
-            new EmbedBuilder()
-              .setAuthor({
+            {
+              author: {
                 name: `${oldMessage.author.tag}`,
-                iconURL: oldMessage.author.displayAvatarURL(),
-              })
-              .addFields([
-                {
-                  name: `${locale == Locale.Vietnamese ? "Trước:" : "Before:"}`,
-                  value: oldMessage.partial ? "*No content*" : oldMessage.content,
-                },
-                {
-                  name: `${locale == Locale.Vietnamese ? "Sau:" : "After:"}`,
-                  value: newMessage.partial ? "*No content*" : newMessage.content,
-                },
-              ])
-              .setDescription(
-                `${
-                  locale == Locale.Vietnamese
-                    ? "**Tin nhắn đã chỉnh sửa trong"
-                    : "Message edited in"
-                } <#${oldMessage.channelId}>** <t:${Math.floor(Date.now() / 1000)}:R>`,
-              )
-              .setColor(Colors.Yellow)
-              .setFooter({
-                text: `UID: ${oldMessage.author.id}`,
-              })
-              .setTimestamp(),
+                icon_url: oldMessage.author.displayAvatarURL(),
+              },
+              fields: fields,
+              description: `${descriptionStarter} <t:${Math.floor(Date.now() / 1000)}:R>`,
+              color: Colors.Yellow,
+              footer: { text: `UID: ${oldMessage.author.id}` },
+              timestamp: new Date().toISOString(),
+            },
           ],
         });
       } else {

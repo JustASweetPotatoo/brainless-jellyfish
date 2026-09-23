@@ -48,10 +48,6 @@ export default class DatabaseManager extends EventEmitter {
     this.name = DB_NAME ?? "main";
   }
 
-  /**
-   *
-   * @deprecated
-   */
   async createSchema(): Promise<boolean> {
     if (!this.defaultPool) {
       this.logger.warn("Pool is not available of undefined !");
@@ -59,19 +55,17 @@ export default class DatabaseManager extends EventEmitter {
     }
     try {
       this.logger.log("Creating schema...");
-      await this.executeQuery(`CREATE SCHEMA IF NOT EXISTS \`${this.defaultConnectOptions.database}\``);
+      await this.executeQuery(
+        `CREATE SCHEMA IF NOT EXISTS \`${this.defaultConnectOptions.database}\``,
+      );
       this.logger.ok(`Created schema with name ${this.name}`);
     } catch (error) {
-      this.logger.error({ error: error });
+      this.logger.error(error);
       return false;
     }
     return true;
   }
 
-  /**
-   *
-   * @deprecated
-   */
   async selectSchema(): Promise<boolean> {
     if (!this.defaultPool) {
       throw new ClientError(ErrorCode.POOL_NOT_FOUND);
@@ -80,22 +74,17 @@ export default class DatabaseManager extends EventEmitter {
     this.logger.info(`Using schema ${this.defaultConnectOptions.database} of default pool`);
     return true;
   }
-  /**
-   *
-   * @deprecated
-   */
+
   async createConnection(connectionOptions?: ConnectionOptions): Promise<boolean> {
     this.logger.log("Creating conneciton...");
     try {
       this.defaultPool = createPool(connectionOptions ?? this.defaultConnectOptions);
       await this.createSchema();
       await this.selectSchema();
-      this.logger.ok(`Created pool, ${this.defaultPool.threadId}`);
-
-      this.emit("database-connected");
+      this.logger.ok("Established database connection!");
       return true;
     } catch (error) {
-      this.logger.error({ error: error });
+      this.logger.error(error);
       return false;
     }
   }
@@ -110,10 +99,6 @@ export default class DatabaseManager extends EventEmitter {
     this.logger.ok("All connection and pool closed.");
   }
 
-  /**
-   *
-   * @deprecated
-   */
   public async executeQuery(query: string, values?: Array<any>): Promise<Array<any>> {
     if (!this.defaultPool) {
       throw new ClientError(ErrorCode.POOL_NOT_FOUND);

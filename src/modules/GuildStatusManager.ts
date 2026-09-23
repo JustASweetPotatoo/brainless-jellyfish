@@ -1,8 +1,8 @@
 import { Collection } from "discord.js";
-import GuildStatus from "../database/model/GuildStatus";
+import GuildStatus, { PremiumStatus } from "../database/model/GuildStatus";
 import GuildStatusRepository from "../database/repository/GuildStatusRepo";
-import ClientModule from "./core/ClientModule";
-import { ModuleOn, Repository } from "./core/decorators";
+import DiscordModule from "./core/module/DiscordModule";
+import { ModuleOn, Repository } from "./core/decorators/decorators";
 import { ModuleMap } from "./core/ModuleManager";
 import GuildLoggerProfileRepo from "../database/repository/guildLogger/GuildLoggerProfileRepo";
 import GuildLoggerProfile from "../database/model/logger/GuildLoggerProfile";
@@ -15,7 +15,9 @@ export enum LogChannelType {
   GUILD,
 }
 
-export default class GuildStatusManager extends ClientModule<"guild-status-manager"> {
+export default class GuildStatusManager extends DiscordModule<"guild-status-manager"> {
+  protected readonly premiumLevel: PremiumStatus = PremiumStatus.STANDARD;
+
   @Repository()
   private readonly repo: GuildStatusRepository;
 
@@ -56,7 +58,7 @@ export default class GuildStatusManager extends ClientModule<"guild-status-manag
     const activeList = (await this.get(guildId)).activeList;
     const isActive = activeList.find((value) => value == moduleName);
 
-    return isActive ? true : false;
+    return !!isActive;
   }
 
   async getLogProfile(guildId: string) {

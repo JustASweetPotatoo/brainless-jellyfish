@@ -17,8 +17,8 @@ import {
   WebhookMessageCreateOptions,
 } from "discord.js";
 
-import ClientModule from "./core/ClientModule";
-import { On } from "./core/decorators";
+import DiscordModule from "./core/module/DiscordModule";
+import { On } from "./core/decorators/decorators";
 import { extractFacebookShareUrl } from "../utils/functions";
 
 import { EventEmitter } from "stream";
@@ -28,6 +28,7 @@ import {
   extractPostInf,
   extractFacebookReelId,
 } from "../utils/facebookCrawlerHelper";
+import { PremiumStatus } from "../database/model/GuildStatus";
 
 enum FacebookPostType {
   POST,
@@ -45,7 +46,9 @@ interface FacebookUrlCrawledData {
   files: ExtractedMedia[];
 }
 
-export default class FacebedAPI extends ClientModule<"facebed-api"> {
+export default class FacebedAPI extends DiscordModule<"facebed-api"> {
+  protected readonly premiumLevel: PremiumStatus = PremiumStatus.STANDARD;
+
   private webhookClients: Collection<string, WebhookClient> = new Collection();
   private guildCachedList: Collection<string, { enable: boolean }> = new Collection();
 

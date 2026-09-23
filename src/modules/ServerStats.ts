@@ -6,13 +6,16 @@ import {
   Message,
 } from "discord.js";
 
-import ClientModule from "./core/ClientModule";
+import DiscordModule from "./core/module/DiscordModule";
 import MassClient from "../Client";
-import { ModuleOptions } from "./core/BaseModule";
+import { ModuleOptions } from "./core/module/BaseModule";
 
 import FastifyServer, { PathListenerType } from "../API/FastifyServer";
+import { PremiumStatus } from "../database/model/GuildStatus";
 
-export default class ServerStatsManager extends ClientModule<"server-stats-manager"> {
+export default class ServerStatsManager extends DiscordModule<"server-stats-manager"> {
+  protected readonly premiumLevel: PremiumStatus = PremiumStatus.STANDARD;
+
   private systemTimeseconds = Math.floor(Date.now() / 1000);
   private systemTimeMinutes = Math.floor(Date.now() / 1000 / 60);
 

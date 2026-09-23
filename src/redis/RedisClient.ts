@@ -1,9 +1,12 @@
-import { ModuleOptions } from "../modules/core/BaseModule";
-import ClientModule from "../modules/core/ClientModule";
+import { PremiumStatus } from "../database/model/GuildStatus";
+import { ModuleOptions } from "../modules/core/module/BaseModule";
+import DiscordModule from "../modules/core/module/DiscordModule";
 
 import { createClient, type RedisClientType, RedisClientOptions } from "redis";
 
-export default class RedisManager extends ClientModule<"redis"> {
+export default class RedisManager extends DiscordModule<"redis"> {
+  protected readonly premiumLevel: PremiumStatus = PremiumStatus.STANDARD;
+
   readonly options: RedisClientOptions = {
     url: `redis://127.0.0.1:6379`,
   };

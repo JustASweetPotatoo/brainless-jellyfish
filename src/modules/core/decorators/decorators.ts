@@ -6,8 +6,8 @@ import {
   MessageFlags,
   PermissionFlagsBits,
 } from "discord.js";
-import { autoDeferReplyInteraction } from "../../slashCommandBuilder/function";
-import { ModuleEvents, SpecifyModuleEvents } from "./BaseModule";
+import { autoDeferReplyInteraction } from "../../../slashCommandBuilder/function";
+import { ModuleEvents, SpecifyModuleEvents } from "../module/BaseModule";
 
 export const MODULE_KEY = Symbol("module");
 

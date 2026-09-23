@@ -27,6 +27,7 @@ const showGuild = new ClientSlashCommandSubcommandBuilder()
     const replyEmbed = craftEmbedCreatedUser(interaction).setColor("Blurple");
     const closeButton: ButtonBuilder = new ButtonBuilder()
       .setLabel("Close")
+      .setCustomId("close")
       .setStyle(ButtonStyle.Danger);
     const actionRow = new ActionRowBuilder<ButtonBuilder>().addComponents(closeButton);
     const guild = interaction.guild;

@@ -58,10 +58,16 @@ export default class GuildMessageStatRepo extends Repository<
       INSERT INTO ${this.fullTableName}
         (guild_id, day_timestamp, stat_map)
       VALUES (?, ?, ?)
-      ON DUPLICATE KEY UPDATE day_timestamp = ?
+      ON DUPLICATE KEY UPDATE day_timestamp = ?, stat_map = ?
       ;
     `,
-      [json.guild_id, json.day_timestamp, JSON.stringify(json.stats_map_json), json.day_timestamp],
+      [
+        json.guild_id,
+        json.day_timestamp,
+        JSON.stringify(json.stats_map_json),
+        json.day_timestamp,
+        JSON.stringify(json.stats_map_json),
+      ],
     );
 
     return data;
