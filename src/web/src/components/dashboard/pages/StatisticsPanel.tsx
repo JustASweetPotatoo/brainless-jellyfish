@@ -1,122 +1,133 @@
 import { useEffect, useState } from "react";
+import { getServerStats, type DashboardStats } from "../../../api/dashboardApi";
+import { usePushNotification } from "../../PushNotificationProvider";
 import { Stat } from "../core/UI";
 
-const chartData = [
-  { label: "Mon", messages: 820, members: 18 },
-  { label: "Tue", messages: 1130, members: 27 },
-  { label: "Wed", messages: 940, members: 21 },
-  { label: "Thu", messages: 1540, members: 35 },
-  { label: "Fri", messages: 1280, members: 31 },
-  { label: "Sat", messages: 1870, members: 46 },
-  { label: "Sun", messages: 1620, members: 39 },
-];
-
-export default function StatisticsPanel() {
-  const [stats, setStats] = useState({
-    members: 642,
-    messages: 78200,
-    voiceHours: 1862,
-    updatedAt: new Date(),
-  });
+export default function StatisticsPanel({
+  serverId,
+  serverName,
+  stats,
+  onStatsUpdate,
+}: {
+  serverId: string;
+  serverName: string;
+  stats: DashboardStats;
+  onStatsUpdate: (stats: DashboardStats) => void;
+}) {
   const [hoveredPoint, setHoveredPoint] = useState<number | null>(null);
+  const { notify } = usePushNotification();
   useEffect(() => {
-    const id = window.setInterval(
-      () =>
-        setStats((current) => ({
-          members: current.members + Math.floor(Math.random() * 4),
-          messages: current.messages + 15 + Math.floor(Math.random() * 60),
-          voiceHours: current.voiceHours + Math.floor(Math.random() * 3),
-          updatedAt: new Date(),
-        })),
-      5_000,
-    );
-    return () => window.clearInterval(id);
-  }, []);
+    const controller = new AbortController();
+    const interval = window.setInterval(() => {
+      getServerStats(serverId, controller.signal)
+        .then(onStatsUpdate)
+        .catch((error: unknown) => {
+          if (!controller.signal.aborted) {
+            notify(error instanceof Error ? error.message : "Không thể cập nhật thống kê", "error");
+          }
+        });
+    }, 5_000);
+    return () => {
+      controller.abort();
+      window.clearInterval(interval);
+    };
+  }, [serverId, onStatsUpdate, notify]);
+
+  const updatedAt = new Date(stats.updatedAt);
   return (
-    <section className="statistics-page">
-      <div
-        style={{
-          width: "max-content",
-          maxWidth: "100%",
-          margin: "-11px 0 17px",
-          padding: "7px 10px",
-          color: "#92d9b4",
-          border: "1px solid #315640",
-          borderRadius: 7,
-          background: "#1a2b25",
-          fontSize: 10,
-        }}
-      >
-        <span className="live-dot" /> Realtime refresh / 5 seconds{" "}
-        <time style={{ marginLeft: 10, color: "#8eaa9d" }}>
+    <section className="grid gap-4">
+      <div className="w-max max-w-full rounded-[7px] border border-[#315640] bg-[#1a2b25] px-2.5 py-1.5 text-[10px] text-[#92d9b4]">
+        <span className="mr-1.5 inline-block h-1.75 w-1.75 rounded-full bg-[#55d59a] shadow-[0_0_0_3px_#55d59a18]" />{" "}
+        Realtime refresh / 5 seconds{" "}
+        <time className="ml-2.5 text-[#8eaa9d]">
           Updated{" "}
-          {stats.updatedAt.toLocaleTimeString("vi-VN", {
+          {updatedAt.toLocaleTimeString("vi-VN", {
             hour: "2-digit",
             minute: "2-digit",
             second: "2-digit",
           })}
         </time>
       </div>
-      <div className="stat-grid">
+      <p className="m-0 -mt-1 text-[11px] text-(--muted)">
+        Đang xem thống kê của <strong className="text-(--text-main)">{serverName}</strong>
+      </p>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Stat
           icon="message"
           tone="blue"
           title="Messages realtime"
-          value={stats.messages.toLocaleString("vi-VN")}
+          value={stats.messagesTotal.toLocaleString("vi-VN")}
           detail="live update"
         />
         <Stat
           icon="users"
           tone="purple"
           title="Thành viên mới"
-          value={stats.members.toLocaleString("vi-VN")}
-          detail="18.2% 30 ngày qua"
+          value={stats.newMembers.toLocaleString("vi-VN")}
+          detail={`${stats.memberGrowthPercent}% 30 ngày qua`}
         />
         <Stat
           icon="voice"
           tone="orange"
           title="Voice hours"
-          value={`${stats.voiceHours.toLocaleString("vi-VN")}h`}
-          detail="14.3% 30 ngày qua"
+          value={`${stats.voiceHoursTotal.toLocaleString("vi-VN")}h`}
+          detail={`${stats.voiceGrowthPercent}% 30 ngày qua`}
         />
       </div>
-      <div className="content-grid stats-detail">
-        <article className="panel member-panel">
-          <div className="panel-head">
+      <div className="grid gap-3 xl:grid-cols-2">
+        <article className="rounded-[14px] border border-(--panel-border) bg-(--panel-bg) p-4.5 shadow-[0_10px_26px_var(--shadow-soft)]">
+          <div className="flex items-start justify-between gap-3">
             <div>
-              <h3>Hoạt động theo ngày</h3>
-              <p>Tin nhắn và thành viên tham gia</p>
+              <h3 className="m-0 text-[13px] text-(--text-main)">Hoạt động theo ngày</h3>
+              <p className="m-0 mt-1 text-[10px] text-(--muted)">Tin nhắn và thành viên tham gia</p>
             </div>
-            <div className="chart-legend">
+            <div className="flex gap-3 text-[9px] text-(--muted)">
               <span>
-                <i className="purple-dot" /> Tin nhắn
+                <i className="mr-1 inline-block h-1.5 w-1.5 rounded-full bg-[#9a7eff]" /> Tin nhắn
               </span>
               <span>
-                <i className="blue-dot" /> Thành viên
+                <i className="mr-1 inline-block h-1.5 w-1.5 rounded-full bg-[#78b1ff]" /> Thành viên
               </span>
             </div>
           </div>
-          <LineChart hoveredPoint={hoveredPoint} onHover={setHoveredPoint} />
+          <LineChart
+            chartData={stats.dailyActivity}
+            hoveredPoint={hoveredPoint}
+            onHover={setHoveredPoint}
+          />
         </article>
-        <TopChannels />
+        <TopChannels channels={stats.topChannels} />
       </div>
     </section>
   );
 }
 
 function LineChart({
+  chartData,
   hoveredPoint,
   onHover,
 }: {
+  chartData: DashboardStats["dailyActivity"];
   hoveredPoint: number | null;
   onHover: (index: number | null) => void;
 }) {
+  const points = chartData.map((point, index) => ({
+    x: 64 + index * (571 / Math.max(1, chartData.length - 1)),
+    y: 174 - (point.messages / 2000) * 156,
+  }));
+  const linePath = points
+    .map((point, index) => `${index === 0 ? "M" : "L"}${point.x} ${point.y}`)
+    .join(" ");
+  const areaPath = points.length
+    ? `${linePath} L${points[points.length - 1].x} 174 L${points[0].x} 174 Z`
+    : "";
+
   return (
-    <div style={{ position: "relative", height: 220, marginTop: 16 }}>
+    <div className="relative mt-4 h-55">
       <svg
         viewBox="0 0 700 210"
         preserveAspectRatio="none"
-        style={{ width: "100%", height: 190, overflow: "visible" }}
+        className="h-47.5 w-full overflow-visible"
       >
         {[0, 500, 1000, 1500, 2000].map((value, index) => {
           const y = 174 - index * 39;
@@ -129,24 +140,20 @@ function LineChart({
             </g>
           );
         })}
+        <path d={areaPath} fill="#775be322" />
         <path
-          d="M64 111 L160 87 L255 102 L350 54 L445 78 L540 27 L635 48 L635 174 L64 174 Z"
-          fill="#775be322"
-        />
-        <path
-          d="M64 111 L160 87 L255 102 L350 54 L445 78 L540 27 L635 48"
+          d={linePath}
           fill="none"
           stroke="#9a7eff"
           strokeWidth="3"
           vectorEffect="non-scaling-stroke"
         />
         {chartData.map((point, index) => {
-          const x = 64 + index * 95.2;
-          const y = 174 - (point.messages / 2000) * 156;
+          const { x, y } = points[index];
           const active = hoveredPoint === index;
           return (
             <circle
-              key={point.label}
+              key={`${point.label}-${index}`}
               cx={x}
               cy={y}
               r={active ? 7 : 4.5}
@@ -160,46 +167,26 @@ function LineChart({
               onMouseLeave={() => onHover(null)}
               onFocus={() => onHover(index)}
               onBlur={() => onHover(null)}
-              style={{ cursor: "pointer" }}
+              className="cursor-pointer"
             />
           );
         })}
       </svg>
       {hoveredPoint !== null && (
         <div
+          className="pointer-events-none absolute z-2 min-w-34.5 -translate-x-1/2 translate-y-[-112%] rounded-[7px] border border-[#4b4d60] bg-[#262735] px-2 py-2 text-[9px] leading-[1.7] text-[#e9e9f3] shadow-[0_8px_22px_#00000055]"
           style={{
-            position: "absolute",
-            zIndex: 2,
             top: `${16 + (1 - chartData[hoveredPoint].messages / 2000) * 148}px`,
             left: `${9 + hoveredPoint * 14.1}%`,
-            minWidth: 138,
-            padding: "8px 9px",
-            color: "#e9e9f3",
-            border: "1px solid #4b4d60",
-            borderRadius: 7,
-            background: "#262735",
-            boxShadow: "0 8px 22px #00000055",
-            fontSize: 9,
-            lineHeight: 1.7,
-            pointerEvents: "none",
-            transform: "translate(-50%, -112%)",
           }}
         >
-          <b style={{ display: "block", color: "#c7b9ff" }}>{chartData[hoveredPoint].label}</b>
+          <b className="block text-[#c7b9ff]">{chartData[hoveredPoint].label}</b>
           {chartData[hoveredPoint].messages.toLocaleString("vi-VN")} messages
           <br />
           {chartData[hoveredPoint].members} new members
         </div>
       )}
-      <div
-        style={{
-          margin: "-6px 12px 0 58px",
-          display: "flex",
-          justifyContent: "space-between",
-          color: "#77798a",
-          fontSize: 9,
-        }}
-      >
+      <div className="-mt-1.5 ml-14.5 mr-3 flex justify-between text-[9px] text-[#77798a]">
         {chartData.map((point) => (
           <span key={point.label}>{point.label}</span>
         ))}
@@ -207,29 +194,28 @@ function LineChart({
     </div>
   );
 }
-function TopChannels() {
-  const channels = [
-    ["# general", "12,482", 92],
-    ["# media", "8,761", 68],
-    ["# gaming", "6,204", 51],
-    ["# bot-commands", "4,390", 37],
-  ];
+function TopChannels({ channels }: { channels: DashboardStats["topChannels"] }) {
   return (
-    <article className="panel top-channels">
-      <div className="panel-head">
+    <article className="rounded-[14px] border border-(--panel-border) bg-(--panel-bg) p-4.5 shadow-[0_10px_26px_var(--shadow-soft)]">
+      <div className="flex items-start justify-between gap-3">
         <div>
-          <h3>Kênh sôi nổi</h3>
-          <p>Theo số tin nhắn tuần này</p>
+          <h3 className="m-0 text-[13px] text-(--text-main)">Kênh sôi nổi</h3>
+          <p className="m-0 mt-1 text-[10px] text-(--muted)">Theo số tin nhắn tuần này</p>
         </div>
       </div>
-      {channels.map(([name, count, width]) => (
-        <div className="channel-row" key={name}>
+      {channels.map(({ name, messages, share }) => (
+        <div
+          className="flex items-center justify-between gap-4 border-b border-(--panel-border) py-3 last:border-b-0"
+          key={name}
+        >
           <div>
-            <strong>{name}</strong>
-            <span>{count} tin nhắn</span>
+            <strong className="block text-[11px] text-(--text-main)">{name}</strong>
+            <span className="block text-[9px] text-(--muted)">
+              {messages.toLocaleString("vi-VN")} tin nhắn
+            </span>
           </div>
-          <div className="progress">
-            <i style={{ width: `${width}%` }} />
+          <div className="h-1.5 w-24 rounded-full bg-(--surface-3)">
+            <i className="block h-full rounded-full bg-[#8068ed]" style={{ width: `${share}%` }} />
           </div>
         </div>
       ))}

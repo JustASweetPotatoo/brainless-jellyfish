@@ -1,4 +1,4 @@
-import type { BotModule } from "./types";
+import type { BotModule } from "./types.ts";
 
 export const initialModules: BotModule[] = [
   {

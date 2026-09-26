@@ -1,5 +1,12 @@
 import { useContext } from "react";
-import { DarkModeIcon, LightModeIcon, MenuIcon, NotificationsIcon, SearchIcon, SettingsIcon } from "./icons";
+import {
+  DarkModeIcon,
+  LightModeIcon,
+  MenuIcon,
+  NotificationsIcon,
+  SearchIcon,
+  SettingsIcon,
+} from "./icons";
 import { ColorModeContext } from "../../theme";
 
 interface TopNavBarProps {
@@ -13,7 +20,10 @@ function NavBar({ onToggleSidebar }: TopNavBarProps) {
     <header className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between bg-primary-400 text-grey-100 border-b border-primary-500 shadow-sm min-h-15 px-2">
       {/* Logo + tên */}
       <div className="flex items-center gap-0.5">
-        <button onClick={onToggleSidebar} className="p-1.5 mr-0.5 rounded hover:bg-primary-500/20 transition-colors">
+        <button
+          onClick={onToggleSidebar}
+          className="p-1.5 mr-0.5 rounded hover:bg-primary-500/20 transition-colors"
+        >
           <MenuIcon />
         </button>
         <img
@@ -41,7 +51,10 @@ function NavBar({ onToggleSidebar }: TopNavBarProps) {
 
       {/* Hành động + user */}
       <div className="flex items-center gap-0.5">
-        <button onClick={colorMode.toggleColorMode} className="p-1.5 rounded hover:bg-primary-500/20 transition-colors">
+        <button
+          onClick={colorMode.toggleColorMode} 
+          className="p-1.5 rounded hover:bg-primary-500/20 transition-colors"
+        >
           {colorMode.mode === "dark" ? <DarkModeIcon /> : <LightModeIcon />}
         </button>
         <button className="p-1.5 rounded hover:bg-primary-500/20 transition-colors">

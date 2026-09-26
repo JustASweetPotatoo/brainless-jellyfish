@@ -20,8 +20,8 @@
       "type": "node-terminal"
     },
     {
-      "command": "npm run test2",
-      "name": "Run test",
+      "command": "npm run web",
+      "name": "Run web",
       "request": "launch",
       "type": "node-terminal"
     }

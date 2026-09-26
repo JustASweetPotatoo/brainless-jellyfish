@@ -19,10 +19,14 @@ export default class GuildEventHandler extends EventHandler<"guild-event-logger"
     color: number,
   ): Promise<void> {
     const guild = this.client.guilds.cache.get(guildId);
-    if (!guild) return;
+    if (!guild) {
+      return;
+    }
 
     const logChannel = await this.processActivation(guild, LogChannelType.GUILD);
-    if (!(logChannel instanceof TextChannel)) return;
+    if (!(logChannel instanceof TextChannel)) {
+      return;
+    }
 
     await logChannel.send({
       embeds: [

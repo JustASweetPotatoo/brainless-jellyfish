@@ -6,6 +6,7 @@ import { BrowserRouter } from "react-router-dom";
 import App from "./App";
 
 import { UserProvider } from "./auth/UserContext";
+import { PushNotificationProvider } from "./components/PushNotificationProvider";
 import { ThemeProvider } from "./theme";
 
 import "./index.css";
@@ -15,7 +16,9 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     <BrowserRouter>
       <UserProvider>
         <ThemeProvider>
-          <App />
+          <PushNotificationProvider>
+            <App />
+          </PushNotificationProvider>
         </ThemeProvider>
       </UserProvider>
     </BrowserRouter>

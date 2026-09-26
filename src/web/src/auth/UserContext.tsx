@@ -1,17 +1,15 @@
 import { createContext, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 
-import { mockGetSession, mockLogin, mockLogout, mockRefresh } from "./mockAuthAPI";
+import { getSession, logoutSession, startDiscordLogin } from "./authAPI";
 
-import type { AuthSession, LoginCredentials, User } from "./types";
+import type { AuthSession, User } from "./types";
 
 interface UserContextValue {
   user: User | null;
-  accessToken: string | null;
-
   isAuthenticated: boolean;
   isLoading: boolean;
 
-  login(credentials: LoginCredentials): Promise<void>;
+  login(returnTo: string): void;
 
   logout(): Promise<void>;
 
@@ -34,7 +32,7 @@ export function UserProvider({ children }: UserProviderProps) {
    */
   const restoreSession = useCallback(async () => {
     try {
-      const session = await mockGetSession();
+      const session = await getSession();
 
       setSession(session);
     } catch {
@@ -51,17 +49,11 @@ export function UserProvider({ children }: UserProviderProps) {
   /**
    * Login
    */
-  const login = useCallback(async (credentials: LoginCredentials) => {
-    const session = await mockLogin(credentials);
+  const login = useCallback((returnTo: string) => startDiscordLogin(returnTo), []);
 
-    setSession(session);
-  }, []);
-
-  /**
-   * Refresh access token
-   */
+  /** Reload the server-backed session. */
   const refresh = useCallback(async () => {
-    const session = await mockRefresh();
+    const session = await getSession();
 
     setSession(session);
   }, []);
@@ -71,7 +63,7 @@ export function UserProvider({ children }: UserProviderProps) {
    */
   const logout = useCallback(async () => {
     try {
-      await mockLogout();
+      await logoutSession();
     } finally {
       setSession(null);
     }
@@ -80,7 +72,6 @@ export function UserProvider({ children }: UserProviderProps) {
   const value = useMemo<UserContextValue>(
     () => ({
       user: session?.user ?? null,
-      accessToken: session?.accessToken ?? null,
       isAuthenticated: session !== null,
       isLoading,
       login,

@@ -332,10 +332,8 @@ function GlobalSideBar({ collapsed = false }: GlobalSideBarProps) {
 
   return (
     <aside
-      className="fixed left-0 z-40 transition-colors duration-300 ease-in-out"
+      className="fixed top-14 h-[calc(100vh-200px)] left-0 z-40 transition-colors duration-300 ease-in-out"
       style={{
-        top: "56px",
-        height: "calc(100vh - 56px)",
         backgroundColor: colors.primary[500],
       }}
     >
@@ -351,7 +349,8 @@ function GlobalSideBar({ collapsed = false }: GlobalSideBarProps) {
             button: {
               minWidth: 0,
               overflow: "hidden",
-              transition: "background-color 0.1s ease-in-out, color 0.1s ease-in-out, padding 0.1s ease-in-out",
+              transition:
+                "background-color 0.1s ease-in-out, color 0.1s ease-in-out, padding 0.1s ease-in-out",
               "&:hover": {
                 backgroundColor: colors.primary[400],
                 color: colors.blueAccent[500],
