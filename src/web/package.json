@@ -23,6 +23,7 @@
     "@nivo/pie": "^0.99.0",
     "@tailwindcss/vite": "^4.3.3",
     "formik": "^2.4.9",
+    "nodemailer": "^10.0.11",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-pro-sidebar": "^1.1.0",

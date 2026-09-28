@@ -20,6 +20,10 @@ export default defineConfig(({ mode }) => {
         discordRedirectUri: env.DISCORD_REDIRECT_URI,
         webOrigin: env.WEB_ORIGIN,
         secureCookie: env.DISCORD_OAUTH_COOKIE_SECURE === "true",
+        adminEmail: env.ADMIN_EMAIL,
+        gmailUser: env.GMAIL_USER,
+        gmailAppPassword: env.GMAIL_APP_PASSWORD,
+        botStatusUrl: env.BOT_STATUS_URL || "http://127.0.0.1:3535/status",
       }),
     ],
   };

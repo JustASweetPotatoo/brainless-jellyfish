@@ -29,3 +29,23 @@ export function startDiscordLogin(returnTo: string): void {
   const query = new URLSearchParams({ returnTo });
   window.location.assign(`/api/auth/discord/start?${query.toString()}`);
 }
+
+async function adminLoginRequest(path: string, body: Record<string, string>): Promise<void> {
+  const response = await authRequest(path, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+
+  if (response.ok) return;
+
+  const data = (await response.json().catch(() => null)) as { message?: string } | null;
+  throw new Error(data?.message ?? "Không thể hoàn tất đăng nhập quản trị.");
+}
+
+export function requestAdminLoginToken(email: string): Promise<void> {
+  return adminLoginRequest("/admin/request-token", { email });
+}
+
+export function verifyAdminLoginToken(email: string, token: string): Promise<void> {
+  return adminLoginRequest("/admin/verify-token", { email, token });
+}

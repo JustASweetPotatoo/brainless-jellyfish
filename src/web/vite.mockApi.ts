@@ -1,6 +1,7 @@
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, createHmac, randomBytes, randomInt, timingSafeEqual } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Plugin } from "vite";
+import nodemailer from "nodemailer";
 
 import { initialModules } from "./src/components/dashboard/core/moduleData";
 import { servers } from "./src/components/dashboard/mock/dashboardData";
@@ -96,6 +97,10 @@ interface MockApiConfig {
   discordRedirectUri?: string;
   webOrigin?: string;
   secureCookie?: boolean;
+  adminEmail?: string;
+  gmailUser?: string;
+  gmailAppPassword?: string;
+  botStatusUrl?: string;
 }
 
 interface DiscordOAuthState {
@@ -117,11 +122,20 @@ interface DiscordTokenResponse {
   token_type: string;
 }
 
+interface AdminLoginToken {
+  hash: string;
+  expiresAt: number;
+  attempts: number;
+}
+
 const SESSION_COOKIE = "suwa_session";
 const SESSION_TTL_MS = 8 * 60 * 60 * 1000;
 const OAUTH_STATE_TTL_MS = 10 * 60 * 1000;
 const oauthStates = new Map<string, DiscordOAuthState>();
 const authSessions = new Map<string, { user: DiscordUserResponse; expiresAt: number }>();
+const adminLoginTokens = new Map<string, AdminLoginToken>();
+const adminRequestTimes = new Map<string, number>();
+const adminTokenSecret = randomBytes(32);
 
 function getCookie(request: IncomingMessage, name: string): string | null {
   const cookie = request.headers.cookie
@@ -169,6 +183,10 @@ function readJson(request: IncomingMessage): Promise<unknown> {
     });
     request.on("error", reject);
   });
+}
+
+function hashAdminToken(email: string, token: string): string {
+  return createHmac("sha256", adminTokenSecret).update(`${email}:${token}`).digest("hex");
 }
 
 const delay = (milliseconds: number) =>
@@ -321,6 +339,166 @@ export function mockApiPlugin(config: MockApiConfig = {}): Plugin {
             return;
           }
 
+          if (request.method === "POST" && path === "/auth/admin/request-token") {
+            const body = await readJson(request);
+            const email =
+              body && typeof body === "object" && "email" in body && typeof body.email === "string"
+                ? body.email.trim().toLowerCase()
+                : "";
+
+            if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+              sendJson(response, 400, { message: "Vui lòng nhập địa chỉ Gmail hợp lệ." });
+              return;
+            }
+
+            if (!config.adminEmail || !config.gmailUser || !config.gmailAppPassword) {
+              sendJson(response, 503, {
+                message: "Đăng nhập quản trị qua Gmail chưa được cấu hình.",
+              });
+              return;
+            }
+
+            const gmailAppPassword = config.gmailAppPassword.replace(/\s/g, "");
+            if (!/^[A-Za-z0-9]{16}$/.test(gmailAppPassword)) {
+              sendJson(response, 503, {
+                message:
+                  "GMAIL_APP_PASSWORD không đúng định dạng. Hãy dùng Google App Password 16 ký tự, không dùng mật khẩu Gmail thường.",
+              });
+              return;
+            }
+
+            if (email === config.adminEmail.trim().toLowerCase()) {
+              const lastRequestAt = adminRequestTimes.get(email) ?? 0;
+              if (Date.now() - lastRequestAt < 60_000) {
+                sendJson(response, 429, {
+                  message: "Vui lòng chờ một phút trước khi yêu cầu mã mới.",
+                });
+                return;
+              }
+              adminRequestTimes.set(email, Date.now());
+
+              const token = String(randomInt(0, 1_000_000)).padStart(6, "0");
+              const transporter = nodemailer.createTransport({
+                service: "gmail",
+                auth: { user: config.gmailUser, pass: gmailAppPassword },
+              });
+              try {
+                await transporter.sendMail({
+                  from: `Suwa Admin <${config.gmailUser}>`,
+                  to: email,
+                  subject: "Mã đăng nhập quản trị Suwa",
+                  text: `Mã đăng nhập của bạn là ${token}. Mã có hiệu lực trong 10 phút. Nếu bạn không yêu cầu mã này, hãy bỏ qua email.`,
+                  html: `<p>Mã đăng nhập quản trị Suwa:</p><p style="font-size:28px;font-weight:700;letter-spacing:8px">${token}</p><p>Mã có hiệu lực trong 10 phút.</p><p>Nếu bạn không yêu cầu mã này, hãy bỏ qua email.</p>`,
+                });
+              } catch (error) {
+                const mailError = error as {
+                  code?: string;
+                  command?: string;
+                  responseCode?: number;
+                };
+                console.error("[admin-mail] Gmail delivery failed", {
+                  code: mailError.code,
+                  command: mailError.command,
+                  responseCode: mailError.responseCode,
+                });
+                sendJson(response, 502, {
+                  message:
+                    mailError.code === "EAUTH" || mailError.responseCode === 535
+                      ? "Gmail từ chối xác thực. Hãy kiểm tra GMAIL_USER và tạo Google App Password mới."
+                      : "Không gửi được email qua Gmail. Hãy kiểm tra kết nối SMTP và thử lại sau.",
+                });
+                return;
+              }
+              adminLoginTokens.set(email, {
+                hash: hashAdminToken(email, token),
+                expiresAt: Date.now() + 10 * 60 * 1000,
+                attempts: 0,
+              });
+            }
+
+            sendJson(response, 202, {
+              message: "Nếu Gmail này được cấp quyền, mã đăng nhập sẽ được gửi.",
+            });
+            return;
+          }
+
+          if (request.method === "GET" && path === "/auth/admin/bot-status") {
+            const sessionId = getCookie(request, SESSION_COOKIE);
+            const session = sessionId ? authSessions.get(sessionId) : undefined;
+            if (
+              !session ||
+              session.expiresAt <= Date.now() ||
+              !session.user.id.startsWith("admin:")
+            ) {
+              sendJson(response, 401, { message: "Cần đăng nhập quản trị để xem trạng thái bot." });
+              return;
+            }
+
+            try {
+              const botResponse = await fetch(
+                config.botStatusUrl ?? "http://127.0.0.1:3535/status",
+                { signal: AbortSignal.timeout(3_000), cache: "no-store" },
+              );
+              if (!botResponse.ok) {
+                sendJson(response, 503, { message: "Bot status API chưa sẵn sàng." });
+                return;
+              }
+              sendJson(response, 200, await botResponse.json());
+            } catch {
+              sendJson(response, 503, { message: "Không kết nối được tới bot status API." });
+            }
+            return;
+          }
+
+          if (request.method === "POST" && path === "/auth/admin/verify-token") {
+            const body = await readJson(request);
+            const email =
+              body && typeof body === "object" && "email" in body && typeof body.email === "string"
+                ? body.email.trim().toLowerCase()
+                : "";
+            const token =
+              body && typeof body === "object" && "token" in body && typeof body.token === "string"
+                ? body.token.trim()
+                : "";
+            const savedToken = adminLoginTokens.get(email);
+
+            if (!savedToken || savedToken.expiresAt <= Date.now() || savedToken.attempts >= 5) {
+              adminLoginTokens.delete(email);
+              sendJson(response, 401, {
+                message: "Mã không hợp lệ hoặc đã hết hạn. Hãy yêu cầu mã mới.",
+              });
+              return;
+            }
+
+            savedToken.attempts++;
+            const submittedHash = Buffer.from(hashAdminToken(email, token), "hex");
+            const expectedHash = Buffer.from(savedToken.hash, "hex");
+            if (
+              token.length !== 6 ||
+              !/^\d{6}$/.test(token) ||
+              !timingSafeEqual(submittedHash, expectedHash)
+            ) {
+              sendJson(response, 401, { message: "Mã đăng nhập không đúng." });
+              return;
+            }
+
+            adminLoginTokens.delete(email);
+            const sessionId = randomBytes(32).toString("base64url");
+            const expiresAt = Date.now() + SESSION_TTL_MS;
+            const user: DiscordUserResponse = {
+              id: `admin:${email}`,
+              username: email.split("@")[0],
+              global_name: "Administrator",
+              email,
+            };
+            authSessions.set(sessionId, { user, expiresAt });
+            const secure = config.secureCookie ?? false;
+            const cookie = `${SESSION_COOKIE}=${sessionId}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${Math.floor(SESSION_TTL_MS / 1000)}${secure ? "; Secure" : ""}`;
+            response.setHeader("Set-Cookie", cookie);
+            sendJson(response, 200, { authenticated: true });
+            return;
+          }
+
           if (request.method === "POST" && path === "/auth/logout") {
             const sessionId = getCookie(request, SESSION_COOKIE);
             if (sessionId) authSessions.delete(sessionId);
@@ -410,6 +588,10 @@ export function mockApiPlugin(config: MockApiConfig = {}): Plugin {
           sendJson(response, 404, { message: "API route không tồn tại" });
         })().catch((error: unknown) => {
           if (response.headersSent) return;
+          if (url.pathname.startsWith("/api/auth/admin/")) {
+            sendJson(response, 500, { message: "Không thể xử lý đăng nhập quản trị lúc này." });
+            return;
+          }
           sendJson(response, 500, {
             message: error instanceof Error ? error.message : "Lỗi mock API",
           });

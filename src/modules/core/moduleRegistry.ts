@@ -12,6 +12,7 @@ import VoiceEventHandler from "../events/VoiceEventHandler";
 import UserJoinLeaveEventHandler from "../events/UserJoinLeaveEventHandler";
 import Console from "./Console";
 import UserStats from "../UserStats";
+import ServerStatsManager from "../ServerStats";
 
 export const moduleRegistry = {
   FacebedAPI,
@@ -27,5 +28,6 @@ export const moduleRegistry = {
   BetterLink,
   UserJoinLeaveEventHandler,
   Console,
-  UserStats
+  UserStats,
+  ServerStatsManager,
 } as const;

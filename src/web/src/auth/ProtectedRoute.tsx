@@ -2,8 +2,12 @@ import { Navigate, Outlet, useLocation } from "react-router-dom";
 
 import { useAuth } from "./useAuth";
 
-export default function ProtectedRoute() {
-  const { isAuthenticated, isLoading } = useAuth();
+interface ProtectedRouteProps {
+  adminOnly?: boolean;
+}
+
+export default function ProtectedRoute({ adminOnly = false }: ProtectedRouteProps) {
+  const { user, isAuthenticated, isLoading } = useAuth();
 
   const location = useLocation();
 
@@ -40,6 +44,10 @@ export default function ProtectedRoute() {
         }}
       />
     );
+  }
+
+  if (adminOnly && !user?.id.startsWith("admin:")) {
+    return <Navigate to="/admin" replace state={{ from: location }} />;
   }
 
   /**

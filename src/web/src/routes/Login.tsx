@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useLocation } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 
 import { useAuth } from "../auth/useAuth";
 
@@ -68,6 +68,12 @@ export default function LoginPage() {
         <p className="m-0 mt-5 text-center text-[10px] text-[#77798a]">
           Suwa không lưu mật khẩu Discord của bạn.
         </p>
+        <Link
+          className="mt-4 block text-center text-xs font-semibold text-[#a894ff] no-underline hover:text-white"
+          to="/admin"
+        >
+          Đăng nhập quản trị bằng Gmail
+        </Link>
       </section>
     </main>
   );

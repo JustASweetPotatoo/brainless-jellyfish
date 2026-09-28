@@ -3,12 +3,14 @@ import {
   ChatInputCommandInteraction,
   Collection,
   CommandInteraction,
+  Events,
   Message,
 } from "discord.js";
 
 import DiscordModule from "./core/module/DiscordModule";
 import MassClient from "../Client";
 import { ModuleOptions } from "./core/module/BaseModule";
+import { On } from "./core/decorators/decorators";
 
 import FastifyServer, { PathListenerType } from "../API/FastifyServer";
 import { PremiumStatus } from "../database/model/GuildStatus";
@@ -92,11 +94,27 @@ export default class ServerStatsManager extends DiscordModule<"server-stats-mana
     );
   }
 
-  protected async onSystemOperational(client: MassClient): Promise<any> {
+  @On(Events.ClientReady)
+  protected async onClientReady(_client: MassClient): Promise<void> {
+    if (!this.client.shardIds.includes(0)) return;
+
+    this.fastifyServer.get("/status", async () => {
+      const memory = process.memoryUsage();
+
+      return {
+        status: this.client.isReady() ? "online" : "offline",
+        botTag: this.client.user?.tag ?? null,
+        pingMs: this.client.ws.ping,
+        uptimeMs: this.client.uptime,
+        guildCount: this.client.guilds.cache.size,
+        shardIds: [...this.client.shardIds],
+        memoryRssMb: Math.round(memory.rss / 1024 / 1024),
+        checkedAt: new Date().toISOString(),
+      };
+    });
+
     await this.registerWebListeners();
     await this.fastifyServer.open();
-
-    this.logger.ok("Fastify server running at http://0.0.0.0:3000");
   }
 
   // ================= DISCORD EVENTS =================

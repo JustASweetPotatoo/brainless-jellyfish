@@ -1,15 +1,12 @@
 import path from "path";
 import Fastify, { FastifyInstance, FastifyRequest, RouteShorthandMethod } from "fastify";
 
-import { Events } from "discord.js";
-
-import MassClient from "../Client";
 import { readConfigFile } from "../utils/readConfig";
 import { RouteShorthandOptions } from "fastify/types/route";
 import websocket from "@fastify/websocket";
 import WebSocket from "ws";
 import DiscordModule from "../modules/core/module/DiscordModule";
-import { On } from "../modules/core/decorators/decorators";
+import { ModuleOptions } from "../modules/core/module/BaseModule";
 import { PremiumStatus } from "../database/model/GuildStatus";
 import ClientError from "../error/ClientError";
 import { ErrorCode } from "../error/ErrorCode";
@@ -30,10 +27,10 @@ export interface FastifyGetRequestHandler {
 export default class FastifyServer extends DiscordModule<"API-server"> {
   protected readonly premiumLevel: PremiumStatus = PremiumStatus.STANDARD;
 
-  public instance: FastifyInstance;
+  public instance: FastifyInstance = Fastify();
   private websocketRegisted: boolean = false;
-  public get: RouteShorthandMethod;
-  public post: RouteShorthandMethod;
+  public get: RouteShorthandMethod = this.instance.get.bind(this.instance);
+  public post: RouteShorthandMethod = this.instance.post.bind(this.instance);
 
   // This is default
   private config: FastifyConfig = {
@@ -43,11 +40,8 @@ export default class FastifyServer extends DiscordModule<"API-server"> {
 
   private readonly configFileName = "fastify.config";
 
-  @On(Events.ClientReady)
-  private async onClientReady(client: MassClient) {
-    this.instance = Fastify();
-    this.get = this.instance.get.bind(this.instance);
-    this.post = this.instance.post.bind(this.instance);
+  constructor(options: ModuleOptions) {
+    super(options);
   }
 
   private async loadConfig(): Promise<void> {
@@ -55,8 +49,15 @@ export default class FastifyServer extends DiscordModule<"API-server"> {
       const filePath = path.join(__dirname, "../config/" + this.configFileName);
       this.logger.log("Reading config at: " + filePath);
 
-      const loaded = await readConfigFile(this.configFileName);
-      this.config = loaded as FastifyConfig;
+      const loaded = (await readConfigFile(this.configFileName)) as Partial<FastifyConfig>;
+      this.config = {
+        host: loaded.host ?? this.config.host,
+        port: Number(loaded.port ?? this.config.port),
+      };
+
+      if (!Number.isInteger(this.config.port) || this.config.port < 0) {
+        throw new Error("Fastify port must be a non-negative integer.");
+      }
 
       this.logger.ok("Config loaded!");
     } catch (error) {
