@@ -1,5 +1,5 @@
-import { BucketCounter } from "../../modules/MessageStats";
-import { parseCompositeKey } from "../../utils/redisUtils";
+import { BucketCounter } from "../../modules/MessageStatsTypes";
+import { createCompositeKey, parseCompositeKey } from "../../utils/redis";
 import { getDayTimestamp, getHourTimestamp } from "../../utils/timestamps";
 import DatabaseManager from "../DatabaseManager";
 import GuildMessageStats, { GuildMessageStatsJson } from "../model/GuildMessageStats";
@@ -16,8 +16,7 @@ export default class GuildMessageStatRepo extends Repository<
 
   protected readonly createTableQuery = `
     CREATE TABLE IF NOT EXISTS ${this.fullTableName} (
-      guild_id VARCHAR(64) NOT NULL PRIMARY KEY,
-      day_timestamp VARCHAR(64) NOT NULL PRIMARY KEY,
+      id VARCHAR(64) NOT NULL PRIMARY KEY,
       stat_map JSON
     );
   `;
@@ -31,10 +30,10 @@ export default class GuildMessageStatRepo extends Repository<
       await this.executeQuery(
         `
         SELECT * FROM ${this.fullTableName}
-        WHERE guild_id = ? AND day_timestamp = ?
+        WHERE id = ?
         LIMIT 1;
       `,
-        [options.guildId, options.dayTimestamp],
+        [createCompositeKey(options.guildId, options.dayTimestamp.toString())],
       )
     ).at(0);
 
@@ -79,24 +78,13 @@ export default class GuildMessageStatRepo extends Repository<
       `
       UPDATE ${this.fullTableName}
       SET stat_map = ?
-      WHERE guild_id = ? AND day_timestamp = ?;
+      WHERE id = ? AND day_timestamp = ?;
     `,
       [JSON.stringify(json.stats_map_json), json.guild_id, json.day_timestamp],
     );
 
     return data;
   }
-
-  // async increment(
-  //   id: string,
-  //   type: GuildMessageStatIncrementType,
-  //   statistic?: GuildMessageStats,
-  // ): Promise<void> {
-  //   const dayTimestamp = getDayTimestamp(new Date().getTime());
-  //   if (!statistic) statistic = await this.get({ guildId: id, dayTimestamp: dayTimestamp });
-  //   if (!statistic) statistic = await this.create(new GuildMessageStats({ guildId: id }));
-  //   await this.update(statistic);
-  // }
 
   async flush(queue: Map<number, BucketCounter>) {
     const guildStatsMap = new Map<string, GuildMessageStats>();

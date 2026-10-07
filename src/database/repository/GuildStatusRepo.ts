@@ -1,5 +1,5 @@
 import { Repository } from "./constructor/Repository";
-import GuildStatus, { GuildStatusObj, GuildStatusOptions } from "../model/GuildStatus";
+import GuildStatus, { GuildStatusObj } from "../model/GuildStatus";
 import DatabaseManager from "../DatabaseManager";
 
 export default class GuildStatusRepository extends Repository<GuildStatus, GuildStatusObj> {
@@ -31,10 +31,20 @@ export default class GuildStatusRepository extends Repository<GuildStatus, Guild
   async create(data: GuildStatus): Promise<GuildStatus> {
     const query = `
       INSERT INTO ${this.fullTableName}
-      (id, premium_status, active_list)
-      VALUES (?,?,?);
+        (id, premium_status, active_list)
+      VALUES (?,?,?)
+      ON DUPLICATE KEY UPDATE
+        premium_status = ?,
+        active_list = ?,
+      ;
     `;
-    const values = [data.id, data.premiumStatus, JSON.stringify(data.activeList)];
+    const values = [
+      data.id,
+      data.premiumStatus,
+      JSON.stringify(data.activeList),
+      data.premiumStatus,
+      JSON.stringify(data.activeList),
+    ];
     await this.executeQuery(query, values);
     return data;
   }

@@ -6,21 +6,16 @@ import {
   Colors,
   CommandInteraction,
   EmbedBuilder,
-  Message,
   MessageFlags,
 } from "discord.js";
 
 import DiscordModule from "./core/module/DiscordModule";
 import ClientError from "../error/ClientError";
 import { ErrorCode } from "../error/ErrorCode";
-import { ClientErrorData } from "../error/interface";
 import { dangerIconUrl } from "../assets/icon";
-import ClientSlashCommandBuilder from "../slashCommandBuilder/SlashCommandBuilder";
 import { sendInteractionMessageReply } from "../utils/replier";
 import { getFullCommandName } from "../utils/slashCommand";
 import { PremiumStatus } from "../database/model/GuildStatus";
-
-dotenv.config();
 
 export default class ClientErrorHandler extends DiscordModule<"client-error-handler"> {
   protected readonly premiumLevel: PremiumStatus = PremiumStatus.STANDARD;

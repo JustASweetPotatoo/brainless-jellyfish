@@ -53,31 +53,20 @@ export abstract class Repository<TModel extends BaseModel<TJSON>, TJSON> extends
 
       if (!tableExists) {
         await this.executeQuery(this.createTableQuery);
+
         this.database.getLogger().ok(`Table ${this.tableName} created`);
+
         return true;
       }
 
-      const existingColumns = await this.executeQuery(`SHOW COLUMNS FROM ${this.fullTableName}`);
-      const existingColumnNames = new Set(
-        existingColumns.map((column: any) => String(column.Field).toLowerCase()),
-      );
-      const columnDefinitions = this.parseCreateTableColumns(this.createTableQuery);
+      this.database.getLogger().ok(`Table ${this.tableName} already exists`);
 
-      for (const definition of columnDefinitions) {
-        const columnName = this.extractColumnName(definition);
-        if (!columnName || existingColumnNames.has(columnName.toLowerCase())) continue;
-
-        await this.executeQuery(`ALTER TABLE ${this.fullTableName} ADD COLUMN ${definition}`);
-      }
-
-      this.database.getLogger().ok(`Table ${this.tableName} checked and updated`);
       return true;
     } catch (err) {
       this.database.getLogger().error(err);
       return false;
     }
   }
-
   private parseCreateTableColumns(createTableQuery: string): string[] {
     const bodyMatch = createTableQuery.match(/\(([^)]*)\)/s);
     if (!bodyMatch) return [];

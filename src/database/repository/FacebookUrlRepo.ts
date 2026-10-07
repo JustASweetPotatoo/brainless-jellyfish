@@ -20,7 +20,7 @@ export default class FacebookAttachmentSourceRepo extends Repository<
   `;
 
   constructor(database: DatabaseManager) {
-    super("facebook-att-source", database);
+    super("facebook_att_source", database);
   }
 
   async create(data: FacebookAttachmentSource): Promise<FacebookAttachmentSource> {

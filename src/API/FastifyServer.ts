@@ -100,7 +100,6 @@ export default class FastifyServer extends DiscordModule<"API-server"> {
     });
 
     this.logger.info("Route tree:\n" + this.instance.printRoutes());
-
     this.logger.ok(`Server running at http://${this.config.host}:${this.config.port}`);
   }
 

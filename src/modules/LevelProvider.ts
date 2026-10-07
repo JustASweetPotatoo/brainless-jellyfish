@@ -37,7 +37,7 @@ import { sendInteractionMessageReply } from "../utils/replier";
 import { generateRankCard } from "../utils/rankCard";
 import { RedisClientType } from "redis";
 import { ModuleOptions } from "./core/module/BaseModule";
-import { RedisMulti } from "./MessageStats";
+import { RedisMulti } from "../utils/redis";
 import { PremiumStatus } from "../database/model/GuildStatus";
 
 const avatarPath = path.join(__dirname, "../assets/avatar.png");
@@ -297,7 +297,7 @@ export default class LevelProvider extends DiscordModule<"level-provider"> {
     }
 
     const expByMinutes =
-      Math.floor(((Date.now() - session.joinTimestamp) / 60000) * 0.5) * getRandomInt(25, 35);
+      Math.floor(((Date.now() - session.joinTimestamp) / 60000) * 0.1) * getRandomInt(25, 35);
 
     userProfile.voiceExp += expByMinutes + session.bonusEpx + expBonus;
 

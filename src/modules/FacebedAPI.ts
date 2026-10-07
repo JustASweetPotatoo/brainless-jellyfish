@@ -54,10 +54,6 @@ export default class FacebedAPI extends DiscordModule<"facebed-api"> {
 
   private readonly ApiUrl = process.env.PYTHON_API || "http://localhost:9812";
 
-  private founderEmbed: EmbedBuilder = new EmbedBuilder()
-    .setDescription(`> *Sứa#2120 - Crawler API by **pi.kt***`)
-    .setColor(Colors.Blurple);
-
   private readonly failedEmbed = (extractedUrl: string) => {
     return new EmbedBuilder()
       .setTitle("This post is private or unavailable !")

@@ -25,6 +25,7 @@
   --green-400: #65e0a1;
   --green-500: #4cceac;
   --dashboard-bg: #11121a;
+  --panel-bg: #2d2f40;
   --sidebar-bg: #171821;
   --sidebar-border: #282a37;
   --topbar-bg: rgba(21, 22, 30, 0.92);
@@ -37,7 +38,7 @@
   --muted: #8f91a2;
   --button-hover: #262733;
   --shadow-soft: rgba(15, 17, 24, 0.38);
-  font-family: "DM Sans", sans-serif;
+  font-family: "Plus_Jakarta_Sans", "DM Sans", sans-serif;
   font-synthesis: none;
 }
 

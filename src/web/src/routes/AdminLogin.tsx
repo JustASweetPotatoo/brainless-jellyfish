@@ -65,7 +65,7 @@ export default function AdminLogin() {
         <div className="mb-7 mt-8">
           <p className="m-0 text-[10px] font-bold tracking-[1.4px] text-[#9fd9c0]">SUWA ADMIN</p>
           <h1 className="m-0 mt-2 font-['Plus_Jakarta_Sans'] text-2xl font-bold text-white">
-            Đăng nhập quản trị
+            Admin Controller
           </h1>
           <p className="m-0 mt-2 text-xs leading-relaxed text-[#a3a5b1]">
             Nhận mã dùng một lần qua Gmail đã được cấp quyền quản trị.

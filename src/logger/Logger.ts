@@ -2,6 +2,7 @@ import * as path from "path";
 import * as fs from "fs";
 
 import MassClient from "../Client";
+import ClientError from "../error/ClientError";
 
 export function getStringTimestamp(date?: Date): string {
   const newDate = date ?? new Date();
@@ -23,13 +24,6 @@ export function getStringTimestamp(date?: Date): string {
 
   return `${inYearTime.join("/")} ${inDayTime.join(":")}`;
 }
-
-export interface ErrorLogOptions {
-  error: Error;
-  message: string | undefined;
-}
-
-export type ErrorLogOptionsType = ErrorLogOptions;
 
 export interface PrintOptions {
   readonly content: string;
@@ -195,46 +189,49 @@ export class Logger {
     });
   }
 
-  private isErrorLogOptions(x: unknown): x is ErrorLogOptions {
-    if (typeof x !== "object" || x === null) {
-      return false;
+  error(error: Error | any): void;
+
+  error(
+    options:
+      | {
+          message?: string;
+          error?: Error | any;
+          noLabel?: boolean;
+          printToFile?: boolean;
+        }
+      | Error
+      | any,
+  ) {
+    function parseOptions(
+      opts:
+        | {
+            message: string;
+            error?: Error | any;
+            noLabel?: boolean;
+            printToFile?: boolean;
+          }
+        | Error
+        | any,
+    ): string {
+      if (opts instanceof ClientError) {
+        return opts.createMessage(true);
+      } else if (opts instanceof Error) {
+        const arr = [opts.message, opts.stack, opts.cause];
+        return `${(opts.cause ? arr.slice(0, 1) : arr).join("\n")}`;
+      } else if (opts.error instanceof Error) {
+        const arr = [opts.message, opts.stack, opts.cause];
+        const baseErrorMessage = `${(opts.cause ? arr.slice(0, 1) : arr).join("\n")}`;
+        return `${opts.message}\n${baseErrorMessage}`;
+      } else {
+        return opts;
+      }
     }
-    const obj = x as Record<string, unknown>;
-    return obj.error instanceof Error && typeof obj.message === "string";
-  }
 
-  error(options: string): void;
-  error(options: ErrorLogOptions): void;
-  error(options: Error): void;
-  error(options: unknown): void;
-
-  error(options: ErrorLogOptions | Error | string | unknown): void {
-    let message: string = "";
-    let cause: unknown | undefined;
-    let stack: string | undefined;
-    if (typeof options == "string") {
-      message = options;
-    } else if (options instanceof Error) {
-      message = options.message ?? "Error message not found. This may be a not exception error";
-      stack = options.stack;
-      cause = options.cause;
-    } else if (this.isErrorLogOptions(options)) {
-      message = options.message ?? "Error message not found. This may be a not exception error";
-      stack = options.error.stack;
-      cause = options.error.cause;
-    } else {
-      let otps = options as Error;
-      message = otps.message ?? "Error message not found. This may be a not exception error";
-      stack = otps.stack;
-      cause = otps.cause;
-    }
-
-    const content = `${message}${cause ? `\n${stack}\n${cause}` : `\n${stack}`}`;
     this.print({
-      content: content,
+      content: parseOptions(options),
       type: LogMessageType.ERROR,
-      noLabel: false,
-      printToFile: true,
+      noLabel: options.noLabel,
+      printToFile: options.printToFile ?? true,
     });
   }
 

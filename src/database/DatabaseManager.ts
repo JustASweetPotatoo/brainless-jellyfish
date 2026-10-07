@@ -1,4 +1,11 @@
-import { ConnectionOptions, createPool, Pool, RowDataPacket } from "mysql2/promise";
+import {
+  Connection,
+  ConnectionOptions,
+  createConnection,
+  createPool,
+  Pool,
+  RowDataPacket,
+} from "mysql2/promise";
 
 import MassClient from "../Client";
 import { Logger } from "../logger/Logger";
@@ -12,13 +19,18 @@ configDotenv();
 const { DB_HOST, DB_PORT, DB_USER, DB_PASS, DB_NAME } = process.env;
 
 export default class DatabaseManager extends EventEmitter {
-  private readonly dataSource: DataSource;
   private readonly client: MassClient;
   private readonly logger: Logger;
   public defaultPool: Pool;
   readonly name: string;
 
-  private readonly defaultConnectOptions: ConnectionOptions;
+  private readonly defaultConnectOptions: ConnectionOptions = {
+    host: DB_HOST,
+    port: parseInt(DB_PORT ?? "3306"),
+    user: DB_USER,
+    password: DB_PASS,
+    database: DB_NAME,
+  };
 
   constructor(client: MassClient) {
     super();
@@ -28,63 +40,54 @@ export default class DatabaseManager extends EventEmitter {
       printer: this.client.logPrinter,
     });
 
-    this.dataSource = new DataSource({
-      type: "mysql",
-      host: DB_HOST,
-      port: parseInt(DB_PORT ?? "3306"),
-      username: DB_USER,
-      password: DB_PASS,
-      database: DB_NAME,
-    });
-
-    this.defaultConnectOptions = {
-      host: DB_HOST,
-      port: parseInt(DB_PORT ?? "3306"),
-      user: DB_USER,
-      password: DB_PASS,
-      database: DB_NAME,
-    };
-
     this.name = DB_NAME ?? "main";
   }
 
-  async createSchema(): Promise<boolean> {
-    if (!this.defaultPool) {
-      this.logger.warn("Pool is not available of undefined !");
-      return false;
-    }
+  /**
+   *
+   * @deprecated
+   */
+  async createSchema(connection: Connection): Promise<boolean> {
     try {
-      this.logger.log("Creating schema...");
-      await this.executeQuery(
-        `CREATE SCHEMA IF NOT EXISTS \`${this.defaultConnectOptions.database}\``,
-      );
+      await connection.query(`CREATE SCHEMA \`${this.defaultConnectOptions.database}\``);
       this.logger.ok(`Created schema with name ${this.name}`);
     } catch (error) {
+      if ((error as Error).message.includes("database exists")) {
+        this.logger.warn(`Database existed with name ${this.name}`);
+        return true;
+      }
+
       this.logger.error(error);
       return false;
     }
+
     return true;
   }
 
-  async selectSchema(): Promise<boolean> {
-    if (!this.defaultPool) {
-      throw new ClientError(ErrorCode.POOL_NOT_FOUND);
-    }
-    await this.executeQuery(`USE \`${this.defaultConnectOptions.database}\`;`);
-    this.logger.info(`Using schema ${this.defaultConnectOptions.database} of default pool`);
-    return true;
-  }
-
+  /**
+   *
+   * @deprecated
+   */
   async createConnection(connectionOptions?: ConnectionOptions): Promise<boolean> {
-    this.logger.log("Creating conneciton...");
+    this.logger.log("Creating conneciton");
     try {
-      this.defaultPool = createPool(connectionOptions ?? this.defaultConnectOptions);
-      await this.createSchema();
-      await this.selectSchema();
-      this.logger.ok("Established database connection!");
-      return true;
+      const connectOptions = { ...this.defaultConnectOptions };
+      connectOptions.database = undefined;
+
+      const connection = await createConnection(connectOptions);
+      const res = await this.createSchema(connection);
+      await connection.end();
+
+      if (res) {
+        this.logger.ok("Created connection!");
+        this.defaultPool = createPool(this.defaultConnectOptions);
+        this.logger.ok(`Created new pool, running at thread: ${this.defaultPool.threadId}`);
+      }
+
+      return res;
     } catch (error) {
-      this.logger.error(error);
+      this.logger.error("Create connection failed!");
+      this.logger.error(new ClientError(ErrorCode.DATABASE_CONNECT_FAILED, error));
       return false;
     }
   }
@@ -99,28 +102,20 @@ export default class DatabaseManager extends EventEmitter {
     this.logger.ok("All connection and pool closed.");
   }
 
+  /**
+   *
+   * @deprecated
+   */
   public async executeQuery(query: string, values?: Array<any>): Promise<Array<any>> {
     if (!this.defaultPool) {
       throw new ClientError(ErrorCode.POOL_NOT_FOUND);
     } else {
       const [rows] = await this.defaultPool.query<RowDataPacket[]>(query, values);
-
       return rows;
     }
   }
 
   public getLogger(): Logger {
     return this.logger;
-  }
-
-  public async createDataSourceConnection() {
-    try {
-      this.logger.log("Creating database connection");
-      await this.dataSource.initialize();
-      return true;
-    } catch (error) {
-      this.logger.error(error);
-      return false;
-    }
   }
 }

@@ -1,10 +1,4 @@
-import { Guild } from "discord.js";
 import DiscordModule from "./core/module/DiscordModule";
-import { ModuleOn, Repository } from "./core/decorators/decorators";
-import GuildMessageStats from "../database/model/GuildMessageStats";
-import GuildMessageStatRepo from "../database/repository/GuildMessageStatRepo";
-import { BucketCounter } from "./MessageStats";
-import { getDayTimestamp } from "../utils/timestamps";
 import { PremiumStatus } from "../database/model/GuildStatus";
 
 export default class GuildStatisticsManager extends DiscordModule<"guild-statistics-manager"> {

@@ -4,7 +4,9 @@ import FacebedAPI from "../FacebedAPI";
 import GuildStatisticsManager from "../GuildStatManager";
 import GuildStatusManager from "../GuildStatusManager";
 import LevelProvider from "../LevelProvider";
-import MessageStats from "../MessageStats";
+import MessageStatsRecorder from "../MessageStats";
+import MessageStatsAnalyzer from "../MessageStatsAnalyzer";
+import MessageStatsCombiner from "../MessageStatsCombiner";
 import NoiTuManager from "../NoiTuManager";
 import MessageEventHandler from "../events/MessageEventHandler";
 import UserEventLogger from "../events/UserEventHandler";
@@ -24,7 +26,9 @@ export const moduleRegistry = {
   MessageEventHandler,
   VoiceEventHandler,
   GuildStatusManager,
-  MessageStats,
+  MessageStatsRecorder,
+  MessageStatsAnalyzer,
+  MessageStatsCombiner,
   BetterLink,
   UserJoinLeaveEventHandler,
   Console,

@@ -78,3 +78,11 @@ export function getMonthTimestamp(timestamp: number = new Date().getTime()): num
   const date = new Date(timestamp);
   return Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1);
 }
+
+/**
+ * Get the beginning of the UTC year.
+ */
+export function getYearTimestamp(timestamp: number = new Date().getTime()): number {
+  const date = new Date(timestamp);
+  return Date.UTC(date.getUTCFullYear(), 0, 1);
+}
