@@ -6,15 +6,15 @@ import { PremiumStatus } from "../database/model/GuildStatus";
 export default class BetterLink extends DiscordModule<"better-link"> {
   protected readonly premiumLevel: PremiumStatus = PremiumStatus.STANDARD;
 
-  @On(Events.MessageCreate)
+  @On(Events.MessageCreate, true)
   protected async onMessageCreate(message: Message<true>): Promise<any> {}
 
   @SlashCommandExecutor({ guildOnly: true, requiredAdminPermission: true })
   async turnOnFacebedAPI(interaction: ChatInputCommandInteraction<"cached">) {
-    const turnOn = interaction.options.getBoolean("turn-on");
     const module = this.client.moduleManager.get("facebed-api");
+    const status = await this.client.guildStatusManager.isActive(interaction.guildId, module.name);
 
-    if (turnOn) {
+    if (status) {
       const res = await module.enable(interaction.guildId);
 
       if (res) {

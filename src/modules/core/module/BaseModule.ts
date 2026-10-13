@@ -210,7 +210,7 @@ export default abstract class BaseModule<
    * Error hander
    */
 
-  protected handleModuleError(err: unknown) {
+  handleModuleError(err: unknown) {
     const error = parseError(err);
 
     this.logger.error(error.createMessage(false));
@@ -264,5 +264,9 @@ export default abstract class BaseModule<
     this.logger.ok(`Total ${this.count.event} event listeners`);
     this.emit(BaseModuleEvents.EventsAvailable);
     return this;
+  }
+
+  public get rawClient() {
+    return this.client;
   }
 }

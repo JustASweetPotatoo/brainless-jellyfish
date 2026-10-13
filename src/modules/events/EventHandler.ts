@@ -1,15 +1,18 @@
 import {
+  Channel,
   ChannelType,
   ChatInputCommandInteraction,
   Collection,
   Colors,
+  Events,
   Guild,
   TextChannel,
 } from "discord.js";
 import DiscordModule from "../core/module/DiscordModule";
 import { ModuleOptions } from "../core/module/BaseModule";
-import { SlashCommandExecutor } from "../core/decorators/decorators";
+import { On, SlashCommandExecutor } from "../core/decorators/decorators";
 import { LogChannelType } from "../GuildStatusManager";
+import { createCompositeKey } from "../../utils/redis";
 
 export enum GetChannelResultCode {
   NOT_EXIST = 0,
@@ -19,8 +22,10 @@ export enum GetChannelResultCode {
 }
 
 export default abstract class EventHandler<E extends string> extends DiscordModule<E> {
-  protected readonly channelIdCache: Collection<string, string | undefined> = new Collection();
-  protected readonly channelCache: Collection<string, TextChannel> = new Collection();
+  protected readonly channelCache: Collection<
+    string,
+    { id: string; channel: TextChannel | undefined } | "none"
+  > = new Collection();
 
   readonly callName: string;
 
@@ -36,48 +41,42 @@ export default abstract class EventHandler<E extends string> extends DiscordModu
     this.channelCache.clear();
   }
 
-  protected getStatusManager() {
-    return this.client.moduleManager.get("guild-status-manager");
-  }
+  protected async getLogChannel(
+    guild: Guild,
+    type: LogChannelType,
+  ): Promise<TextChannel | undefined> {
+    let channelData = this.channelCache.get(guild.id);
 
-  protected async getChannel(
-    channelId: string,
-    guildId: string,
-  ): Promise<TextChannel | GetChannelResultCode> {
-    const cacheId = `${channelId}|${guildId}`;
-    let channel = this.channelCache.get(cacheId);
-
-    if (!channel) {
-      if (!channelId || channelId.length == 0) {
-        return GetChannelResultCode.NO_ID;
+    if (!channelData) {
+      const status = await this.client.guildStatusManager.getChannelLogId(guild.id, type);
+      if (!status) {
+        channelData = "none";
+        this.channelCache.set(guild.id, channelData);
+        return;
       }
 
-      const guild = await this.client.guilds.fetch(guildId);
-      channel = (await guild.channels
-        .fetch(channelId ?? "")
-        .catch((error) => this.handleModuleError(error))) as TextChannel;
-
-      if (!channel) {
-        return GetChannelResultCode.NOT_EXIST;
-      }
-
-      this.channelCache.set(cacheId, channel);
-      this.channelIdCache.set(channel.guildId, channel.id);
+      channelData = {
+        id: status,
+        channel: undefined,
+      };
     }
 
-    return channel;
-  }
-
-  protected async processActivation(guild: Guild, type: LogChannelType) {
-    let logChannelId = this.channelIdCache.get(guild.id);
-
-    if (!logChannelId) {
-      if (await this.getStatusManager().isActiveLog(guild.id, type)) {
-        logChannelId = await this.getStatusManager().getChannelLogId(guild.id, type);
-      }
+    if (channelData == "none") {
+      return undefined;
     }
 
-    return await this.getChannel(logChannelId ?? "", guild.id);
+    if (!channelData.channel) {
+      const channel = guild.channels.cache.get(channelData?.id);
+      if (!(channel instanceof TextChannel)) {
+        channelData = "none";
+        this.channelCache.set(guild.id, "none");
+        return;
+      }
+
+      channelData.channel = channel;
+    }
+
+    return channelData.channel;
   }
 
   @SlashCommandExecutor({ guildOnly: true, deferred: true, ephemeral: true })
@@ -90,7 +89,7 @@ export default abstract class EventHandler<E extends string> extends DiscordModu
   }
 
   private async disableGuild(interaction: ChatInputCommandInteraction<"cached">) {
-    const guildProfile = await this.getStatusManager().getLogProfile(interaction.guildId);
+    const status = await this.client.guildStatusManager.getLogStatus(interaction.guildId);
     const logType = this.getLogChannelType();
 
     await interaction.editReply({
@@ -105,42 +104,69 @@ export default abstract class EventHandler<E extends string> extends DiscordModu
       ],
     });
 
+    let channelId;
+
     switch (logType) {
       case LogChannelType.USER:
-        guildProfile.userChannelId = undefined;
+        channelId = status.userChannelId;
+        status.userChannelId = undefined;
         break;
       case LogChannelType.JOIN_LEAVE:
-        guildProfile.userJoinLeaveChannelId = undefined;
+        channelId = status.userJoinLeaveChannelId;
+        status.userJoinLeaveChannelId = undefined;
         break;
-      case LogChannelType.MESSSAGE:
-        guildProfile.messsageChannelId = undefined;
+      case LogChannelType.MESSAGE:
+        channelId = status.messsageChannelId;
+        status.messsageChannelId = undefined;
         break;
       case LogChannelType.VOICE:
-        guildProfile.voiceChannelId = undefined;
+        channelId = status.voiceChannelId;
+        status.voiceChannelId = undefined;
         break;
       case LogChannelType.GUILD:
-        guildProfile.guildChannelId = undefined;
+        channelId = status.guildChannelId;
+        status.guildChannelId = undefined;
         break;
     }
 
-    this.channelIdCache.set(guildProfile.guildId, undefined);
-
-    await this.getStatusManager().updateLogProfile(guildProfile);
+    this.channelCache.set(interaction.guildId, "none");
+    await this.client.guildStatusManager.setLogStatus(status);
   }
 
   private async enableGuild(interaction: ChatInputCommandInteraction<"cached">) {
-    const guildProfile = await this.getStatusManager().getLogProfile(interaction.guildId);
+    const guildProfile = await this.client.guildStatusManager.getLogStatus(interaction.guildId);
     const targetChannel = interaction.options.getChannel("channel", true, [ChannelType.GuildText]);
     const logType = this.getLogChannelType();
 
-    const oldChannelId = this.channelIdCache.get(interaction.guildId);
+    const oldChannelData = this.channelCache.get(interaction.guildId);
 
-    if (oldChannelId) {
+    switch (logType) {
+      case LogChannelType.USER:
+        guildProfile.userChannelId = targetChannel.id;
+        break;
+      case LogChannelType.JOIN_LEAVE:
+        guildProfile.userJoinLeaveChannelId = targetChannel.id;
+        break;
+      case LogChannelType.MESSAGE:
+        guildProfile.messsageChannelId = targetChannel.id;
+        break;
+      case LogChannelType.VOICE:
+        guildProfile.voiceChannelId = targetChannel.id;
+        break;
+      case LogChannelType.GUILD:
+        guildProfile.guildChannelId = targetChannel.id;
+        break;
+    }
+
+    this.channelCache.set(targetChannel.guildId, { id: targetChannel.id, channel: targetChannel });
+    await this.client.guildStatusManager.setLogStatus(guildProfile);
+
+    if (oldChannelData != "none" && oldChannelData != undefined) {
       await interaction.editReply({
         embeds: [
           {
             title: "Operation complete !",
-            description: `Nhật ký ${this.callName} sẽ được chuyển\nTừ: <#${oldChannelId}>\nSang: <#${targetChannel.id}>`,
+            description: `Nhật ký ${this.callName} sẽ được chuyển\nTừ: <#${oldChannelData.id}>\nSang: <#${targetChannel.id}>`,
             color: Colors.Green,
             timestamp: new Date().toISOString(),
             footer: { text: `UID: ${interaction.user.id}` },
@@ -160,28 +186,39 @@ export default abstract class EventHandler<E extends string> extends DiscordModu
         ],
       });
     }
+  }
 
-    switch (logType) {
-      case LogChannelType.USER:
-        guildProfile.userChannelId = targetChannel.id;
-        break;
-      case LogChannelType.JOIN_LEAVE:
-        guildProfile.userJoinLeaveChannelId = targetChannel.id;
-        break;
-      case LogChannelType.MESSSAGE:
-        guildProfile.messsageChannelId = targetChannel.id;
-        break;
-      case LogChannelType.VOICE:
-        guildProfile.voiceChannelId = targetChannel.id;
-        break;
-      case LogChannelType.GUILD:
-        guildProfile.guildChannelId = targetChannel.id;
-        break;
+  @On(Events.ChannelDelete)
+  protected async onChannelDelete(channel: Channel) {
+    if (!(channel instanceof TextChannel)) {
+      return;
     }
 
-    this.channelIdCache.set(targetChannel.guildId, targetChannel.id);
-    this.channelCache.set(`${targetChannel.id}|${guildProfile.guildId}`, targetChannel);
+    const channelData = this.channelCache.get(channel.guildId);
+    if (channelData && channelData != "none") {
+      this.channelCache.set(channel.guildId, "none");
+      const status = await this.client.guildStatusManager.getLogStatus(channel.guildId);
+      const logType = this.getLogChannelType();
 
-    await this.getStatusManager().updateLogProfile(guildProfile);
+      switch (logType) {
+        case LogChannelType.USER:
+          status.userChannelId = undefined;
+          break;
+        case LogChannelType.JOIN_LEAVE:
+          status.userJoinLeaveChannelId = undefined;
+          break;
+        case LogChannelType.MESSAGE:
+          status.messsageChannelId = undefined;
+          break;
+        case LogChannelType.VOICE:
+          status.voiceChannelId = undefined;
+          break;
+        case LogChannelType.GUILD:
+          status.guildChannelId = undefined;
+          break;
+      }
+
+      await this.client.guildStatusManager.setLogStatus(status);
+    }
   }
 }

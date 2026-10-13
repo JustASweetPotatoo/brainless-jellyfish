@@ -41,7 +41,6 @@ export default class MessageStatsRecorder extends DiscordModule<"message-stats">
   private queueSize = 0;
   private flushing = false;
   private readonly timer: NodeJS.Timeout;
-  private readonly redisClient: RedisClientType;
 
   private get analyzer() {
     return this.client.moduleManager.get("message-stats-analyzer");
@@ -53,7 +52,6 @@ export default class MessageStatsRecorder extends DiscordModule<"message-stats">
 
   constructor(options: ModuleOptions) {
     super(options);
-    this.redisClient = this.client.redisManager.getRedisClient();
     this.timer = setInterval(() => void this.flush(), this.flushInterval);
   }
 
@@ -71,7 +69,7 @@ export default class MessageStatsRecorder extends DiscordModule<"message-stats">
   private async getAccess(guildId: string): Promise<boolean> {
     let status = this.accessCache.get(guildId);
     if (status === undefined) {
-      const guildStatus = await this.client.moduleManager.get("guild-status-manager").get(guildId);
+      const guildStatus = await this.client.guildStatusManager.getStatus(guildId);
       status =
         guildStatus.activeList.includes(this.name) &&
         guildStatus.premiumStatus >= PremiumStatus.PRO;

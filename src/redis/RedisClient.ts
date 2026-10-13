@@ -3,27 +3,22 @@ import { ModuleOptions } from "../modules/core/module/BaseModule";
 import DiscordModule from "../modules/core/module/DiscordModule";
 
 import { createClient, type RedisClientType, RedisClientOptions } from "redis";
+import SystemModule from "../modules/core/module/SystemModule";
 
-export default class RedisManager extends DiscordModule<"redis"> {
+export default class RedisManager extends SystemModule<"redis"> {
   protected readonly premiumLevel: PremiumStatus = PremiumStatus.STANDARD;
+  private redisClient: RedisClientType;
 
   readonly options: RedisClientOptions = {
     url: `redis://127.0.0.1:6379`,
   };
 
-  private redisClient: RedisClientType;
-
-  constructor(options: ModuleOptions) {
-    super(options);
-    this.redisClient = this.createClient();
-    this.redisClient.on("error", (err) => this.handleModuleError(err));
-  }
-
   public createClient(options?: RedisClientOptions): RedisClientType {
     this.logger.log("Creating redis database connection");
-    const client = createClient(options ?? this.options);
+    this.redisClient = createClient(options ?? this.options) as RedisClientType;
+    this.redisClient.on("error", (err) => this.handleModuleError(err));
     this.logger.ok(`Created client, port: ${6379}`);
-    return client as RedisClientType;
+    return this.redisClient as RedisClientType;
   }
 
   public async connect(): Promise<boolean> {

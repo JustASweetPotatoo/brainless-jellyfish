@@ -1,14 +1,4 @@
-import {
-  ChannelType,
-  ChatInputCommandInteraction,
-  Collection,
-  Colors,
-  EmbedBuilder,
-  Events,
-  Guild,
-  TextChannel,
-  VoiceState,
-} from "discord.js";
+import { Collection, Colors, EmbedBuilder, Events, TextChannel, VoiceState } from "discord.js";
 
 import { On } from "../core/decorators/decorators";
 import { ModuleOptions } from "../core/module/BaseModule";
@@ -73,7 +63,7 @@ export default class VoiceEventHandler extends EventHandler<"voice-event-handler
     if (!oldState.member || !newState.member) return;
 
     const guild = oldState.guild;
-    const logChannel = await this.processActivation(guild, LogChannelType.VOICE);
+    const logChannel = await this.getLogChannel(guild, LogChannelType.VOICE);
     const eventTimestamp = Math.floor(new Date().getTime() / 1000);
 
     if (logChannel instanceof TextChannel) {
@@ -86,9 +76,8 @@ export default class VoiceEventHandler extends EventHandler<"voice-event-handler
             name: oldState.member.displayName,
             iconURL: oldState.member.displayAvatarURL(),
           })
-          .setDescription(
-            `**<@${oldState.member.id}> joined voice channel: <#${newState.channel?.id}>**`,
-          )
+          .setTitle("Joined voice channel:")
+          .setDescription(`**<#${newState.channel?.id}>**`)
           .setColor(Colors.Blurple)
           .setFooter({ text: `UID: ${oldState.member.id}` })
           .setTimestamp();
@@ -113,8 +102,9 @@ export default class VoiceEventHandler extends EventHandler<"voice-event-handler
             name: oldState.member.displayName,
             iconURL: oldState.member.displayAvatarURL()!,
           })
+          .setTitle(`Leaved voice channel:`)
           .setDescription(
-            `**<@${oldState.member.id}> leaved voice channel: <#${oldState.channel?.id}>**${sessionDuration ? `\n> Duration: ${sessionDuration}s` : ""}`,
+            `**Location: <#${oldState.channel?.id}>**${sessionDuration ? `\n-# Duration: ${sessionDuration}s` : ""}`,
           )
           .setColor(Colors.Red)
           .setFooter({ text: `UID: ${oldState.member.id}` })
@@ -134,8 +124,13 @@ export default class VoiceEventHandler extends EventHandler<"voice-event-handler
             name: oldState.member.displayName,
             iconURL: oldState.member.displayAvatarURL()!,
           })
+          .setTitle(`Changed voice channel:`)
           .setDescription(
-            `**<@${oldState.member.id}> changed channel: **\n**Before:** <#${oldState.channelId}>\n**After: <#${newState.channelId}>**${sessionDuration ? `\n-# Duration: ${sessionDuration}s` : ""}`,
+            [
+              `**Before:** <#${oldState.channelId}>`,
+              `**After: <#${newState.channelId}>**`,
+              `-# Duration: ${sessionDuration ? `${sessionDuration}s` : "no data"}`,
+            ].join("\n"),
           )
           .setColor(Colors.Yellow)
           .setFooter({ text: `UID: ${oldState.member.id}` })

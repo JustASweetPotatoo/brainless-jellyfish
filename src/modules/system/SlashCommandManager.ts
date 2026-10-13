@@ -56,7 +56,7 @@ export default class SlashCommandManager extends DiscordModule<"slash-command-ma
   constructor(options: ModuleOptions) {
     super(options);
     this.client.on(Events.ClientReady, async () => {
-      await this.syncCommands()
+      await this.syncCommands();
       this.registerDiscordEvents();
     });
   }
@@ -87,8 +87,6 @@ export default class SlashCommandManager extends DiscordModule<"slash-command-ma
         const imported = await import(absolutePath);
         const commandBuilder = imported.default || imported;
 
-        if (file === "SlashCommandManager.ts") continue;
-
         if (commandBuilder instanceof ClientSlashCommandBuilder) {
           commandBuilder.loadSubcommands();
           this.commands.set(commandBuilder.name, commandBuilder);
@@ -100,7 +98,8 @@ export default class SlashCommandManager extends DiscordModule<"slash-command-ma
       }
     }
 
-    this.logger.ok(`Readed total ${this.commands.size} commands`);
+    this.logger.info(`Readed total ${files.length} files`);
+    this.logger.info(`Total ${this.commands.size} commands initialized`);
   }
 
   /** Builds the REST payload once so command serialization errors are isolated and logged. */
@@ -108,7 +107,7 @@ export default class SlashCommandManager extends DiscordModule<"slash-command-ma
     this.logger.log("Crafting new (/) commands JSON body...");
     this.slashCommandJSONBody = [];
 
-    for (const [, commandBuilder] of this.commands) {
+    for (const [commandName, commandBuilder] of this.commands) {
       try {
         this.slashCommandJSONBody.push(commandBuilder.toJSON());
       } catch (error) {
@@ -288,12 +287,6 @@ export default class SlashCommandManager extends DiscordModule<"slash-command-ma
     await this.registerCommandsToGuild(guild);
   }
 
-  protected onButtonInteractionCreate(interaction: ButtonInteraction): Promise<any> {
-    throw new Error("Method not implemented.");
-  }
-  protected onModalSubmitInteractionCreate(interaction: ModalSubmitInteraction): Promise<any> {
-    throw new Error("Method not implemented.");
-  }
   protected onGuildStatusUpdate(guild: Guild): Promise<void> {
     throw new Error("Method not implemented.");
   }

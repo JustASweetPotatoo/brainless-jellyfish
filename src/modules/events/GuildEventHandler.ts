@@ -23,8 +23,9 @@ export default class GuildEventHandler extends EventHandler<"guild-event-logger"
       return;
     }
 
-    const logChannel = await this.processActivation(guild, LogChannelType.GUILD);
-    if (!(logChannel instanceof TextChannel)) {
+    const logChannel = await this.getLogChannel(guild, LogChannelType.GUILD);
+
+    if (!logChannel) {
       return;
     }
 

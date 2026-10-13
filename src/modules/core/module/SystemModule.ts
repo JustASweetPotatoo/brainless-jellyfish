@@ -14,4 +14,10 @@ export default abstract class SystemModule<TName extends string> extends BaseMod
     super(options);
     this.emit(BaseModuleEvents.ModuleAvailable);
   }
+
+  async onAutoCompleteInteractionCreate() {}
+  async onButtonInteractionCreate() {}
+  async onModalSubmitInteractionCreate() {}
+  async onSlashCommandInteractionCreate() {}
+  async onGuildStatusUpdate() {}
 }

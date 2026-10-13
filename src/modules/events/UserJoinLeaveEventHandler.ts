@@ -23,7 +23,7 @@ export default class UserJoinLeaveEventHandler extends EventHandler<"join-leave-
 
   @On(Events.GuildMemberAdd)
   private async onGuildMemberAdd(member: GuildMember) {
-    const logChannel = await this.processActivation(member.guild, LogChannelType.JOIN_LEAVE);
+    const logChannel = await this.getLogChannel(member.guild, LogChannelType.JOIN_LEAVE);
 
     if (logChannel instanceof TextChannel) {
       const memberIndex = member.guild.memberCount;
@@ -49,7 +49,7 @@ export default class UserJoinLeaveEventHandler extends EventHandler<"join-leave-
 
   @On(Events.GuildMemberRemove)
   private async onGuildMemberRemove(member: GuildMember) {
-    const logChannel = await this.processActivation(member.guild, LogChannelType.JOIN_LEAVE);
+    const logChannel = await this.getLogChannel(member.guild, LogChannelType.JOIN_LEAVE);
 
     if (logChannel instanceof TextChannel) {
       const memberIndex = member.guild.memberCount;

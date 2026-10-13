@@ -8,20 +8,33 @@ dotenv.config();
 
 const client = new MassClient("default");
 
-const describeError = (error: unknown): string => {
-  if (error instanceof Error) return `${error.message}\n${error.stack ?? ""}`;
+const describeError = (error: unknown, seen = new Set<Error>()): string => {
+  if (error instanceof Error) {
+    if (seen.has(error)) {
+      return "[Circular error cause]";
+    }
+
+    seen.add(error);
+    const details = error.stack ?? `${error.name}: ${error.message}`;
+    const cause = error.cause;
+
+    return cause === undefined
+      ? details
+      : `${details}\nCaused by: ${describeError(cause, seen)}`;
+  }
+
   return String(error);
 };
 
 process.on("unhandledRejection", (reason) => {
-  client.logger.error(new Error("Unhandled promise rejection.", { cause: reason }));
+  client.logger.error(describeError(reason));
 });
 
 process.on("uncaughtException", (error) => {
   client.logger.error(
-    new Error("Uncaught exception. The shard will be restarted.", { cause: error }),
+    `Uncaught exception. The shard will be restarted.\n${describeError(error)}`,
   );
-  process.exitCode = 1;
+  process.exit(1);
 });
 
 process.on("warning", (warning) => {

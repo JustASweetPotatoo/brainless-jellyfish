@@ -13,7 +13,7 @@
     "strictPropertyInitialization": false,
     "esModuleInterop": true
   },
-  "include": ["src"],
+  "include": ["src", "test"],
   "files": ["src/index.ts"],
   "exclude": ["node_modules"]
 }

@@ -16,7 +16,7 @@ export type ModuleMap = {
 export default class ModuleManager extends DiscordModule<"module-manager"> {
   protected readonly premiumLevel: PremiumStatus = PremiumStatus.STANDARD;
 
-  private readonly modules = new Map<keyof ModuleMap, ModuleMap[keyof ModuleMap]>();
+  readonly modules = new Map<keyof ModuleMap, ModuleMap[keyof ModuleMap]>();
   private modulesLoaded = false;
 
   public loadModules(): void {
@@ -25,7 +25,7 @@ export default class ModuleManager extends DiscordModule<"module-manager"> {
     }
 
     this.modulesLoaded = true;
-    const moduleOptions = { client: this.client };
+    const moduleOptions = { client: this.client, redis: this.client.redisManager.getRedisClient() };
     for (const Module of Object.values(moduleRegistry)) {
       const instance = new Module(moduleOptions);
       instance.emit(BaseModuleEvents.ModuleAvailable);

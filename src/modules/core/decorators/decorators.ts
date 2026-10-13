@@ -41,7 +41,7 @@ export interface DiscordModuleEventMetadata {
  * @On(Events.MessageCreate)
  * async onMessageCreate(message: Message) {}
  */
-export function On(event: keyof ClientEvents, botRejected: boolean = true): MethodDecorator {
+export function On(event: keyof ClientEvents, botRejected: boolean = false): MethodDecorator {
   return (target, propertyKey, descriptor) => {
     if (typeof propertyKey !== "string" && typeof propertyKey !== "symbol") {
       throw new TypeError("@On can only decorate a method.");

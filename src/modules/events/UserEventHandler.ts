@@ -27,13 +27,13 @@ export default class UserEventLogger extends EventHandler<"user-event-logger"> {
   }
 
   private parseEvent(oldMember: GuildMember, newMember: GuildMember): UserUpdateEvents {
-    if (oldMember.user.username != newMember.user.username) return "username";
-    if (oldMember.displayName != newMember.displayName) return "displayName";
-    if (oldMember.user.discriminator != newMember.user.discriminator) return "discriminator";
-    if (oldMember.avatarURL() != newMember.avatarURL()) return "avatar";
-    if (oldMember.displayAvatarURL() != newMember.displayAvatarURL()) return "displayAvatar";
-    if (oldMember.nickname != newMember.nickname) return "nickname";
-    if (oldMember.roles.cache.size != newMember.roles.cache.size) {
+    if (oldMember.user.username !== newMember.user.username) return "username";
+    if (oldMember.displayName !== newMember.displayName) return "displayName";
+    if (oldMember.user.discriminator !== newMember.user.discriminator) return "discriminator";
+    if (oldMember.avatarURL() !== newMember.avatarURL()) return "avatar";
+    if (oldMember.displayAvatarURL() !== newMember.displayAvatarURL()) return "displayAvatar";
+    if (oldMember.nickname !== newMember.nickname) return "nickname";
+    if (oldMember.roles.cache.size !== newMember.roles.cache.size) {
       if (oldMember.roles.cache.size < newMember.roles.cache.size) return "roleAdded";
       else return "roleRemoved";
     }
@@ -43,22 +43,22 @@ export default class UserEventLogger extends EventHandler<"user-event-logger"> {
 
   @On(Events.GuildMemberUpdate)
   protected async onGuildMemberUpdate(
-    oldMember: GuildMember,
-    newMember: GuildMember,
+    oldMemberState: GuildMember,
+    newMemberState: GuildMember,
   ): Promise<any> {
-    const guild = oldMember.guild;
-    const logChannel = await this.processActivation(guild, LogChannelType.USER);
+    const guild = oldMemberState.guild;
+    const logChannel = await this.getLogChannel(guild, LogChannelType.USER);
 
-    if (logChannel instanceof TextChannel) {
-      const eventType = this.parseEvent(oldMember, newMember);
+    if (logChannel) {
+      const eventType = this.parseEvent(oldMemberState, newMemberState);
 
       let embed = new EmbedBuilder()
         .setAuthor({
-          name: newMember.user.username,
-          iconURL: newMember.user.displayAvatarURL(),
+          name: newMemberState.user.username,
+          iconURL: newMemberState.user.displayAvatarURL(),
         })
         .setColor(Colors.Blurple)
-        .setFooter({ text: `UID: ${newMember.id}` })
+        .setFooter({ text: `UID: ${newMemberState.id}` })
         .setTimestamp();
 
       switch (eventType) {
@@ -66,58 +66,58 @@ export default class UserEventLogger extends EventHandler<"user-event-logger"> {
           embed
             .setTitle("Username update")
             .setDescription(
-              `**Before: **${oldMember.user.username ?? "None"}\n**After: **${newMember.user.username ?? "None"}`,
+              `**Before: **${oldMemberState.user.username ?? "None"}\n**After: **${newMemberState.user.username ?? "None"}`,
             );
           break;
         case "displayName":
           embed
             .setTitle("Display name update")
             .setDescription(
-              `**Before: **${oldMember.displayName ?? "None"}\n**After: **${newMember.displayName ?? "None"}`,
+              `**Before: **${oldMemberState.displayName ?? "None"}\n**After: **${newMemberState.displayName ?? "None"}`,
             )
-            .setThumbnail(newMember.user.displayAvatarURL());
+            .setThumbnail(newMemberState.user.displayAvatarURL());
           break;
         case "nickname":
           embed
             .setTitle("Nickname update")
             .setDescription(
-              `**Before: **${oldMember.nickname ?? "None"}\n**After: **${newMember.nickname ?? "None"}`,
+              `**Before: **${oldMemberState.nickname ?? "None"}\n**After: **${newMemberState.nickname ?? "None"}`,
             )
-            .setThumbnail(newMember.user.displayAvatarURL());
+            .setThumbnail(newMemberState.user.displayAvatarURL());
           break;
         case "avatar":
           embed
             .setTitle("Avatar update")
-            .setDescription(`<@${newMember.id}>`)
-            .setThumbnail(newMember.user.displayAvatarURL());
+            .setDescription(`<@${newMemberState.id}>`)
+            .setThumbnail(newMemberState.user.displayAvatarURL());
           break;
         case "displayAvatar":
-          embed.setTitle("Display avatar update").setThumbnail(newMember.user.displayAvatarURL());
+          embed
+            .setTitle("Display avatar update")
+            .setThumbnail(newMemberState.user.displayAvatarURL());
           break;
         case "discriminator":
           embed.setTitle("Discriminator update");
           break;
         case "roleAdded":
-          embed.setTitle("Role added");
+          const d1 = `${newMemberState.roles.cache
+            .filter((role) => !!!oldMemberState.roles.cache.get(role.id))
+            .map((role) => `<@&${role.id}>`)
+            .join(" ")}`;
+          embed.setTitle("Role added").setDescription(d1);
           break;
         case "roleRemoved":
-          embed.setTitle("Role removed");
+          const d2 = `${oldMemberState.roles.cache
+            .filter((role) => !!!newMemberState.roles.cache.get(role.id))
+            .map((role) => `<@&${role.id}>`)
+            .join(" ")}`;
+          embed.setTitle("Role removed").setDescription(d2);
 
         default:
           break;
       }
 
       await logChannel.send({ embeds: [embed] });
-    }
-  }
-
-  @On(Events.ChannelDelete)
-  protected async onChannelDelete(channel: Channel) {
-    if (channel instanceof TextChannel) {
-      this.channelIdCache.set(channel.guildId, undefined);
-      const profile = await this.getStatusManager().getLogProfile(channel.guildId);
-      profile.userChannelId = undefined;
-      await this.getStatusManager().updateLogProfile(profile);
     }
   }
 }

@@ -36,7 +36,9 @@ export default class ClientSlashCommandSubcommandBuilder extends SlashCommandSub
   }
 
   override addChannelOption(
-    input: SlashCommandChannelOption | ((builder: SlashCommandChannelOption) => SlashCommandChannelOption),
+    input:
+      | SlashCommandChannelOption
+      | ((builder: SlashCommandChannelOption) => SlashCommandChannelOption),
   ): this {
     if (input instanceof SlashCommandChannelOption) {
       super.addChannelOption(input);
@@ -72,7 +74,9 @@ export default class ClientSlashCommandSubcommandBuilder extends SlashCommandSub
   }
 
   override addNumberOption(
-    input: SlashCommandNumberOption | ((builder: SlashCommandNumberOption) => SlashCommandNumberOption),
+    input:
+      | SlashCommandNumberOption
+      | ((builder: SlashCommandNumberOption) => SlashCommandNumberOption),
   ): this {
     if (input instanceof SlashCommandNumberOption) {
       super.addNumberOption(input);
@@ -84,7 +88,9 @@ export default class ClientSlashCommandSubcommandBuilder extends SlashCommandSub
   }
 
   override addStringOption(
-    input: SlashCommandStringOption | ((builder: SlashCommandStringOption) => SlashCommandStringOption),
+    input:
+      | SlashCommandStringOption
+      | ((builder: SlashCommandStringOption) => SlashCommandStringOption),
   ): this {
     if (input instanceof SlashCommandStringOption) {
       super.addStringOption(input);
@@ -96,7 +102,9 @@ export default class ClientSlashCommandSubcommandBuilder extends SlashCommandSub
   }
 
   override addAttachmentOption(
-    input: SlashCommandAttachmentOption | ((builder: SlashCommandAttachmentOption) => SlashCommandAttachmentOption),
+    input:
+      | SlashCommandAttachmentOption
+      | ((builder: SlashCommandAttachmentOption) => SlashCommandAttachmentOption),
   ): SlashCommandSubcommandBuilder {
     if (input instanceof SlashCommandAttachmentOption) {
       super.addAttachmentOption(input);
@@ -108,7 +116,9 @@ export default class ClientSlashCommandSubcommandBuilder extends SlashCommandSub
   }
 
   override addBooleanOption(
-    input: SlashCommandBooleanOption | ((builder: SlashCommandBooleanOption) => SlashCommandBooleanOption),
+    input:
+      | SlashCommandBooleanOption
+      | ((builder: SlashCommandBooleanOption) => SlashCommandBooleanOption),
   ): this {
     if (input instanceof SlashCommandBooleanOption) {
       super.addBooleanOption(input);
@@ -120,7 +130,9 @@ export default class ClientSlashCommandSubcommandBuilder extends SlashCommandSub
   }
 
   override addIntegerOption(
-    input: SlashCommandIntegerOption | ((builder: SlashCommandIntegerOption) => SlashCommandIntegerOption),
+    input:
+      | SlashCommandIntegerOption
+      | ((builder: SlashCommandIntegerOption) => SlashCommandIntegerOption),
   ): this {
     if (input instanceof SlashCommandIntegerOption) {
       super.addIntegerOption(input);
@@ -132,7 +144,9 @@ export default class ClientSlashCommandSubcommandBuilder extends SlashCommandSub
   }
 
   override addMentionableOption(
-    input: SlashCommandMentionableOption | ((builder: SlashCommandMentionableOption) => SlashCommandMentionableOption),
+    input:
+      | SlashCommandMentionableOption
+      | ((builder: SlashCommandMentionableOption) => SlashCommandMentionableOption),
   ): this {
     if (input instanceof SlashCommandMentionableOption) {
       super.addMentionableOption(input);
@@ -142,5 +156,9 @@ export default class ClientSlashCommandSubcommandBuilder extends SlashCommandSub
     }
 
     return this;
+  }
+
+  override toJSON(): ReturnType<SlashCommandSubcommandBuilder["toJSON"]> {
+    return SlashCommandSubcommandBuilder.prototype.toJSON.call(this);
   }
 }

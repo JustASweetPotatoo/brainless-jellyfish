@@ -11,7 +11,7 @@ export default class MessageEventHandler extends EventHandler<"message-event-han
   protected readonly premiumLevel: PremiumStatus = PremiumStatus.STANDARD;
 
   protected override getLogChannelType(): LogChannelType {
-    return LogChannelType.MESSSAGE;
+    return LogChannelType.MESSAGE;
   }
 
   constructor(options: ModuleOptions) {
@@ -27,12 +27,12 @@ export default class MessageEventHandler extends EventHandler<"message-event-han
       return;
     }
 
-    const logChannel = await this.processActivation(oldMessage.guild, LogChannelType.MESSSAGE);
+    const logChannel = await this.getLogChannel(oldMessage.guild, LogChannelType.MESSAGE);
 
-    if (logChannel instanceof TextChannel) {
+    if (logChannel) {
       const locale = oldMessage.guild.preferredLocale;
 
-      if (logChannel instanceof TextChannel) {
+      if (logChannel) {
         const descriptionStarter = `${
           locale == Locale.Vietnamese ? "**[Tin nhắn đã chỉnh sửa trong" : "**Message edited in"
         } ${oldMessage.channel.name}](${oldMessage.url})**`;
@@ -73,24 +73,20 @@ export default class MessageEventHandler extends EventHandler<"message-event-han
             },
           ],
         });
-      } else {
-        this.logger.warn(
-          `Can't get channel in guild id: ${oldMessage.guildId} - CODE: ${logChannel}`,
-        );
       }
     }
   }
 
   @On(Events.MessageDelete, true)
   protected async onMessageDelete(message: Message<true>): Promise<any> {
-    const logChannel = await this.processActivation(message.guild, LogChannelType.MESSSAGE);
+    const logChannel = await this.getLogChannel(message.guild, LogChannelType.MESSAGE);
 
-    if (logChannel instanceof TextChannel) {
+    if (logChannel) {
       const isOverSizeMessage = message.content.length > EMBED_DESCRIPTION_MAX_LENGTH;
 
       const descriptions: string[] = [
         `**Message deleted in <#${message.channelId}> <t:${Math.floor(Date.now() / 1000)}:R>**`,
-        `**Content:** ${message.content.length == 0 ? "*No content*" : message.content}`,
+        `**Content:** \n${message.content.length == 0 ? "*No content*" : message.content}`,
         `> Message Id: ${message.id}`,
       ];
 
@@ -118,8 +114,6 @@ export default class MessageEventHandler extends EventHandler<"message-event-han
       }
 
       await logChannel.send({ embeds: [embed], files: atts });
-    } else {
-      this.logger.warn(`Can't get channel in guild: ${message.guildId} - CODE: ${logChannel}`);
     }
   }
 
@@ -131,59 +125,58 @@ export default class MessageEventHandler extends EventHandler<"message-event-han
       return;
     }
 
-    const logChannel = await this.processActivation(firstMessage.guild, LogChannelType.MESSSAGE);
-
+    const logChannel = await this.getLogChannel(firstMessage.guild, LogChannelType.MESSAGE);
     const filteredMessages = messages.filter((message) => !message.author.bot);
 
-    if (logChannel instanceof TextChannel) {
-      let chunk: string = "";
-
-      let firstEmbedFullContent = false;
-      const firstEmbedTimeData = `Deleted <t:${Math.floor(Date.now() / 1000)}:R>`;
-      const firstEmbed = new EmbedBuilder()
-        .setTitle(`${messages.size} messages deleted in <#${messages.first()?.channelId}>`)
-        .setColor(Colors.Red);
-
-      const embeds = [];
-
-      const lastEmbed = new EmbedBuilder()
-        .setColor(Colors.Red)
-        .setFooter({ text: `Channel ID: ${messages.first()?.channelId}` })
-        .setTimestamp();
-
-      messages
-        .map((msg) => msg)
-        .forEach((msg, index) => {
-          if (msg.author.bot) return;
-
-          const rowContent = `**${msg.author.username}**: ${msg.content}`;
-
-          if (!firstEmbedFullContent) {
-            if (
-              chunk.length + rowContent.length + firstEmbedTimeData.length <
-              EMBED_DESCRIPTION_MAX_LENGTH
-            ) {
-              chunk += rowContent + "\n";
-            } else {
-              firstEmbed.setDescription(firstEmbedTimeData + "\n" + chunk);
-              firstEmbedFullContent = true;
-              embeds.push(firstEmbed);
-            }
-            return;
-          }
-
-          if (chunk.length + rowContent.length > EMBED_DESCRIPTION_MAX_LENGTH) {
-            chunk += rowContent + "\n";
-          } else if (index == messages.size - 1) {
-            embeds.push(lastEmbed.setDescription(chunk));
-          } else {
-            embeds.push(new EmbedBuilder().setDescription(chunk));
-          }
-        });
-    } else {
-      this.logger.warn(
-        `Can't get channel with in guild: ${firstMessage.guild.id} - CODE: ${logChannel}`,
-      );
+    if (!logChannel) {
+      return;
     }
+
+    let chunk: string = "";
+
+    let firstEmbedFullContent = false;
+    const firstEmbedTimeData = `Deleted <t:${Math.floor(Date.now() / 1000)}:R>`;
+    const firstEmbed = new EmbedBuilder()
+      .setTitle(`${messages.size} messages deleted in <#${messages.first()?.channelId}>`)
+      .setColor(Colors.Red);
+
+    const embeds = [];
+
+    const lastEmbed = new EmbedBuilder()
+      .setColor(Colors.Red)
+      .setFooter({ text: `Channel ID: ${messages.first()?.channelId}` })
+      .setTimestamp();
+
+    let index = -1;
+    for (const [msgId, msg] of filteredMessages) {
+      index += 1;
+
+      const rowContent = `**${msg.author.username}**: ${msg.content}`;
+
+      if (!firstEmbedFullContent) {
+        if (
+          chunk.length + rowContent.length + firstEmbedTimeData.length <
+          EMBED_DESCRIPTION_MAX_LENGTH
+        ) {
+          chunk += rowContent + "\n";
+        } else if (index + 1 == filteredMessages.size) {
+          firstEmbed.setDescription(firstEmbedTimeData + "\n" + chunk);
+          firstEmbedFullContent = true;
+          embeds.push(firstEmbed);
+        } else {
+          continue;
+        }
+      }
+
+      if (chunk.length + rowContent.length > EMBED_DESCRIPTION_MAX_LENGTH) {
+        chunk += rowContent + "\n";
+      } else if (index == messages.size - 1) {
+        embeds.push(lastEmbed.setDescription(chunk));
+      } else {
+        embeds.push(new EmbedBuilder().setDescription(chunk));
+      }
+    }
+
+    await logChannel.send({ embeds: embeds });
   }
 }

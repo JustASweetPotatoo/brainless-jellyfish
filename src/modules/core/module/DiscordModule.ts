@@ -25,6 +25,7 @@ import { getFullCommandName } from "../../../utils/slashCommand";
 import { sendInteractionMessageReply } from "../../../utils/replier";
 import { DISCORD_EVENT_KEY, DiscordModuleEventMetadata } from "../decorators/decorators";
 import { Channel } from "diagnostics_channel";
+import { RedisClientType } from "redis";
 
 /**
  * INTERACTION TYPES
@@ -47,10 +48,18 @@ export default abstract class DiscordModule<TName extends string> extends BaseMo
   protected abstract readonly premiumLevel: PremiumStatus;
   private discordEventsRegistered = false;
 
+  protected readonly redisClient: RedisClientType;
+
   /**
    * Limiter
    */
   readonly limiter: Limiter = new Limiter({ timeout: 5_000, limit: 2 });
+
+  constructor(options: ModuleOptions) {
+    super(options);
+
+    this.redisClient = this.client.redisManager.getRedisClient();
+  }
 
   /**
    * Button interaction.
@@ -276,7 +285,12 @@ export default abstract class DiscordModule<TName extends string> extends BaseMo
         const handler = (this as any)[key].bind(this);
 
         this.client.on(metadata.event, (...args: unknown[]) => {
-          if (!(this.isBotEvent(args) && metadata.botRejected)) {
+          const isRejectedBotEvent =
+            metadata.event !== Events.ClientReady &&
+            metadata.botRejected === true &&
+            this.isBotEvent(args);
+
+          if (!isRejectedBotEvent) {
             void this.executeEvent(String(metadata.event), handler, ...args).catch((error) =>
               this.handleModuleError(error),
             );
@@ -332,7 +346,7 @@ export default abstract class DiscordModule<TName extends string> extends BaseMo
 
     await sendInteractionMessageReply(interaction, {
       embeds: [embed],
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
   }
 

@@ -128,7 +128,7 @@ export default class NoiTuManager extends DiscordModule<"noi-tu-manager"> {
       });
   }
 
-  @On(Events.MessageCreate)
+  @On(Events.MessageCreate, true)
   protected async onMessageCreate(message: Message<true>) {
     const response = this.messageCreateAction(message);
     const embedBuilder = new EmbedBuilder().setTimestamp();

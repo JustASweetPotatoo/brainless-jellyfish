@@ -70,4 +70,8 @@ export default class ClientSlashCommandSubcommandGroupBuilder extends SlashComma
 
     return executor;
   }
+
+  override toJSON(): ReturnType<SlashCommandSubcommandGroupBuilder["toJSON"]> {
+    return SlashCommandSubcommandGroupBuilder.prototype.toJSON.call(this);
+  }
 }

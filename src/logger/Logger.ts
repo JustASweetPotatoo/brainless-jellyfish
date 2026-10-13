@@ -73,7 +73,8 @@ export class LogPrinter {
    * @param content
    */
   public writeContent(content: string): boolean {
-    if (this.client.operationMode == "debug") {
+    // this.client.operationMode == "debug"
+    if (true) {
       this.writeToDebugFile(content);
       return true;
     } else {
@@ -190,6 +191,13 @@ export class Logger {
   }
 
   error(error: Error | any): void;
+
+  error(options: {
+    message?: string;
+    error?: Error | any;
+    noLabel?: boolean;
+    printToFile?: boolean;
+  }): void;
 
   error(
     options:

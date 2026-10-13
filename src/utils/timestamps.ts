@@ -1,7 +1,7 @@
-const HOUR = 60 * 60 * 1000;
-
+const SECOND = 1000;
+const MINUTE = 60 * SECOND;
+const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
-const MINUTE = 60 * 1000;
 
 /**
  * Convert a Discord timestamp to an elapsed duration.
@@ -59,6 +59,29 @@ function formatDurationMilliseconds(startTimestamp: number, endTimestamp: number
  */
 export function getHourTimestamp(timestamp: number = new Date().getTime()): number {
   return Math.floor(timestamp / HOUR) * HOUR;
+}
+
+/**
+ * Round timestamp down to the beginning
+ * of the minute.
+ *
+ * Example:
+ *
+ * 20:35:42
+ * ↓
+ * 20:35:00
+ * @param [timestamp=new Date().getTime()] Default is newest timestamp
+ */
+export function getMinuteTimestamp(timestamp: number = new Date().getTime()): number {
+  return Math.floor(timestamp / MINUTE) * MINUTE;
+}
+
+/**
+ * Round a timestamp down to the beginning of its second.
+ * @param [timestamp=new Date().getTime()] Default is newest timestamp
+ */
+export function getSecondTimestamp(timestamp: number = new Date().getTime()): number {
+  return Math.floor(timestamp / SECOND) * SECOND;
 }
 
 /**

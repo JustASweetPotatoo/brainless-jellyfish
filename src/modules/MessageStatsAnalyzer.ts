@@ -15,13 +15,6 @@ import { BucketCounter, StatsInterval } from "./MessageStatsTypes";
 export default class MessageStatsAnalyzer extends DiscordModule<"message-stats-analyzer"> {
   protected readonly premiumLevel: PremiumStatus = PremiumStatus.STANDARD;
 
-  private readonly redisClient: RedisClientType;
-
-  constructor(options: ConstructorParameters<typeof DiscordModule>[0]) {
-    super(options);
-    this.redisClient = this.client.redisManager.getRedisClient();
-  }
-
   public async getUserTotal(userId: string): Promise<number> {
     return getHashValue(this.redisClient, "stats:message:user:total", userId);
   }

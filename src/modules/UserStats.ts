@@ -10,22 +10,13 @@ import {
   ThumbnailBuilder,
 } from "discord.js";
 
-import { RedisClientType } from "redis";
 import { PremiumStatus } from "../database/model/GuildStatus";
 import DiscordModule from "./core/module/DiscordModule";
-import { ModuleOptions } from "./core/module/BaseModule";
 import { SlashCommandExecutor } from "./core/decorators/decorators";
 import { formatTimestamp } from "../utils/functions";
 
 export default class UserStats extends DiscordModule<"user-stats"> {
   protected readonly premiumLevel: PremiumStatus = PremiumStatus.PRO;
-
-  private redisClient: RedisClientType;
-
-  constructor(options: ModuleOptions) {
-    super(options);
-    this.redisClient = options.client.redisManager.getRedisClient();
-  }
 
   @SlashCommandExecutor({ guildOnly: true, deferred: true })
   async getUserInfo(interaction: ChatInputCommandInteraction<"cached">) {

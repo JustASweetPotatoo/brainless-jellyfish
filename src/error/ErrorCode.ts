@@ -57,6 +57,12 @@ enum ErrorCode {
   DATABASE_POOL_UNDEFINED = "GE_306",
 
   /**
+   * Facebed API is offline of crashing
+   * @description Check API side first
+   */
+  FETCH_FACEBED_API_FAILED = "GE_307",
+
+  /**
    * Interaction has been replied.
    * @description The interaction has already been responded to.
    * @fix Review the interaction process.
@@ -191,6 +197,7 @@ const ErrorMessage: { [key in ErrorCode]: string } = {
   [ErrorCode.EXECUTE_EVENT_FAILED]: "Failed to execute the event",
   [ErrorCode.LOAD_COMPONENT_FAILED]: "Failed to load the component",
   [ErrorCode.EXECUTE_COMPONENT_INTERACTION_FAILED]: "Failed to execute the component",
+  [ErrorCode.FETCH_FACEBED_API_FAILED]: "Failed to fetch API",
 };
 
 export { ErrorCode, ErrorMessage };

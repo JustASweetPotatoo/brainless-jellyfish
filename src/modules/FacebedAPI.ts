@@ -22,13 +22,10 @@ import { On } from "./core/decorators/decorators";
 import { extractFacebookShareUrl } from "../utils/functions";
 
 import { EventEmitter } from "stream";
-import {
-  ExtractedMedia,
-  extractMedia,
-  extractPostInf,
-  extractFacebookReelId,
-} from "../utils/facebookCrawlerHelper";
+import { ExtractedMedia, extractMedia, extractPostInf } from "../utils/facebookCrawlerHelper";
 import { PremiumStatus } from "../database/model/GuildStatus";
+import ClientError from "../error/ClientError";
+import { ErrorCode } from "../error/ErrorCode";
 
 enum FacebookPostType {
   POST,
@@ -48,11 +45,10 @@ interface FacebookUrlCrawledData {
 
 export default class FacebedAPI extends DiscordModule<"facebed-api"> {
   protected readonly premiumLevel: PremiumStatus = PremiumStatus.STANDARD;
-
   private webhookClients: Collection<string, WebhookClient> = new Collection();
-  private guildCachedList: Collection<string, { enable: boolean }> = new Collection();
-
   private readonly ApiUrl = process.env.PYTHON_API || "http://localhost:9812";
+
+  private isApiWorking = false;
 
   private readonly failedEmbed = (extractedUrl: string) => {
     return new EmbedBuilder()
@@ -139,31 +135,13 @@ export default class FacebedAPI extends DiscordModule<"facebed-api"> {
   private readonly emitter = new EventEmitter({ captureRejections: true });
 
   async enable(guildId: string) {
-    let isActive = await this.client.moduleManager
-      .get("guild-status-manager")
-      .isActive(guildId, this.name);
-
-    if (isActive) {
-      return false;
-    }
-
     this.emitter.on(guildId, this.processMessageOnGuild);
-    await this.client.moduleManager.get("guild-status-manager").enableModule(guildId, this.name);
-    return true;
+    return await this.client.guildStatusManager.enableModule(guildId, this.name);
   }
 
   async disable(guildId: string) {
-    let isActive = await this.client.moduleManager
-      .get("guild-status-manager")
-      .isActive(guildId, this.name);
-
-    if (isActive) {
-      this.emitter.removeListener(guildId, this.processMessageOnGuild);
-      await this.client.moduleManager.get("guild-status-manager").disableModule(guildId, this.name);
-      return true;
-    }
-
-    return false;
+    this.emitter.removeListener(guildId, this.processMessageOnGuild);
+    return await this.client.guildStatusManager.disableModule(guildId, this.name);
   }
 
   private async processMessageOnGuild(message: Message<true>) {
@@ -242,9 +220,7 @@ export default class FacebedAPI extends DiscordModule<"facebed-api"> {
       } else if (crawledData.images) {
         messagePayload.files = crawledData.images.flatMap((image) => image.url).slice(0, 8);
       } else {
-        const guildStatus = await this.client.moduleManager
-          .get("guild-status-manager")
-          .get(message.guildId);
+        const guildStatus = await this.client.guildStatusManager.getStatus(message.guildId);
 
         if ((guildStatus.premiumStatus = 0)) {
           return;
@@ -263,20 +239,43 @@ export default class FacebedAPI extends DiscordModule<"facebed-api"> {
   @On(Events.MessageCreate, true)
   async onMessageCreate(message: Message<true>) {
     const isListening = this.emitter.emit(message.guildId, message);
+
     if (!isListening) {
-      const guildCache = this.guildCachedList.get(message.guild.id);
-      if (guildCache) {
-        return;
-      }
-      const guildProfile = await this.client.moduleManager
-        .get("guild-status-manager")
-        .get(message.guild.id);
-      const isActive = !!guildProfile?.activeList.find((mname) => mname === this.name);
+      const isActive = await this.client.guildStatusManager.isActive(message.guildId, this.name);
+
       if (isActive) {
-        this.emitter.on(guildProfile.id, this.processMessageOnGuild.bind(this));
-        this.emitter.emit(guildProfile.id, message);
+        if (!this.isApiWorking) {
+          message
+            .reply(
+              `### API is not working now! 
+            If you don't use facebed fearture please ignore this notification. 
+            If you want to disable this notification please use command: \`/better-link facebed\`
+            -# Message will be deleted in <t:${Math.floor(Date.now() / 1000) + 5}:R>
+            `,
+            )
+            .then((message) => setTimeout(() => message.delete().catch(), 5000));
+          return;
+        }
+
+        this.emitter.on(message.guildId, this.processMessageOnGuild);
+        this.emitter.emit(message.guildId, message);
       }
-      this.guildCachedList.set(message.guildId, { enable: isActive });
     }
+  }
+
+  @On(Events.ClientReady)
+  async onClientReady() {
+    fetch("healthz")
+      .then((res) => {
+        if (res.ok) {
+          this.logger.ok("API working normally, status: " + res.status);
+          this.isApiWorking = true;
+        } else {
+          this.logger.warn(`API warning: ${res.status} - ${res.url}`);
+        }
+      })
+      .catch((error) =>
+        this.handleModuleError(new ClientError(ErrorCode.FETCH_FACEBED_API_FAILED, error)),
+      );
   }
 }

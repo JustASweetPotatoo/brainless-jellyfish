@@ -37,7 +37,7 @@ import { sendInteractionMessageReply } from "../utils/replier";
 import { generateRankCard } from "../utils/rankCard";
 import { RedisClientType } from "redis";
 import { ModuleOptions } from "./core/module/BaseModule";
-import { RedisMulti } from "../utils/redis";
+import { createCompositeKey, parseCompositeKey, RedisMulti } from "../utils/redis";
 import { PremiumStatus } from "../database/model/GuildStatus";
 
 const avatarPath = path.join(__dirname, "../assets/avatar.png");
@@ -92,37 +92,12 @@ export default class LevelProvider extends DiscordModule<"level-provider"> {
   @Repository()
   readonly memberRepo: UserlevelProfileRepo;
 
-  private redisClient: RedisClientType;
-
   constructor(options: ModuleOptions) {
     super(options);
-    this.redisClient = options.client.redisManager.getRedisClient();
-  }
-
-  private async getHashValue(key: string, field: string): Promise<number> {
-    const value = await this.redisClient.hGet(key, field);
-    return value === null ? 0 : Number(value);
-  }
-
-  private async incrementVoiceExp(userProfile: UserLevelProfile, amount = 1) {
-    await this.redisClient.hIncrBy(
-      `level:voice:guild:${userProfile.guildId}`,
-      userProfile.id,
-      amount,
-    );
-  }
-
-  private async incrementMessageExp(userProfile: UserLevelProfile, amount = 1) {
-    await this.redisClient.hIncrBy(
-      `level:message:guild:${userProfile.guildId}`,
-      userProfile.id,
-      amount,
-    );
   }
 
   private async updateMemberProfile(p: UserLevelProfile) {
     await this.memberRepo.update(p);
-    this.memberProfileCache.set(p.getCacheId(), p);
   }
 
   private async updateGuildProfile(p: GuildLevelProviderProfile) {
@@ -149,26 +124,25 @@ export default class LevelProvider extends DiscordModule<"level-provider"> {
     return guildProfile;
   }
 
-  private async getMemberProfile(member: GuildMember) {
-    const cacheId = `${member.id}|${member.guild.id}`;
-
-    let userProfile = this.memberProfileCache.get(cacheId);
+  private async getMemberProfile(compositeKey: string) {
+    let userProfile = this.memberProfileCache.get(compositeKey);
+    const [guildId, userId] = parseCompositeKey(compositeKey);
 
     if (!userProfile) {
       userProfile = await this.memberRepo.get({
-        id: member.id,
-        guildId: member.guild.id,
+        id: userId,
+        guildId: guildId,
       });
     }
 
     if (!userProfile) {
       userProfile = new UserLevelProfile({
-        id: member.id,
-        guild_id: member.guild.id,
+        id: userId,
+        guild_id: guildId,
       });
     }
 
-    this.memberProfileCache.set(cacheId, userProfile);
+    this.memberProfileCache.set(compositeKey, userProfile);
 
     return userProfile;
   }
@@ -281,9 +255,9 @@ export default class LevelProvider extends DiscordModule<"level-provider"> {
 
   @ModuleOn(MemberVoiceStateEvents.LEAVE)
   private async userLeaveVoiceEvent(member: GuildMember) {
-    const userProfile = await this.getMemberProfile(member);
-    const cacheId = `${member.id}|${member.guild.id}`;
-    let session = this.voiceSessions.get(cacheId);
+    const compositeKey = createCompositeKey(member.guild.id, member.id);
+    const userProfile = await this.getMemberProfile(compositeKey);
+    let session = this.voiceSessions.get(compositeKey);
     if (!session) {
       return;
     }
@@ -301,7 +275,7 @@ export default class LevelProvider extends DiscordModule<"level-provider"> {
 
     userProfile.voiceExp += expByMinutes + session.bonusEpx + expBonus;
 
-    this.voiceSessions.delete(cacheId);
+    this.voiceSessions.delete(compositeKey);
 
     await this.memberRepo.updateByVoiceLevel(userProfile);
   }
@@ -407,17 +381,15 @@ export default class LevelProvider extends DiscordModule<"level-provider"> {
     const type = interaction.options.getString("type", true)?.toLowerCase();
     const amount = interaction.options.getNumber("amount", true);
     const isVoice = interaction.options.getBoolean("is-voice-level") ?? false;
-    const targetUser = interaction.options.getUser("user");
+    const target = interaction.options.getMember("user") ?? interaction.member;
 
-    const member = interaction.member;
-    if (!member || !("id" in member) || !("guild" in member)) {
+    if (!(target instanceof GuildMember)) {
       return;
     }
 
-    const targetMember = targetUser
-      ? await member.guild.members.fetch(targetUser.id).catch(() => null)
-      : null;
-    const target = targetMember ?? member;
+    if (!interaction.inCachedGuild()) {
+      return;
+    }
 
     if (typeof amount !== "number" || Number.isNaN(amount)) {
       await interaction.editReply({
@@ -453,7 +425,7 @@ export default class LevelProvider extends DiscordModule<"level-provider"> {
       return;
     }
 
-    const userProfile = await this.getMemberProfile(target as GuildMember);
+    const userProfile = await this.getMemberProfile(createCompositeKey(target.guild.id, target.id));
     const isMessageType = !isVoice;
     const previousLevel = calcLevel(isVoice ? userProfile.voiceExp : userProfile.messageExp);
 
@@ -858,14 +830,20 @@ export default class LevelProvider extends DiscordModule<"level-provider"> {
 
   @SlashCommandExecutor({ guildOnly: true, defered: true })
   async getMemberLevel(interaction: ChatInputCommandInteraction<"cached">) {
-    let target = interaction.options.getMember("member");
-    if (!target) target = interaction.member;
+    let target = interaction.options.getMember("member") ?? interaction.member;
 
+    if (!(target instanceof GuildMember)) {
+      return;
+    }
+
+    let isActive = await this.client.guildStatusManager.isActive(target.guild.id, this.name);
     let guildProfile = await this.getGuildProfile(target.guild.id);
 
-    if (!guildProfile.active) return;
+    if (!isActive) {
+      return;
+    }
 
-    let profile = await this.getMemberProfile(target);
+    let profile = await this.getMemberProfile(createCompositeKey(target.guild.id, target.id));
 
     const messageLevel = calcLevel(profile.messageExp);
     const voiceLevel = calcLevel(profile.voiceExp);
@@ -945,31 +923,31 @@ export default class LevelProvider extends DiscordModule<"level-provider"> {
 
   @On(Events.MessageCreate, true)
   protected async onMessageCreate(message: Message<true>): Promise<void> {
-    const member = message.member;
-
-    if (!member) return;
-
-    const guildProfile = await this.getGuildProfile(member.guild.id);
-
-    if (!guildProfile.active) {
+    if (!message.member) {
       return;
     }
 
-    let memberProfile = await this.getMemberProfile(member);
-    const oldLevel = calcLevel(memberProfile.messageExp);
-    const newMessageExp = memberProfile.messageExp + this.contentToExp(message.content);
-    const newLevel = calcLevel(newMessageExp);
+    const compositeKey = createCompositeKey(message.guildId, message.author.id);
+    const isActive = await this.client.guildStatusManager.isActive(message.guildId, this.name);
 
-    memberProfile.messageExp = newMessageExp;
+    if (!isActive) {
+      return;
+    }
+
+    let memberProfile = await this.getMemberProfile(compositeKey);
+    const oldLevel = calcLevel(memberProfile.messageExp);
+    const exp = memberProfile.messageExp + this.contentToExp(message.content);
+    const newLevel = calcLevel(exp);
+    memberProfile.messageExp = exp;
 
     if (oldLevel !== newLevel) {
-      await this.onUserLevelUp(member, memberProfile);
+      await this.onUserLevelUp(message.member, memberProfile);
     }
 
     await this.memberRepo.updateByMessageLevel(memberProfile);
   }
 
-  @On(Events.VoiceStateUpdate)
+  @On(Events.VoiceStateUpdate, true)
   protected async onVoiceStateUpdate(oldState: VoiceState, newState: VoiceState): Promise<any> {
     const member = oldState.member || newState.member;
     if (!member || member.user.bot) return;
@@ -982,6 +960,37 @@ export default class LevelProvider extends DiscordModule<"level-provider"> {
   }
 
   private async processActivation(guildId: string): Promise<boolean> {
-    return await this.client.moduleManager.get("guild-status-manager").isActive(guildId, this.name);
+    return await this.client.guildStatusManager.isActive(guildId, this.name);
   }
+
+  // // REDIS
+  // private async incrementRedisMemberExp(
+  //   id: string,
+  //   guildId: string,
+  //   amount: number,
+  //   multi?: RedisMulti,
+  //   voice = false,
+  // ) {
+  //   if (multi) {
+  //     await multi.hIncrBy(`levelprovider:${guildId}:${voice ? "voice" : "text"}`, id, amount);
+  //   }
+  //   await this.redisClient.hIncrBy(
+  //     `levelprovider:${guildId}:${voice ? "voice" : "text"}`,
+  //     id,
+  //     amount,
+  //   );
+  // }
+
+  // private async getRedisMemberExp(id: string, guildId: string, voice = false): Promise<number> {
+  //   const res = await this.redisClient.hGet(
+  //     `levelprovider:${guildId}:${voice ? "voice" : "text"}`,
+  //     id,
+  //   );
+
+  //   if (res != null) {
+  //     return Number(res);
+  //   } else {
+  //     return 0;
+  //   }
+  // }
 }

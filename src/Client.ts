@@ -1,14 +1,20 @@
 import dotenv from "dotenv";
+import { resolve } from "node:path";
 dotenv.config();
+if (process.env.NODE_ENV !== "production") {
+  dotenv.config({ path: resolve(process.cwd(), "src/web/.env") });
+}
 
 import { Client, Events, GatewayIntentBits, version } from "discord.js";
 
 import { Logger, LogPrinter } from "./logger/Logger";
-import ModuleManager from "./modules/core/ModuleManager";
+import ModuleManager, { ModuleMap } from "./modules/core/ModuleManager";
 import ClientErrorHandler from "./modules/ErrorHandler";
 import SlashCommandManager from "./modules/system/SlashCommandManager";
 import DatabaseManager from "./database/DatabaseManager";
 import RedisManager from "./redis/RedisClient";
+import GuildStatusManager from "./modules/GuildStatusManager";
+import FastifyServer from "./API/FastifyServer";
 
 export type OperationMode = "default" | "debug";
 
@@ -27,6 +33,9 @@ export default class MassClient extends Client {
 
   public readonly operationMode: OperationMode;
 
+  // API
+  public readonly fastifyApi: FastifyServer;
+
   // Client Services
   public readonly logger: Logger;
   public readonly logPrinter: LogPrinter;
@@ -40,7 +49,7 @@ export default class MassClient extends Client {
   public readonly moduleManager: ModuleManager;
   public readonly slashCommandManager: SlashCommandManager;
 
-  // Client dev aliances
+  // Client dev group
   public readonly devServerId: string;
   public readonly shardIds: readonly number[];
 
@@ -69,8 +78,8 @@ export default class MassClient extends Client {
     this.redisManager = new RedisManager({ client: this });
     this.moduleManager = new ModuleManager({ client: this });
     this.errorHandler = new ClientErrorHandler({ client: this });
-
     this.slashCommandManager = new SlashCommandManager({ client: this });
+    this.fastifyApi = new FastifyServer({ client: this });
 
     this.on(Events.ClientReady, async () => this.clientReadyAction());
   }
@@ -86,19 +95,29 @@ export default class MassClient extends Client {
 
     this.logger.info("Starting bot...");
 
+    // MYSQL DATABASE
     const connectionStatusMysql = await this.databaseManager.createConnection();
+
     if (!connectionStatusMysql) {
       this.logger.warn("Force stopping bot demman on no database connection");
       process.exit(0);
     }
 
+    // REDIS DATABASE
+    this.redisManager.createClient();
     const connectionStatusRedis = await this.redisManager.connect();
+
     if (!connectionStatusRedis) {
       this.logger.warn("Force stopping bot demman on redis connect failed");
       process.exit(0);
     }
 
+    // LOAD MODULES
     this.moduleManager.loadModules();
+
+    // LOAD API after modules have registered their routes.
+    await this.fastifyApi.open();
+
     this.bootstrapped = true;
 
     return super.login(token);
@@ -109,5 +128,13 @@ export default class MassClient extends Client {
     this.redisManager.destroy();
     this.databaseManager.defaultPool.destroy();
     return super.destroy();
+  }
+
+  public get guildStatusManager(): GuildStatusManager {
+    return this.moduleManager.get("guild-status-manager");
+  }
+
+  public get rawClient(): this {
+    return this;
   }
 }
