@@ -35,9 +35,11 @@ export default function ProtectedRoute({ adminOnly = false }: ProtectedRouteProp
    * Chưa login.
    */
   if (!isAuthenticated) {
+    const loginPath = adminOnly ? "/admin/login" : "/login";
+
     return (
       <Navigate
-        to="/login"
+        to={loginPath}
         replace
         state={{
           from: location,
@@ -47,7 +49,7 @@ export default function ProtectedRoute({ adminOnly = false }: ProtectedRouteProp
   }
 
   if (adminOnly && !user?.id.startsWith("admin:")) {
-    return <Navigate to="/admin" replace state={{ from: location }} />;
+    return <Navigate to="/admin/login" replace state={{ from: location }} />;
   }
 
   /**

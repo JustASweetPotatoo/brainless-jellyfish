@@ -12,9 +12,9 @@ export default function App() {
     <Routes>
       <Route path="/" element={<Home />} />
       <Route path="/login" element={<LoginPage />} />
-      <Route path="/admin" element={<AdminLogin />} />
+      <Route path="/admin/login" element={<AdminLogin />} />
       <Route element={<ProtectedRoute adminOnly />}>
-        <Route path="/admin/status" element={<BotStatus />} />
+        <Route path="/admin/dashboard" element={<BotStatus />} />
       </Route>
       <Route element={<ProtectedRoute />}>
         <Route path="/dashboard/*" element={<Dashboard />} />

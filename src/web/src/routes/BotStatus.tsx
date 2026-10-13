@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
+import { BACKEND_API_URL } from "../auth/authAPI";
 import { useAuth } from "../auth/useAuth";
 
 interface BotStatusResponse {
@@ -14,6 +15,11 @@ interface BotStatusResponse {
   checkedAt: string;
 }
 
+interface RequestRateResponse {
+  updatedAt: string;
+  points: Array<{ timestamp: number; count: number }>;
+}
+
 export default function BotStatus() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -21,16 +27,68 @@ export default function BotStatus() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [refreshKey, setRefreshKey] = useState(0);
+  const [requestRate, setRequestRate] = useState<RequestRateResponse | null>(null);
+  const [requestStreamError, setRequestStreamError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    let reconnectTimer: number | undefined;
+    let socket: WebSocket | undefined;
+
+    const connect = () => {
+      const url = new URL(`${BACKEND_API_URL}/api/status/requests`);
+      url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
+      socket = new WebSocket(url);
+
+      socket.onopen = () => {
+        if (active) setRequestStreamError("");
+      };
+
+      socket.onmessage = (event) => {
+        try {
+          const data = JSON.parse(String(event.data)) as RequestRateResponse;
+          if (Array.isArray(data.points) && active) {
+            setRequestRate(data);
+          }
+        } catch {
+          if (active) setRequestStreamError("Dữ liệu biểu đồ request không hợp lệ.");
+        }
+      };
+
+      socket.onerror = () => {
+        if (active) setRequestStreamError("Không thể kết nối stream request.");
+        socket?.close();
+      };
+
+      socket.onclose = () => {
+        if (active) {
+          setRequestStreamError("Stream request bị ngắt, đang kết nối lại...");
+          reconnectTimer = window.setTimeout(connect, 2_000);
+        }
+      };
+    };
+
+    connect();
+
+    return () => {
+      active = false;
+      if (reconnectTimer !== undefined) {
+        window.clearTimeout(reconnectTimer);
+      }
+      socket?.close();
+    };
+  }, []);
 
   useEffect(() => {
     let active = true;
 
     const checkStatus = async () => {
       try {
-        const response = await fetch("/api/auth/admin/bot-status", {
+        const response = await fetch(`${BACKEND_API_URL}/api/status`, {
           cache: "no-store",
-          credentials: "same-origin",
+          credentials: "include",
         });
+
         const result = (await response.json().catch(() => null)) as
           | BotStatusResponse
           | { message?: string }
@@ -81,12 +139,22 @@ export default function BotStatus() {
       }).format(new Date(botStatus.checkedAt))
     : "Chưa có dữ liệu";
   const botIsOnline = botStatus?.status === "online";
+  const requestPoints = requestRate?.points ?? [];
+  const maxRequests = Math.max(1, ...requestPoints.map((point) => point.count));
+  const requestLine = requestPoints
+    .map((point, index) => {
+      const x = requestPoints.length > 1 ? (index / (requestPoints.length - 1)) * 600 : 600;
+      const y = 100 - (point.count / maxRequests) * 90;
+      return `${x},${y}`;
+    })
+    .join(" ");
+  const currentRequestRate = requestPoints.at(-1)?.count ?? 0;
 
   return (
     <main className="min-h-screen bg-[#11131a] font-['DM_Sans'] text-[#f1f3f4]">
       <header className="border-b border-[#292e35] bg-[#171a20]">
         <div className="mx-auto flex min-h-16 max-w-6xl items-center justify-between gap-4 px-5 sm:px-8">
-          <Link className="flex items-center gap-3 text-white no-underline" to="/admin/status">
+          <Link className="flex items-center gap-3 text-white no-underline" to="/admin/dashboard">
             <span className="grid h-9 w-9 place-items-center rounded-[11px_11px_11px_4px] bg-[#34765a] font-['Plus_Jakarta_Sans'] text-lg font-extrabold">
               S
             </span>
@@ -169,6 +237,50 @@ export default function BotStatus() {
             <StatusMetric label="RAM" value={`${botStatus.memoryRssMb} MB`} />
           </dl>
         )}
+
+        <section className="mt-8 rounded-xl border border-[#292e35] bg-[#171a20] p-5">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="m-0 text-sm font-semibold text-white">Lưu lượng request của server</h2>
+              <p className="m-0 mt-1 text-xs text-[#858e93]">Số HTTP request mỗi giây · 60 giây gần nhất</p>
+            </div>
+            <div className="text-right">
+              <p className="m-0 text-2xl font-bold text-[#81c5a2]">{currentRequestRate}</p>
+              <p className="m-0 text-[10px] text-[#858e93]">request/giây</p>
+            </div>
+          </div>
+
+          <div className="mt-5 h-44 w-full">
+            {requestPoints.length > 0 ? (
+              <svg
+                aria-label="Biểu đồ request mỗi giây trong 60 giây gần nhất"
+                className="h-full w-full overflow-visible"
+                preserveAspectRatio="none"
+                role="img"
+                viewBox="0 0 600 110"
+              >
+                <line x1="0" x2="600" y1="100" y2="100" stroke="#343a42" strokeWidth="1" />
+                <polyline
+                  fill="none"
+                  points={requestLine}
+                  stroke="#81c5a2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="3"
+                />
+              </svg>
+            ) : (
+              <div className="grid h-full place-items-center text-xs text-[#858e93]">
+                {requestStreamError || "Đang chờ dữ liệu request..."}
+              </div>
+            )}
+          </div>
+          {requestStreamError && requestPoints.length > 0 && (
+            <p className="m-0 mt-2 text-xs text-[#d7b86a]" role="status">
+              {requestStreamError}
+            </p>
+          )}
+        </section>
 
         <p className="mt-5 text-xs text-[#858e93]">
           Tự động kiểm tra mỗi 30 giây. Cập nhật lần cuối: {checkedAt}

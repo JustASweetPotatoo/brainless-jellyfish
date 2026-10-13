@@ -1,11 +1,11 @@
 import { useState, type FormEvent } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 
 import { useAuth } from "../auth/useAuth";
 import { requestAdminLoginToken, verifyAdminLoginToken } from "../auth/authAPI";
 
 export default function AdminLogin() {
-  const { refresh } = useAuth();
+  const { refresh, user, isAuthenticated, isLoading } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
@@ -15,7 +15,16 @@ export default function AdminLogin() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const returnTo =
-    (location.state as { from?: { pathname?: string } } | null)?.from?.pathname ?? "/admin/status";
+    (location.state as { from?: { pathname?: string } } | null)?.from?.pathname ??
+    "/admin/dashboard";
+
+  if (isLoading) {
+    return <div className="grid min-h-screen place-items-center bg-[#11121a] text-white">Loading...</div>;
+  }
+
+  if (isAuthenticated && user?.id.startsWith("admin:")) {
+    return <Navigate to="/admin/dashboard" replace />;
+  }
 
   async function handleRequestToken(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -44,7 +53,7 @@ export default function AdminLogin() {
     try {
       await verifyAdminLoginToken(email.trim(), token.trim());
       await refresh();
-      navigate(returnTo, { replace: true });
+      navigate(returnTo.startsWith("/admin/") ? returnTo : "/admin/dashboard", { replace: true });
     } catch (verifyError) {
       setError(verifyError instanceof Error ? verifyError.message : "Mã đăng nhập không hợp lệ.");
     } finally {

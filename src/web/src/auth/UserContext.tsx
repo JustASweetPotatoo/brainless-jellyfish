@@ -24,7 +24,6 @@ interface UserProviderProps {
 
 export function UserProvider({ children }: UserProviderProps) {
   const [session, setSession] = useState<AuthSession | null>(null);
-
   const [isLoading, setIsLoading] = useState(true);
 
   /**
