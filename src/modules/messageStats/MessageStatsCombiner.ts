@@ -1,10 +1,11 @@
-import { PremiumStatus } from "../database/model/GuildStatus";
-import GuildMessageStatRepo from "../database/repository/GuildMessageStatRepo";
-import { Repository } from "./core/decorators/decorators";
-import DiscordModule from "./core/module/DiscordModule";
+import { PremiumStatus } from "../../database/model/GuildStatus";
+import GuildMessageStatRepo from "../../database/repository/GuildMessageStatRepo";
+import { Repository } from "../core/decorators/decorators";
+import DiscordModule from "../core/module/DiscordModule";
 import { BucketCounter } from "./MessageStatsTypes";
 
 export default class MessageStatsCombiner extends DiscordModule<"message-stats-combiner"> {
+  readonly webManaged: boolean = true;
   protected readonly premiumLevel: PremiumStatus = PremiumStatus.STANDARD;
 
   @Repository()
@@ -26,7 +27,7 @@ export default class MessageStatsCombiner extends DiscordModule<"message-stats-c
   }
 
   public async flushRedisToDatabase(days = 2): Promise<void> {
-    await this.client.moduleManager.get("message-stats").flush();
+    await this.client.moduleManager.get("message-stats-recorder").flush();
     const snapshot = await this.client.moduleManager
       .get("message-stats-analyzer")
       .getSnapshot(days);

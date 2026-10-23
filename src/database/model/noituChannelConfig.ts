@@ -1,4 +1,4 @@
-import { NoiTuMessageCreateEvent } from "../../modules/NoiTuManager";
+import { NoiTuMessageCreateEvent } from "../../modules/NoiTuGame";
 
 export interface NoituChannelConfigDataObj {
   readonly channel_id: string;

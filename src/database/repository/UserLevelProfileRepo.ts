@@ -13,7 +13,7 @@ export default class UserlevelProfileRepo extends Repository<
     (
       id VARCHAR(64) NOT NULL,
       guild_id VARCHAR(64) NOT NULL,
-      message_exp BIGINT DEFAULT 0,
+      text_exp BIGINT DEFAULT 0,
       voice_exp BIGINT DEFAULT 0,
       milestone_id VARCHAR(64),
       PRIMARY KEY (id, guild_id)
@@ -43,21 +43,21 @@ export default class UserlevelProfileRepo extends Repository<
     const newProfile = new UserLevelProfile({
       id: options.id,
       guild_id: options.guildId,
-      message_exp: 0,
+      text_exp: 0,
       voice_exp: 0,
       milestone_id: "",
     });
 
     const query = `
       INSERT INTO ${this.fullTableName} 
-      (id, guild_id, message_exp, voice_exp, milestone_id)
+      (id, guild_id, text_exp, voice_exp, milestone_id)
       VALUES (?, ?, ?, ?, ?);
     `;
 
     const values = [
       newProfile.id,
       newProfile.guildId,
-      newProfile.messageExp,
+      newProfile.textExp,
       newProfile.voiceExp,
       newProfile.milestoneId,
     ];
@@ -73,14 +73,14 @@ export default class UserlevelProfileRepo extends Repository<
     const query = `
       UPDATE ${this.fullTableName}
       SET
-        message_exp = ?,
+        text_exp = ?,
         voice_exp = ?,
         milestone_id = ?
       WHERE id = ? AND guild_id = ?;
     `;
 
     await this.executeQuery(query, [
-      json.message_exp,
+      json.text_exp,
       json.voice_exp,
       json.milestone_id,
       json.id,
@@ -96,12 +96,12 @@ export default class UserlevelProfileRepo extends Repository<
     const query = `
       UPDATE ${this.fullTableName}
       SET
-        message_exp = ?,
+        text_exp = ?,
         milestone_id = ?
       WHERE id = ? AND guild_id = ?;
     `;
 
-    await this.executeQuery(query, [obj.message_exp, obj.milestone_id, obj.id, obj.guild_id]);
+    await this.executeQuery(query, [obj.text_exp, obj.milestone_id, obj.id, obj.guild_id]);
 
     return profile;
   }
@@ -131,7 +131,7 @@ export default class UserlevelProfileRepo extends Repository<
     const query = `
       SELECT * FROM ${this.fullTableName}
       WHERE guild_id = ?
-      ORDER BY ${isVoice ? "voice_exp" : "message_exp"} ${DESC ? "DESC" : "ASC"}
+      ORDER BY ${isVoice ? "voice_exp" : "text_exp"} ${DESC ? "DESC" : "ASC"}
       LIMIT 10 OFFSET ${10 * (page - 1)};
     `;
     const rows = await this.executeQuery(query, [guild_id]);
@@ -146,7 +146,7 @@ export default class UserlevelProfileRepo extends Repository<
     guildId: string,
     isVoice = false,
   ): Promise<UserLevelProfileJson & { rank: number }> {
-    const target = isVoice ? "voice_exp" : "message_exp";
+    const target = isVoice ? "voice_exp" : "text_exp";
 
     const query = `
       SELECT

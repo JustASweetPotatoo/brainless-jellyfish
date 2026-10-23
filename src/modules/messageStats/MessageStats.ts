@@ -1,31 +1,30 @@
 import { Collection, Message } from "discord.js";
 import { RedisClientType } from "redis";
 
-import { PremiumStatus } from "../database/model/GuildStatus";
+import { PremiumStatus } from "../../database/model/GuildStatus";
 import {
   createCompositeKey,
   incrementHashCounts,
   mergeMap,
   parseCompositeKey,
   type RedisMulti,
-} from "../utils/redis";
+} from "../../utils/redis";
 import {
   getDayTimestamp,
   getHourTimestamp,
   getMonthTimestamp,
   getYearTimestamp,
-} from "../utils/timestamps";
-import { On } from "./core/decorators/decorators";
-import DiscordModule from "./core/module/DiscordModule";
-import { ModuleOptions } from "./core/module/BaseModule";
+} from "../../utils/timestamps";
+import { On } from "../core/decorators/decorators";
+import DiscordModule from "../core/module/DiscordModule";
+import { ModuleOptions } from "../core/module/BaseModule";
 import { BucketCounter, StatsInterval } from "./MessageStatsTypes";
 
-export type { RedisMulti } from "../utils/redis";
+export type { RedisMulti } from "../../utils/redis";
 export type { BucketCounter, MessageStatsOptions, StatsInterval } from "./MessageStatsTypes";
 
-export default class MessageStatsRecorder extends DiscordModule<"message-stats"> {
-  static readonly moduleName = "message-stats";
-
+export default class MessageStatsRecorder extends DiscordModule<"message-stats-recorder"> {
+  readonly webManaged: boolean = true;
   protected readonly premiumLevel: PremiumStatus = PremiumStatus.PRO;
 
   private readonly flushInterval = 1_000 * 60 * 5;
@@ -106,7 +105,7 @@ export default class MessageStatsRecorder extends DiscordModule<"message-stats">
   }
 
   public async flush(): Promise<void> {
-    if (this.flushing || !this.redisClient.isOpen || this.queueSize === 0) return;
+    if (this.flushing || !this.redis.isOpen || this.queueSize === 0) return;
 
     this.flushing = true;
     const queue = new Map(this.queue);
@@ -115,7 +114,7 @@ export default class MessageStatsRecorder extends DiscordModule<"message-stats">
     this.queueSize = 0;
 
     try {
-      const multi = this.redisClient.multi();
+      const multi = this.redis.multi();
       for (const [hourTimestamp, counter] of queue) {
         this.flushBucket(multi, hourTimestamp, counter);
       }

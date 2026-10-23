@@ -4,7 +4,7 @@ import { BaseModel } from "./constructor/BaseModel";
 export interface UserLevelProfileJson {
   readonly id: string;
   readonly guild_id: string;
-  message_exp?: number;
+  text_exp?: number;
   voice_exp?: number;
   milestone_id?: string;
   channel_blacklist?: string[];
@@ -16,7 +16,7 @@ export default class UserLevelProfile extends BaseModel<UserLevelProfileJson> {
   readonly guildId: string;
 
   // Statistic
-  messageExp: number = 0;
+  textExp: number = 0;
   voiceExp: number = 0;
   milestoneId: string = "";
 
@@ -30,7 +30,7 @@ export default class UserLevelProfile extends BaseModel<UserLevelProfileJson> {
 
     this.id = options.id;
     this.guildId = options.guild_id;
-    this.messageExp = options.message_exp ?? 0;
+    this.textExp = options.text_exp ?? 0;
     this.voiceExp = options.voice_exp ?? 0;
     this.milestoneId = options.milestone_id ?? "";
     this.channelBlacklist = options.channel_blacklist ?? [];
@@ -40,7 +40,7 @@ export default class UserLevelProfile extends BaseModel<UserLevelProfileJson> {
     return new UserLevelProfile({
       id: options.id,
       guild_id: options.guild_id,
-      message_exp: options.message_exp,
+      text_exp: options.text_exp,
       voice_exp: options.voice_exp,
       milestone_id: options.milestone_id,
       channel_blacklist: options.channel_blacklist,
@@ -51,7 +51,7 @@ export default class UserLevelProfile extends BaseModel<UserLevelProfileJson> {
     return {
       id: this.id,
       guild_id: this.guildId,
-      message_exp: this.messageExp,
+      text_exp: this.textExp,
       voice_exp: this.voiceExp,
       milestone_id: this.milestoneId,
       channel_blacklist: this.channelBlacklist,
@@ -63,7 +63,7 @@ export default class UserLevelProfile extends BaseModel<UserLevelProfileJson> {
   }
 
   getMessageLevel() {
-    return calcLevel(this.messageExp);
+    return calcLevel(this.textExp);
   }
 
   getCacheId() {
@@ -71,11 +71,11 @@ export default class UserLevelProfile extends BaseModel<UserLevelProfileJson> {
   }
 
   addLevel(typeText: boolean, amount: number) {
-    let newLevel = calcLevel(typeText ? this.messageExp : this.voiceExp) + amount;
+    let newLevel = calcLevel(typeText ? this.textExp : this.voiceExp) + amount;
     if (newLevel < 0) newLevel = 0;
 
     if (typeText) {
-      this.messageExp = getTotalExpToReachLevel(newLevel);
+      this.textExp = getTotalExpToReachLevel(newLevel);
       return newLevel;
     } else {
       this.voiceExp = getTotalExpToReachLevel(newLevel);
@@ -85,8 +85,8 @@ export default class UserLevelProfile extends BaseModel<UserLevelProfileJson> {
 
   addExp(typeText: boolean, amount: number) {
     if (typeText) {
-      this.messageExp = amount;
-      return this.messageExp;
+      this.textExp = amount;
+      return this.textExp;
     } else {
       this.voiceExp = amount;
       return this.voiceExp;

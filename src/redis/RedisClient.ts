@@ -1,8 +1,6 @@
-import { PremiumStatus } from "../database/model/GuildStatus";
-import { ModuleOptions } from "../modules/core/module/BaseModule";
-import DiscordModule from "../modules/core/module/DiscordModule";
-
 import { createClient, type RedisClientType, RedisClientOptions } from "redis";
+
+import { PremiumStatus } from "../database/model/GuildStatus";
 import SystemModule from "../modules/core/module/SystemModule";
 
 export default class RedisManager extends SystemModule<"redis"> {
@@ -46,7 +44,7 @@ export default class RedisManager extends SystemModule<"redis"> {
     await this.redisClient.quit();
   }
 
-  public getRedisClient() {
+  public get redis() {
     return this.redisClient;
   }
 }

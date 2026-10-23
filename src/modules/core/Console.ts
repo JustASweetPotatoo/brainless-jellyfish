@@ -2,12 +2,12 @@ import readline from "node:readline";
 
 import { Events } from "discord.js";
 
-import DiscordModule from "./module/DiscordModule";
 import { On } from "./decorators/decorators";
 import { ModuleOptions } from "./module/BaseModule";
 import { PremiumStatus } from "../../database/model/GuildStatus";
+import SystemModule from "./module/SystemModule";
 
-export default class Console extends DiscordModule<"console"> {
+export default class Console extends SystemModule<"console"> {
   protected readonly premiumLevel: PremiumStatus = PremiumStatus.STANDARD;
 
   private readonly rl: readline.Interface;

@@ -31,6 +31,7 @@ function readPositiveInteger(value: string | undefined, fallback: number): numbe
 }
 
 export default class SlashCommandManager extends DiscordModule<"slash-command-manager"> {
+  readonly webManaged: boolean = true;
   protected readonly premiumLevel: PremiumStatus = PremiumStatus.STANDARD;
 
   readonly discordEvents: Events[] = [Events.GuildAvailable, Events.InteractionCreate];

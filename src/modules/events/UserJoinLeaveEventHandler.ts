@@ -7,7 +7,7 @@ import {
   formatDiscordTimestampDurationBetween,
 } from "../../utils/timestamps";
 import EventHandler from "./EventHandler";
-import { LogChannelType } from "../GuildStatusManager";
+import { LogChannelType } from "../core/GuildStatusManager";
 import { PremiumStatus } from "../../database/model/GuildStatus";
 
 export default class UserJoinLeaveEventHandler extends EventHandler<"join-leave-event-handler"> {

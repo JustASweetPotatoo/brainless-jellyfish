@@ -1,10 +1,12 @@
 import DatabaseManager from "../DatabaseManager";
-import LevelProviderGuildProfile, { RankProviderGuildProfileJson } from "../model/RankProviderGuildProfile";
+import LevelProviderGuildProfile, {
+  LevelProviderGuildProfileObj,
+} from "../model/LevelProviderGuildProfile";
 import { Repository } from "./constructor/Repository";
 
-export default class LevelProviderGuildProfileRepo extends Repository<
+export default class Repo_LevelProviderGuildProfile extends Repository<
   LevelProviderGuildProfile,
-  RankProviderGuildProfileJson
+  LevelProviderGuildProfileObj
 > {
   protected readonly model = LevelProviderGuildProfile;
 
@@ -94,7 +96,8 @@ export default class LevelProviderGuildProfileRepo extends Repository<
       return newProf;
     }
 
-    const parsedBlacklist = typeof row.blacklist === "string" ? JSON.parse(row.blacklist) : (row.blacklist ?? []);
+    const parsedBlacklist =
+      typeof row.blacklist === "string" ? JSON.parse(row.blacklist) : (row.blacklist ?? []);
 
     return this.model.fromJSON({
       id: row.id,

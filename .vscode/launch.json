@@ -20,6 +20,12 @@
       "type": "node-terminal"
     },
     {
+      "command": "npm run test-ts",
+      "name": "Run test.ts",
+      "request": "launch",
+      "type": "node-terminal"
+    },
+    {
       "command": "npm run web",
       "name": "Run web",
       "request": "launch",

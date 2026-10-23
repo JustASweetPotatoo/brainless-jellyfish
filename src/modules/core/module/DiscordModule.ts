@@ -14,7 +14,7 @@ import {
   MessageFlags,
 } from "discord.js";
 
-import BaseModule, { BaseModuleEvents, ModuleEvents, ModuleOptions } from "./BaseModule";
+import BaseModule, { ModuleEvents, ModuleOptions } from "./BaseModule";
 import { PremiumStatus } from "../../../database/model/GuildStatus";
 import Limiter from "../Limiter";
 import { parseError } from "../../../utils/error";
@@ -26,6 +26,8 @@ import { sendInteractionMessageReply } from "../../../utils/replier";
 import { DISCORD_EVENT_KEY, DiscordModuleEventMetadata } from "../decorators/decorators";
 import { Channel } from "diagnostics_channel";
 import { RedisClientType } from "redis";
+import { getSecondTimestamp } from "../../../utils/timestamps";
+import { trackEvents } from "../../../utils/redis";
 
 /**
  * INTERACTION TYPES
@@ -46,9 +48,10 @@ export default abstract class DiscordModule<TName extends string> extends BaseMo
   ModuleEvents
 > {
   protected abstract readonly premiumLevel: PremiumStatus;
+  abstract readonly webManaged: boolean;
   private discordEventsRegistered = false;
 
-  protected readonly redisClient: RedisClientType;
+  protected redis: RedisClientType;
 
   /**
    * Limiter
@@ -58,7 +61,7 @@ export default abstract class DiscordModule<TName extends string> extends BaseMo
   constructor(options: ModuleOptions) {
     super(options);
 
-    this.redisClient = this.client.redisManager.getRedisClient();
+    this.redis = this.client.redisManager.redis;
   }
 
   /**
@@ -289,11 +292,24 @@ export default abstract class DiscordModule<TName extends string> extends BaseMo
             metadata.event !== Events.ClientReady &&
             metadata.botRejected === true &&
             this.isBotEvent(args);
+          if (!this.redis) {
+            this.redis = this.client.redisManager.redis;
+          }
 
           if (!isRejectedBotEvent) {
-            void this.executeEvent(String(metadata.event), handler, ...args).catch((error) =>
-              this.handleModuleError(error),
+            trackEvents(
+              this.redis,
+              `server:stats:events:${getSecondTimestamp()}`,
+              `${String(metadata.event)}`,
             );
+            void this.executeEvent(String(metadata.event), handler, ...args).catch((error) => {
+              this.handleModuleError(error);
+              trackEvents(
+                this.redis,
+                `server:stats:failed-events:${getSecondTimestamp()}`,
+                `${String(metadata.event)}`,
+              );
+            });
           }
         });
 

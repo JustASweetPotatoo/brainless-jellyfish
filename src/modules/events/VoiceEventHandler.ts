@@ -3,7 +3,7 @@ import { Collection, Colors, EmbedBuilder, Events, TextChannel, VoiceState } fro
 import { On } from "../core/decorators/decorators";
 import { ModuleOptions } from "../core/module/BaseModule";
 import EventHandler from "./EventHandler";
-import { LogChannelType } from "../GuildStatusManager";
+import { LogChannelType } from "../core/GuildStatusManager";
 import { PremiumStatus } from "../../database/model/GuildStatus";
 
 export enum MemberVoiceStateEvents {

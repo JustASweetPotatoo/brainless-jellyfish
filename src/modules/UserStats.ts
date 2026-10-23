@@ -16,6 +16,7 @@ import { SlashCommandExecutor } from "./core/decorators/decorators";
 import { formatTimestamp } from "../utils/functions";
 
 export default class UserStats extends DiscordModule<"user-stats"> {
+  readonly webManaged: boolean = true;
   protected readonly premiumLevel: PremiumStatus = PremiumStatus.PRO;
 
   @SlashCommandExecutor({ guildOnly: true, deferred: true })

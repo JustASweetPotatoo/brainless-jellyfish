@@ -93,8 +93,8 @@ export async function setHashValue(
   await client.hSet(key, field, value);
 }
 
-export enum redisHashSetMode {
-  STRING,
+export enum RedisHashSetMode {
+  FIELD,
   JSON,
 }
 
@@ -110,9 +110,10 @@ export async function setHashValueObject(
   client: RedisClientType,
   key: string,
   value: Object,
-  insertMode: redisHashSetMode = 0,
+  insertMode: RedisHashSetMode = RedisHashSetMode.FIELD,
+  ttl?: number,
 ) {
-  if (insertMode == 0) {
+  if (insertMode == RedisHashSetMode.JSON) {
     await client.hSet(key, "json", JSON.stringify(value));
   } else {
     const multi = client.multi();
@@ -126,6 +127,10 @@ export async function setHashValueObject(
       if (serializedValue !== undefined) {
         multi.hSet(key, fld, serializedValue);
       }
+    }
+
+    if (ttl) {
+      multi.expire(key, ttl);
     }
 
     await multi.exec();
@@ -177,4 +182,28 @@ export function incrementHashCounts(
       interval.ttl,
     );
   }
+}
+
+export async function trackEvents(
+  redis: RedisClientType,
+  key: string,
+  field: string,
+  ttl: number = 4000,
+) {
+  await redis.eval(
+    `
+      local existed = redis.call('EXISTS', KEYS[1])
+      local count = redis.call('HINCRBY', KEYS[1], ARGV[1], 1)
+
+      if existed == 0 then
+        redis.call('EXPIRE', KEYS[1], ARGV[2])
+      end
+
+      return count
+    `,
+    {
+      keys: [key],
+      arguments: [field, ttl.toString()],
+    },
+  );
 }

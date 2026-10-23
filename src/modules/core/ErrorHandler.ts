@@ -9,15 +9,15 @@ import {
   MessageFlags,
 } from "discord.js";
 
-import DiscordModule from "./core/module/DiscordModule";
-import ClientError from "../error/ClientError";
-import { ErrorCode } from "../error/ErrorCode";
-import { dangerIconUrl } from "../assets/icon";
-import { sendInteractionMessageReply } from "../utils/replier";
-import { getFullCommandName } from "../utils/slashCommand";
-import { PremiumStatus } from "../database/model/GuildStatus";
+import ClientError from "../../error/ClientError";
+import { ErrorCode } from "../../error/ErrorCode";
+import { dangerIconUrl } from "../../assets/icon";
+import { sendInteractionMessageReply } from "../../utils/replier";
+import { getFullCommandName } from "../../utils/slashCommand";
+import { PremiumStatus } from "../../database/model/GuildStatus";
+import SystemModule from "./module/SystemModule";
 
-export default class ClientErrorHandler extends DiscordModule<"client-error-handler"> {
+export default class ClientErrorHandler extends SystemModule<"client-error-handler"> {
   protected readonly premiumLevel: PremiumStatus = PremiumStatus.STANDARD;
 
   parseError(error: ClientError | unknown): ClientError {

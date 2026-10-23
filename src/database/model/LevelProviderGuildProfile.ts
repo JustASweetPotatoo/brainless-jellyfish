@@ -1,32 +1,32 @@
 import { Collection } from "discord.js";
 import { BaseModel } from "./constructor/BaseModel";
-import RankProviderMilestone, { RankProviderMilestoneObj } from "./RankProviderMilestone";
+import RankProviderMilestone, { RankProviderMilestoneObj } from "./LevelProviderMilestone";
 
-export interface RankProviderGuildProfileBlacklistItem {
+export interface BlackListItem {
   id: string;
   type: "channel" | "role";
 }
 
-export interface RankProviderGuildProfileJson {
+export interface LevelProviderGuildProfileObj {
   readonly id: string;
   active?: boolean;
   log_channel_id?: string;
   rate?: number;
   type?: number;
   milestones?: RankProviderMilestoneObj[];
-  blacklist?: RankProviderGuildProfileBlacklistItem[];
+  blacklist?: BlackListItem[];
 }
 
-export default class RankProviderGuildProfile extends BaseModel<RankProviderGuildProfileJson> {
+export default class LevelProviderGuildProfile extends BaseModel<LevelProviderGuildProfileObj> {
   readonly id: string;
   active: boolean;
   logChannelId?: string;
   rate: number = 1;
   type: number = 1;
   milestones: Collection<string, RankProviderMilestone> = new Collection();
-  blacklist: Collection<string, RankProviderGuildProfileBlacklistItem> = new Collection();
+  blacklist: Collection<string, BlackListItem> = new Collection();
 
-  constructor(json: RankProviderGuildProfileJson) {
+  constructor(json: LevelProviderGuildProfileObj) {
     super();
 
     this.id = json.id;
@@ -49,7 +49,7 @@ export default class RankProviderGuildProfile extends BaseModel<RankProviderGuil
     }
   }
 
-  toJSON(): RankProviderGuildProfileJson {
+  toJSON(): LevelProviderGuildProfileObj {
     return {
       id: this.id,
       active: this.active,

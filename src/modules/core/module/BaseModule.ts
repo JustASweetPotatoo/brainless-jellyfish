@@ -5,26 +5,20 @@ import {
   CommandInteraction,
   AutocompleteInteraction,
   Guild,
-  Events,
 } from "discord.js";
 
 import { EventEmitter } from "node:events";
 
 import MassClient from "../../../Client";
 import { Logger } from "../../../logger/Logger";
-import {
-  DISCORD_EVENT_KEY,
-  DiscordModuleEventMetadata,
-  MODULE_EVENT_KEY,
-  REPOSITORIES_KEY,
-  REPOSITORY_KEY,
-} from "../decorators/decorators";
+import { MODULE_EVENT_KEY, REPOSITORIES_KEY, REPOSITORY_KEY } from "../decorators/decorators";
 import { kebabCase } from "../../../utils/functions";
 import DatabaseManager from "../../../database/DatabaseManager";
 import { Repository } from "../../../database/repository/constructor/Repository";
 import { BaseModel } from "../../../database/model/constructor/BaseModel";
 import { parseError } from "../../../utils/error";
 import Limiter from "../Limiter";
+import { getSecondTimestamp } from "../../../utils/timestamps";
 
 /**
  * MODULE OPTIONS
@@ -247,9 +241,19 @@ export default abstract class BaseModule<
           const handler = (this as any)[key].bind(this);
 
           this.on(event, (...args: unknown[]) => {
-            void this.executeEvent(event as string, handler, ...args).catch((error) =>
-              this.handleModuleError(error),
-            );
+            // this.client.redisManager.redis.hIncrBy(
+            //   `server:stats:events:${getSecondTimestamp()}`,
+            //   `${String(event)}`,
+            //   1,
+            // );
+            void this.executeEvent(event as string, handler, ...args).catch((error) => {
+              this.handleModuleError(error);
+              // this.client.redisManager.redis.hIncrBy(
+              //   `server:stats:failed-events:${getSecondTimestamp()}`,
+              //   `${String(event)}`,
+              //   1,
+              // );
+            });
           });
         }
 

@@ -12,7 +12,6 @@ import {
 } from "discord.js";
 import ClientSlashCommandBuilder from "../slashCommandBuilder/SlashCommandBuilder";
 import ClientSlashCommandSubcommandBuilder from "../slashCommandBuilder/SlashCommandSubcommandBuilder";
-import { autoDeferReply, getPermissionName } from "../utils/functions";
 import { autoDeferReplyInteraction } from "../slashCommandBuilder/function";
 
 const getRank = new ClientSlashCommandSubcommandBuilder()
@@ -25,19 +24,21 @@ const getRank = new ClientSlashCommandSubcommandBuilder()
   )
   .addUserOption(
     new SlashCommandUserOption()
-      .setName("target")
+      .setName("member") 
       .setDescription("Member to check")
       .setRequired(false),
   );
 
-const moduleOn = new ClientSlashCommandSubcommandBuilder()
-  .setName("on")
-  .setDescription("Activate level system")
-  .setExecutor(
-    async (client, interaction) => {},
-    // client.moduleManager
-    //   .get("level-provider")
-    //   .activeGuild(interaction as ChatInputCommandInteraction<"cached">),
+const switchState = new ClientSlashCommandSubcommandBuilder()
+  .setName("switch")
+  .setDescription("Activate message and voice level handler")
+  .addBooleanOption(
+    new SlashCommandBooleanOption().setName("disable").setDescription("Disable module"),
+  )
+  .setExecutor(async (client, interaction) =>
+    client.moduleManager
+      .get("level-provider")
+      .switchModule(interaction as ChatInputCommandInteraction<"cached">),
   );
 
 const blacklistAdd = new ClientSlashCommandSubcommandBuilder()
@@ -152,7 +153,7 @@ export default new ClientSlashCommandBuilder({
     updateLevel,
     getRank,
     getTop,
-    moduleOn,
+    switchState,
     blacklistAdd,
     createMilestone,
     listingMilestone,

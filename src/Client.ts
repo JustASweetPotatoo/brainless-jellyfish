@@ -9,12 +9,14 @@ import { Client, Events, GatewayIntentBits, version } from "discord.js";
 
 import { Logger, LogPrinter } from "./logger/Logger";
 import ModuleManager, { ModuleMap } from "./modules/core/ModuleManager";
-import ClientErrorHandler from "./modules/ErrorHandler";
+import ClientErrorHandler from "./modules/core/ErrorHandler";
 import SlashCommandManager from "./modules/system/SlashCommandManager";
 import DatabaseManager from "./database/DatabaseManager";
 import RedisManager from "./redis/RedisClient";
-import GuildStatusManager from "./modules/GuildStatusManager";
+import GuildStatusManager from "./modules/core/GuildStatusManager";
 import FastifyServer from "./API/FastifyServer";
+import BetterLinkManager from "./modules/betterLink/BetterLinkManager";
+import GuildLogManager from "./modules/GuildLogManger";
 
 export type OperationMode = "default" | "debug";
 
@@ -132,6 +134,14 @@ export default class MassClient extends Client {
 
   public get guildStatusManager(): GuildStatusManager {
     return this.moduleManager.get("guild-status-manager");
+  }
+
+  public get guildLogManager(): GuildLogManager {
+    return this.moduleManager.get("guild-log-manager");
+  }
+
+  public get betterLinkManager(): BetterLinkManager {
+    return this.moduleManager.get("better-link-manager");
   }
 
   public get rawClient(): this {

@@ -57,4 +57,8 @@ export default class GuildStatus extends BaseModel<GuildStatusObj> {
 
     return true;
   }
+
+  isActive(name: string): boolean {
+    return !!this.activeList.find((mdName) => mdName == name);
+  }
 }

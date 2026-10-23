@@ -3,7 +3,7 @@ import { Collection, Colors, EmbedBuilder, Events, Locale, Message, TextChannel 
 import { On } from "../core/decorators/decorators";
 import { EMBED_DESCRIPTION_MAX_LENGTH, EMBED_FIELD_VALUE_MAX_LENGTH } from "../../utils/const";
 import EventHandler from "./EventHandler";
-import { LogChannelType } from "../GuildStatusManager";
+import { LogChannelType } from "../core/GuildStatusManager";
 import { PremiumStatus } from "../../database/model/GuildStatus";
 import { ModuleOptions } from "../core/module/BaseModule";
 
@@ -33,8 +33,8 @@ export default class MessageEventHandler extends EventHandler<"message-event-han
       const locale = oldMessage.guild.preferredLocale;
 
       if (logChannel) {
-        const descriptionStarter = `${
-          locale == Locale.Vietnamese ? "**[Tin nhắn đã chỉnh sửa trong" : "**Message edited in"
+        const descriptionStarter = `**[${
+          locale == Locale.Vietnamese ? "Tin nhắn đã chỉnh sửa trong" : "Message edited in"
         } ${oldMessage.channel.name}](${oldMessage.url})**`;
 
         const isOverSizeMessageContent = `Old content:\n${oldMessage.content}\nNew Content:\n${newMessage.content}`;
@@ -132,51 +132,79 @@ export default class MessageEventHandler extends EventHandler<"message-event-han
       return;
     }
 
-    let chunk: string = "";
-
-    let firstEmbedFullContent = false;
-    const firstEmbedTimeData = `Deleted <t:${Math.floor(Date.now() / 1000)}:R>`;
-    const firstEmbed = new EmbedBuilder()
-      .setTitle(`${messages.size} messages deleted in <#${messages.first()?.channelId}>`)
-      .setColor(Colors.Red);
-
-    const embeds = [];
-
-    const lastEmbed = new EmbedBuilder()
-      .setColor(Colors.Red)
-      .setFooter({ text: `Channel ID: ${messages.first()?.channelId}` })
-      .setTimestamp();
-
-    let index = -1;
-    for (const [msgId, msg] of filteredMessages) {
-      index += 1;
-
-      const rowContent = `**${msg.author.username}**: ${msg.content}`;
-
-      if (!firstEmbedFullContent) {
-        if (
-          chunk.length + rowContent.length + firstEmbedTimeData.length <
-          EMBED_DESCRIPTION_MAX_LENGTH
-        ) {
-          chunk += rowContent + "\n";
-        } else if (index + 1 == filteredMessages.size) {
-          firstEmbed.setDescription(firstEmbedTimeData + "\n" + chunk);
-          firstEmbedFullContent = true;
-          embeds.push(firstEmbed);
-        } else {
-          continue;
-        }
-      }
-
-      if (chunk.length + rowContent.length > EMBED_DESCRIPTION_MAX_LENGTH) {
-        chunk += rowContent + "\n";
-      } else if (index == messages.size - 1) {
-        embeds.push(lastEmbed.setDescription(chunk));
-      } else {
-        embeds.push(new EmbedBuilder().setDescription(chunk));
-      }
+    if (filteredMessages.size === 0) {
+      return;
     }
 
-    await logChannel.send({ embeds: embeds });
+    const channelId = firstMessage.channelId;
+    const descriptions: string[] = [];
+    let description = `Deleted <t:${Math.floor(Date.now() / 1000)}:R>`;
+
+    const appendText = (text: string): void => {
+      while (text.length > 0) {
+        const separator = description.length > 0 ? "\n" : "";
+        const available = EMBED_DESCRIPTION_MAX_LENGTH - description.length - separator.length;
+
+        if (available <= 0) {
+          descriptions.push(description);
+          description = "";
+          continue;
+        }
+
+        const part = text.slice(0, available);
+        description += separator + part;
+        text = text.slice(part.length);
+
+        if (text.length > 0) {
+          descriptions.push(description);
+          description = "";
+        }
+      }
+    };
+
+    for (const message of filteredMessages.values()) {
+      appendText(
+        `**${message.author.username}**: ${message.content.length > 0 ? message.content : "*No content*"}`,
+      );
+    }
+
+    if (description.length > 0) {
+      descriptions.push(description);
+    }
+
+    const embeds = descriptions.map((value, index) => {
+      const embed = new EmbedBuilder().setColor(Colors.Red).setDescription(value);
+
+      if (index === 0) {
+        embed.setTitle(
+          `${filteredMessages.size} user messages deleted in <#${channelId}> (${messages.size} total)`,
+        );
+      }
+      if (index === descriptions.length - 1) {
+        embed.setFooter({ text: `Channel ID: ${channelId}` }).setTimestamp();
+      }
+
+      return embed;
+    });
+
+    let batch: EmbedBuilder[] = [];
+    let batchDescriptionLength = 0;
+
+    for (const embed of embeds) {
+      const embedDescriptionLength = embed.data.description?.length ?? 0;
+
+      if (batch.length >= 10 || batchDescriptionLength + embedDescriptionLength > 5000) {
+        await logChannel.send({ embeds: batch });
+        batch = [];
+        batchDescriptionLength = 0;
+      }
+
+      batch.push(embed);
+      batchDescriptionLength += embedDescriptionLength;
+    }
+
+    if (batch.length > 0) {
+      await logChannel.send({ embeds: batch });
+    }
   }
 }

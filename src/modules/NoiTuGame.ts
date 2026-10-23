@@ -45,6 +45,7 @@ export enum NoiTuMessageCreateEvent {
 
 @Module("noi-tu-manager")
 export default class NoiTuManager extends DiscordModule<"noi-tu-manager"> {
+  readonly webManaged: boolean = false;
   protected readonly premiumLevel: PremiumStatus = PremiumStatus.STANDARD;
 
   static readonly moduleName = "noi-tu-manager";

@@ -1,4 +1,4 @@
-import { BucketCounter } from "../../modules/MessageStatsTypes";
+import { BucketCounter } from "../../modules/messageStats/MessageStatsTypes";
 import { createCompositeKey, parseCompositeKey } from "../../utils/redis";
 import { getDayTimestamp, getHourTimestamp } from "../../utils/timestamps";
 import DatabaseManager from "../DatabaseManager";

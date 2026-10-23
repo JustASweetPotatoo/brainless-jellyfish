@@ -17,15 +17,14 @@ import {
   WebhookMessageCreateOptions,
 } from "discord.js";
 
-import DiscordModule from "./core/module/DiscordModule";
-import { On } from "./core/decorators/decorators";
-import { extractFacebookShareUrl } from "../utils/functions";
+import { On } from "../core/decorators/decorators";
+import { extractFacebookShareUrl } from "../../utils/functions";
 
-import { EventEmitter } from "stream";
-import { ExtractedMedia, extractMedia, extractPostInf } from "../utils/facebookCrawlerHelper";
-import { PremiumStatus } from "../database/model/GuildStatus";
-import ClientError from "../error/ClientError";
-import { ErrorCode } from "../error/ErrorCode";
+import { ExtractedMedia, extractMedia, extractPostInf } from "../../utils/facebookCrawlerHelper";
+import { PremiumStatus } from "../../database/model/GuildStatus";
+import ClientError from "../../error/ClientError";
+import { ErrorCode } from "../../error/ErrorCode";
+import BetterLink from "./BetterLink";
 
 enum FacebookPostType {
   POST,
@@ -43,11 +42,12 @@ interface FacebookUrlCrawledData {
   files: ExtractedMedia[];
 }
 
-export default class FacebedAPI extends DiscordModule<"facebed-api"> {
+export default class FacebedAPI extends BetterLink<"facebed-api"> {
+  readonly webManaged: boolean = true;
+  protected readonly displayName: string = "";
   protected readonly premiumLevel: PremiumStatus = PremiumStatus.STANDARD;
   private webhookClients: Collection<string, WebhookClient> = new Collection();
   private readonly ApiUrl = process.env.PYTHON_API || "http://localhost:9812";
-
   private isApiWorking = false;
 
   private readonly failedEmbed = (extractedUrl: string) => {
@@ -132,19 +132,7 @@ export default class FacebedAPI extends DiscordModule<"facebed-api"> {
     return this.parseHtml(responseText);
   }
 
-  private readonly emitter = new EventEmitter({ captureRejections: true });
-
-  async enable(guildId: string) {
-    this.emitter.on(guildId, this.processMessageOnGuild);
-    return await this.client.guildStatusManager.enableModule(guildId, this.name);
-  }
-
-  async disable(guildId: string) {
-    this.emitter.removeListener(guildId, this.processMessageOnGuild);
-    return await this.client.guildStatusManager.disableModule(guildId, this.name);
-  }
-
-  private async processMessageOnGuild(message: Message<true>) {
+  protected async processMessageOnGuild(message: Message<true>) {
     try {
       // Get facebook URL
       const extractedUrl = extractFacebookShareUrl(message.content);
@@ -241,7 +229,7 @@ export default class FacebedAPI extends DiscordModule<"facebed-api"> {
     const isListening = this.emitter.emit(message.guildId, message);
 
     if (!isListening) {
-      const isActive = await this.client.guildStatusManager.isActive(message.guildId, this.name);
+      const isActive = await this.client.betterLinkManager.check(this.name, message.guildId);
 
       if (isActive) {
         if (!this.isApiWorking) {

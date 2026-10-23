@@ -1,6 +1,4 @@
-import UserLevelProfile, {
-  UserLevelProfileJson,
-} from "../database/model/UserLevelProfile";
+import UserLevelProfile, { UserLevelProfileJson } from "../database/model/UserLevelProfile";
 
 export function getRandomInt(min: number, max: number): number {
   min = Math.ceil(min);
@@ -94,8 +92,7 @@ export function getRandomExpByContentLenght(content: string): number {
   const contentSplitedLength = content.split(" ").length; // 1
   const contentLenght = content.length; // 1
 
-  const ratio_1 =
-    contentLenght > contentMaxLength ? 1.0 : contentLenght / contentMaxLength;
+  const ratio_1 = contentLenght > contentMaxLength ? 1.0 : contentLenght / contentMaxLength;
   const ratio_2 =
     contentSplitedLength > contentSplitedMaxLenght
       ? 1.0
@@ -127,15 +124,11 @@ export interface UserlevelStatistic extends UserLevelProfileJson {
   percentage_progress: number;
 }
 
-export function calculateUserLevelStatistic(
-  userProfile: UserLevelProfile
-): UserlevelStatistic {
+export function calculateUserLevelStatistic(userProfile: UserLevelProfile): UserlevelStatistic {
   const currentLevelExpRange =
-    getTotalExpToReachLevel(userProfile.messageExp + 1) -
-    getTotalExpToReachLevel(userProfile.messageExp);
+    getTotalExpToReachLevel(userProfile.textExp + 1) - getTotalExpToReachLevel(userProfile.textExp);
 
-  const expOnCurrentLevel =
-    userProfile.messageExp - getTotalExpToReachLevel(userProfile.messageExp);
+  const expOnCurrentLevel = userProfile.textExp - getTotalExpToReachLevel(userProfile.textExp);
   const percentageProgress = Math.floor((expOnCurrentLevel / currentLevelExpRange) * 100);
 
   return { ...userProfile.toJSON(), percentage_progress: percentageProgress };
@@ -148,8 +141,7 @@ export function calcExp(content: string) {
   const contentSplitedLength = content.split(" ").length; // 1
   const contentLenght = content.length; // 1
 
-  const ratio_1 =
-    contentLenght > contentMaxLength ? 1.0 : contentLenght / contentMaxLength;
+  const ratio_1 = contentLenght > contentMaxLength ? 1.0 : contentLenght / contentMaxLength;
   const ratio_2 =
     contentSplitedLength > contentSplitedMaxLenght
       ? 1.0
@@ -169,7 +161,7 @@ export function craftEmbedProgressBar(percentage: number) {
   return percentage >= 999
     ? ":red_square:".repeat(10)
     : `${green_square.repeat(numberOfGreenSquare)}${white_large_square.repeat(
-        10 - numberOfGreenSquare
+        10 - numberOfGreenSquare,
       )} ${percentage}%`;
 }
 

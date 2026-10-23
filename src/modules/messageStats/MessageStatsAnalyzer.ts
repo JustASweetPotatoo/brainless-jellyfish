@@ -1,22 +1,23 @@
 import { Collection } from "discord.js";
 import { RedisClientType } from "redis";
 
-import { PremiumStatus } from "../database/model/GuildStatus";
-import DiscordModule from "./core/module/DiscordModule";
+import { PremiumStatus } from "../../database/model/GuildStatus";
+import DiscordModule from "../core/module/DiscordModule";
 import {
   getDayTimestamp,
   getHourTimestamp,
   getMonthTimestamp,
   getYearTimestamp,
-} from "../utils/timestamps";
-import { createCompositeKey, getHashValue, readHashes } from "../utils/redis";
+} from "../../utils/timestamps";
+import { createCompositeKey, getHashValue, readHashes } from "../../utils/redis";
 import { BucketCounter, StatsInterval } from "./MessageStatsTypes";
 
 export default class MessageStatsAnalyzer extends DiscordModule<"message-stats-analyzer"> {
+  readonly webManaged: boolean = true;
   protected readonly premiumLevel: PremiumStatus = PremiumStatus.STANDARD;
 
   public async getUserTotal(userId: string): Promise<number> {
-    return getHashValue(this.redisClient, "stats:message:user:total", userId);
+    return getHashValue(this.redis, "stats:message:user:total", userId);
   }
 
   public async getUserCount(
@@ -25,7 +26,7 @@ export default class MessageStatsAnalyzer extends DiscordModule<"message-stats-a
     interval: StatsInterval,
   ): Promise<number> {
     return getHashValue(
-      this.redisClient,
+      this.redis,
       this.getIntervalKey("stats:message:user", timestamp, interval),
       userId,
     );
@@ -48,7 +49,7 @@ export default class MessageStatsAnalyzer extends DiscordModule<"message-stats-a
   }
 
   public async getGuildTotal(guildId: string): Promise<number> {
-    return getHashValue(this.redisClient, "stats:message:guild:total", guildId);
+    return getHashValue(this.redis, "stats:message:guild:total", guildId);
   }
 
   public async getGuildCount(
@@ -57,7 +58,7 @@ export default class MessageStatsAnalyzer extends DiscordModule<"message-stats-a
     interval: StatsInterval,
   ): Promise<number> {
     return getHashValue(
-      this.redisClient,
+      this.redis,
       this.getIntervalKey("stats:message:guild", timestamp, interval),
       guildId,
     );
@@ -80,7 +81,7 @@ export default class MessageStatsAnalyzer extends DiscordModule<"message-stats-a
   }
 
   public async getChannelTotal(channelId: string): Promise<number> {
-    return getHashValue(this.redisClient, "stats:message:channel:total", channelId);
+    return getHashValue(this.redis, "stats:message:channel:total", channelId);
   }
 
   public async getChannelCount(
@@ -89,7 +90,7 @@ export default class MessageStatsAnalyzer extends DiscordModule<"message-stats-a
     interval: StatsInterval,
   ): Promise<number> {
     return getHashValue(
-      this.redisClient,
+      this.redis,
       this.getIntervalKey("stats:message:channel", timestamp, interval),
       channelId,
     );
@@ -112,7 +113,7 @@ export default class MessageStatsAnalyzer extends DiscordModule<"message-stats-a
   }
 
   public async getGuildUserTotal(guildId: string, userId: string): Promise<number> {
-    return getHashValue(this.redisClient, `stats:message:guild:${guildId}:user:total`, userId);
+    return getHashValue(this.redis, `stats:message:guild:${guildId}:user:total`, userId);
   }
 
   public async getGuildUserCount(
@@ -122,7 +123,7 @@ export default class MessageStatsAnalyzer extends DiscordModule<"message-stats-a
     interval: StatsInterval,
   ): Promise<number> {
     const key = this.getIntervalKey(`stats:message:guild:${guildId}:user`, timestamp, interval);
-    return getHashValue(this.redisClient, key, userId);
+    return getHashValue(this.redis, key, userId);
   }
 
   public getGuildUserDayCount(guildId: string, userId: string, timestamp: number) {
@@ -142,11 +143,7 @@ export default class MessageStatsAnalyzer extends DiscordModule<"message-stats-a
   }
 
   public async getGuildChannelTotal(guildId: string, channelId: string): Promise<number> {
-    return getHashValue(
-      this.redisClient,
-      `stats:message:guild:${guildId}:channel:total`,
-      channelId,
-    );
+    return getHashValue(this.redis, `stats:message:guild:${guildId}:channel:total`, channelId);
   }
 
   public async getGuildChannelCount(
@@ -156,7 +153,7 @@ export default class MessageStatsAnalyzer extends DiscordModule<"message-stats-a
     interval: StatsInterval,
   ): Promise<number> {
     const key = this.getIntervalKey(`stats:message:guild:${guildId}:channel`, timestamp, interval);
-    return getHashValue(this.redisClient, key, channelId);
+    return getHashValue(this.redis, key, channelId);
   }
 
   public getGuildChannelDayCount(guildId: string, channelId: string, timestamp: number) {
@@ -212,7 +209,7 @@ export default class MessageStatsAnalyzer extends DiscordModule<"message-stats-a
     }
 
     const key = `stats:message:guild:${guildId}:leaderboard:user`;
-    const values = await this.redisClient.zRangeWithScores(key, 0, limit - 1, { REV: true });
+    const values = await this.redis.zRangeWithScores(key, 0, limit - 1, { REV: true });
     return values.map(({ value, score }, index) => ({
       userId: value,
       count: score,
@@ -246,7 +243,7 @@ export default class MessageStatsAnalyzer extends DiscordModule<"message-stats-a
   }
 
   public async getUserRank(guildId: string, userId: string): Promise<number | null> {
-    const rank = await this.redisClient.zRevRank(
+    const rank = await this.redis.zRevRank(
       `stats:message:guild:${guildId}:leaderboard:user`,
       userId,
     );
@@ -254,7 +251,7 @@ export default class MessageStatsAnalyzer extends DiscordModule<"message-stats-a
   }
 
   public async getUserLeaderboardScore(guildId: string, userId: string): Promise<number> {
-    const score = await this.redisClient.zScore(
+    const score = await this.redis.zScore(
       `stats:message:guild:${guildId}:leaderboard:user`,
       userId,
     );
@@ -262,7 +259,7 @@ export default class MessageStatsAnalyzer extends DiscordModule<"message-stats-a
   }
 
   public async getSnapshot(days = 3, guildId?: string): Promise<Map<number, BucketCounter>> {
-    if (!this.redisClient.isOpen) {
+    if (!this.redis.isOpen) {
       throw new Error("Redis connection is not open");
     }
 
@@ -283,7 +280,7 @@ export default class MessageStatsAnalyzer extends DiscordModule<"message-stats-a
     const withinRange = (timestamp: number) =>
       timestamp >= oldestHourTimestamp && timestamp <= newestHourTimestamp;
 
-    await readHashes(this.redisClient, "stats:message:guild:hour:*", (key, values) => {
+    await readHashes(this.redis, "stats:message:guild:hour:*", (key, values) => {
       const match = key.match(/^stats:message:guild:hour:(\d+)$/);
       if (!match) return;
       const hourTimestamp = Number(match[1]);
@@ -296,7 +293,7 @@ export default class MessageStatsAnalyzer extends DiscordModule<"message-stats-a
     });
 
     await readHashes(
-      this.redisClient,
+      this.redis,
       `stats:message:guild:${guildPattern}:user:hour:*`,
       (key, values) => {
         const match = key.match(/^stats:message:guild:([^:]+):user:hour:(\d+)$/);
@@ -312,7 +309,7 @@ export default class MessageStatsAnalyzer extends DiscordModule<"message-stats-a
     );
 
     await readHashes(
-      this.redisClient,
+      this.redis,
       `stats:message:guild:${guildPattern}:channel:hour:*`,
       (key, values) => {
         const match = key.match(/^stats:message:guild:([^:]+):channel:hour:(\d+)$/);
@@ -352,7 +349,7 @@ export default class MessageStatsAnalyzer extends DiscordModule<"message-stats-a
   ): Promise<Array<{ id: string; count: number; rank: number }>> {
     if (limit <= 0) return [];
 
-    const values = await this.redisClient.hGetAll(key);
+    const values = await this.redis.hGetAll(key);
     return Object.entries(values)
       .map(([id, value]) => ({ id, count: Number(value) }))
       .sort((left, right) => right.count - left.count || left.id.localeCompare(right.id))

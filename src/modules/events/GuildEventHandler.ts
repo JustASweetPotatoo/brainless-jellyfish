@@ -2,7 +2,7 @@ import { Channel, Colors, EmbedBuilder, Events, GuildEmoji, Role, TextChannel } 
 
 import { On } from "../core/decorators/decorators";
 import EventHandler from "./EventHandler";
-import { LogChannelType } from "../GuildStatusManager";
+import { LogChannelType } from "../core/GuildStatusManager";
 import { PremiumStatus } from "../../database/model/GuildStatus";
 
 export default class GuildEventHandler extends EventHandler<"guild-event-logger"> {
