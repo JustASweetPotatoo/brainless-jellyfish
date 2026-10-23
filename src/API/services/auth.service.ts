@@ -1,8 +1,7 @@
 import { createHash, createHmac, randomBytes, randomInt, timingSafeEqual } from "node:crypto";
 import nodemailer from "nodemailer";
 import { RedisClientType } from "redis";
-
-const sha256 = (value: string) => createHash("sha256").update(value).digest("hex");
+import { sha256 } from "../util/crypto";
 
 const sessionKey = (token: string) => `admin:session:${sha256(token)}`;
 
@@ -14,9 +13,6 @@ const requestAdminLoginRateKey = (email: string) => `auth:admin-otp-rate:${email
 
 const SESSION_TTL_SECONDS = 8 * 60 * 60;
 const OAUTH_STATE_TTL_SECONDS = 10 * 60;
-const AUTH_OTP_TTL_SECONDS = 10 * 60;
-const LOGIN_REQUEST_RATE = 60;
-const AUTH_LOGIN_VERIFY_MAX_ATTEMPS = 5;
 
 export interface AuthUser {
   id: string;
@@ -31,110 +27,7 @@ export interface WebSession {
   expiresAt: number;
 }
 
-export type AuthOtpVerification =
-  | { status: "verified"; session: { token: string; expiresAt: number } }
-  | { status: "invalid" | "expired" | "too_many_attempts" };
-
-function hashOtp(email: string, otp: string): string {
-  const secret = process.env.AUTH_OTP_SECRET ?? process.env.DISCORD_CLIENT_SECRET;
-  if (!secret) {
-    throw new Error("Set AUTH_OTP_SECRET or DISCORD_CLIENT_SECRET before enabling admin login.");
-  }
-
-  return createHmac("sha256", secret).update(`${email}:${otp}`).digest("hex");
-}
-
-function safeEqualHex(left: string, right: string): boolean {
-  const leftBuffer = Buffer.from(left, "hex");
-  const rightBuffer = Buffer.from(right, "hex");
-  return leftBuffer.length === rightBuffer.length && timingSafeEqual(leftBuffer, rightBuffer);
-}
-
-export function generateOtp(): string {
-  return randomInt(0, 1_000_000).toString().padStart(6, "0");
-}
-
-export async function sendAuthOtp(email: string, otp: string): Promise<void> {
-  const user = process.env.GMAIL_USER;
-  const password = process.env.GMAIL_APP_PASSWORD?.replace(/\s/g, "");
-  if (!user || !password) {
-    throw new Error("Admin email delivery is not configured.");
-  }
-
-  const transporter = nodemailer.createTransport({
-    service: "gmail",
-    auth: { user, pass: password },
-  });
-
-  await transporter.sendMail({
-    from: `Admin Verification <${user}>`,
-    to: email,
-    subject: "Admin login OTP",
-    text: `Your OTP is ${otp}. The code is valid for 10 minutes. If you haven't requested this code, please ignore this email.`,
-    html: `<p>Login OTP:</p><p style="font-size:28px;font-weight:700;letter-spacing:8px">${otp}</p><p>The code is valid for 10 minutes.</p><p>If you haven't requested this code, please ignore this email.</p>`,
-  });
-}
-
-export async function requestAuthOtp(
-  email: string,
-  redis: RedisClientType,
-): Promise<{ status: "sent"; otp: string } | { status: "rate_limited" }> {
-  const allowed = await redis.set(requestAdminLoginRateKey(email), "1", {
-    EX: LOGIN_REQUEST_RATE,
-    NX: true,
-  });
-
-  if (!allowed) {
-    return { status: "rate_limited" };
-  }
-
-  const otp = generateOtp();
-  const hash = hashOtp(email, otp);
-  await redis
-    .multi()
-    .hSet(hash, { attempts: 0, createdAt: Date.now() })
-    .expire(authOtpKey(email), AUTH_OTP_TTL_SECONDS)
-    .exec();
-
-  return { status: "sent", otp };
-}
-
-export async function clearAuthOtp(email: string, redis: RedisClientType): Promise<void> {
-  await redis.del(authOtpKey(email));
-}
-
-export async function verifyAuthOtp(
-  email: string,
-  otp: string,
-  redis: RedisClientType,
-): Promise<AuthOtpVerification> {
-  const key = authOtpKey(hashOtp(email, otp));
-  const record = await redis.hGetAll(key);
-  const attempts = await redis.hIncrBy(key, "attempts", 1);
-
-  if (attempts > AUTH_LOGIN_VERIFY_MAX_ATTEMPS) {
-    await redis.del(key);
-    return { status: "too_many_attempts" };
-  }
-
-  if (!record) {
-    return { status: "invalid" };
-  }
-
-  await redis.del(key);
-
-  const session = await createWebSession(
-    {
-      id: `admin:${email}`,
-      username: email.split("@")[0],
-      email,
-      displayName: "Administrator",
-    },
-    redis,
-  );
-
-  return { status: "verified", session };
-}
+export async function requiredAuth(userId: string) {}
 
 export async function createDiscordOAuthUrl(
   returnTo: string,

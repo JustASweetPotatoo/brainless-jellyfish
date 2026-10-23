@@ -39,7 +39,7 @@
   "scripts": {
     "start": "ts-node src/index.ts",
     "test": "node test.js",
-    "test2": "ts-node src/utils/index.ts",
+    "test-ts": "ts-node test.ts",
     "web": "cd src/web && npm start",
     "debug": "ts-node src/dev.ts",
     "js-file-test": "node dev.js"

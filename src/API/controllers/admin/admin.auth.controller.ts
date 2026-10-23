@@ -1,14 +1,18 @@
 import { FastifyReply, FastifyRequest } from "fastify";
-import Controller from "../core/Controller";
-import { Controller as ControllerRouter, Get, Post } from "../core/decorator/controller.decorator";
+import Controller from "../../core/Controller";
 import {
-  clearAuthOtp,
+  ControllerRoute as ControllerRouter,
+  Get,
+  Post,
+} from "../../core/decorator/controller.decorator";
+import {
+  clearAdminAuthOtp,
   deleteWebSession,
-  requestAuthOtp,
-  sendAuthOtp,
-  verifyAuthOtp,
-} from "../auth/auth.service";
-import { getWebSession } from "./admin.auth.service";
+  getWebSession,
+  requestAdminAuthLogin,
+  sendAdminAuthOtp,
+  verifyAdminAuthLogin,
+} from "../../services/admin.auth.service";
 
 const SESSION_COOKIE = "admin_session";
 const ADMIN_OTP_RESPONSE = {
@@ -50,15 +54,15 @@ export default class AdminController extends Controller {
       return rep.code(202).send(ADMIN_OTP_RESPONSE);
     }
 
-    const otpSession = await requestAuthOtp(email, this.redis);
+    const otpSession = await requestAdminAuthLogin(email, this.redis);
     if (otpSession.status === "rate_limited") {
       return rep.code(429).send({ message: "Too many request" });
     }
 
     try {
-      await sendAuthOtp(email, otpSession.otp);
+      await sendAdminAuthOtp(email, otpSession.otp);
     } catch (error) {
-      await clearAuthOtp(email, this.redis);
+      await clearAdminAuthOtp(email, this.redis);
       req.log.error({ err: error }, "Unable to send admin login email");
       return rep.code(502).send({ message: "Server internal error" });
     }
@@ -79,18 +83,18 @@ export default class AdminController extends Controller {
       return rep.code(401).send({ message: "Invalid credentials" });
     }
 
-    const result = await verifyAuthOtp(email, otp, this.redis);
+    const result = await verifyAdminAuthLogin(email, otp, this.redis);
     if (result.status === "too_many_attempts") {
       return rep.code(429).send({ message: "Too many tries." });
     }
 
-    if (result.status !== "verified") {
+    if (!result.session) {
       return rep.code(401).send({ message: "Invalid or expired token." });
     }
 
     rep.header(
       "Set-Cookie",
-      `${SESSION_COOKIE}=${encodeURIComponent(result.session.token)}; ${cookieOptions()}; Max-Age=${8 * 60 * 60}`,
+      `${SESSION_COOKIE}=${encodeURIComponent(result.session.token)}; ${cookieOptions()}; Max-Age=${24 * 60 * 60}`,
     );
 
     return rep.code(200).send({ authenticated: true });

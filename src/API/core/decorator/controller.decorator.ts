@@ -18,10 +18,10 @@ export interface ControllerRouteMetadata {
  * Sets the base path for a controller.
  *
  * Example:
- * @Controller("/auth")
+ * @ControllerRoute("/auth")
  * class AuthController {}
  */
-export function Controller(path: string = ""): ClassDecorator {
+export function ControllerRoute(path: string = ""): ClassDecorator {
   return (target) => {
     Reflect.defineMetadata(CONTROLLER_PATH_KEY, path, target);
   };

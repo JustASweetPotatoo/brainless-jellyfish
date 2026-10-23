@@ -28,6 +28,7 @@ export interface FastifyGetRequestHandler {
 }
 
 export default class FastifyServer extends DiscordModule<"API-server"> {
+  readonly webManaged: boolean = true;
   protected readonly premiumLevel: PremiumStatus = PremiumStatus.STANDARD;
 
   public instance: FastifyInstance = Fastify();
@@ -70,7 +71,11 @@ export default class FastifyServer extends DiscordModule<"API-server"> {
   }
 
   private registerCors(): void {
-    const configuredUrl = new URL(process.env.WEB_ORIGIN ?? "http://127.0.0.1:3000");
+    const configuredUrl = new URL(
+      process.env.CLOUDFLARE_URL ??
+        process.env.WEB_ORIGIN ??
+        "https://warning-gras-contains-photographic.trycloudflare.com",
+    );
     const allowedOrigins = new Set([configuredUrl.origin]);
 
     if (configuredUrl.hostname === "127.0.0.1") {
@@ -107,7 +112,7 @@ export default class FastifyServer extends DiscordModule<"API-server"> {
   }
 
   private loadControllers(): void {
-    const redis = this.client.redisManager.getRedisClient();
+    const redis = this.client.redisManager.redis;
     for (const ControllerType of Object.values(controllerRegistry)) {
       this.controllers.push(new ControllerType(this, redis));
     }

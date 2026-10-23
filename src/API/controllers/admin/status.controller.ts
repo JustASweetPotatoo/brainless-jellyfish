@@ -1,13 +1,11 @@
 import { FastifyReply, FastifyRequest } from "fastify";
-import type { WebSocket } from "ws";
-import Controller from "../core/Controller";
+import Controller from "../../core/Controller";
 
 import {
-  Controller as ControllerRouter,
+  ControllerRoute as ControllerRouter,
   Get,
-  StreamSocket,
-} from "../core/decorator/controller.decorator";
-import { requireAuthAdmin } from "../middleware/auth.admin.middleware";
+} from "../../core/decorator/controller.decorator";
+import { requireAuthAdmin } from "../../middleware/auth.admin.middleware";
 
 @ControllerRouter("/api/admin/status")
 export default class StatusController extends Controller {
@@ -20,6 +18,6 @@ export default class StatusController extends Controller {
     }
 
     const module = this.instance.rawClient.moduleManager.get("server-stats-manager");
-    return rep.code(200).send(await module.getBotStatus());
+    return rep.code(200).send(await module.getBotStats());
   }
 }

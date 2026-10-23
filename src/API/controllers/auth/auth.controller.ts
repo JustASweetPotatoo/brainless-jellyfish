@@ -1,18 +1,18 @@
 import { FastifyReply, FastifyRequest } from "fastify";
-import Controller from "../core/Controller";
-import { Controller as ControllerRoute, Get } from "../core/decorator/controller.decorator";
-import {
-  completeDiscordOAuth,
-  createDiscordOAuthUrl,
-} from "./auth.service";
+import Controller from "../../core/Controller";
+import { ControllerRoute as ControllerRoute, Get } from "../../core/decorator/controller.decorator";
+import { completeDiscordOAuth, createDiscordOAuthUrl } from "../../services/auth.service";
 
 const SESSION_COOKIE = "suwa_session";
-const ADMIN_OTP_RESPONSE = {
-  message: "Nếu Gmail này được cấp quyền quản trị, mã đăng nhập sẽ được gửi đến hộp thư.",
-};
 
 function webOrigin(): string {
-  return process.env.WEB_ORIGIN ?? "http://127.0.0.1:3000";
+  return "https://broccoli.potarozz.com";
+
+  return (
+    process.env.CLOUDFLARE_URL ??
+    process.env.WEB_ORIGIN ??
+    "https://warning-gras-contains-photographic.trycloudflare.com"
+  );
 }
 
 function cookieToken(request: FastifyRequest): string | undefined {
@@ -72,4 +72,3 @@ export default class AuthController extends Controller {
     }
   }
 }
-

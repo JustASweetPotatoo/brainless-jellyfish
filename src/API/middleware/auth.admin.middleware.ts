@@ -1,5 +1,5 @@
 import { RedisClientType } from "redis";
-import { getSession as getAdminSession } from "../auth/auth.service";
+import { getSession as getAdminSession } from "../services/auth.service";
 import { FastifyRequest } from "fastify";
 
 const ADMIN_SESSION_COOKIE = "admin_session=";

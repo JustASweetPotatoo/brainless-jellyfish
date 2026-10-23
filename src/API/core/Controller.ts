@@ -39,9 +39,8 @@ export default abstract class Controller {
       throw new RangeError("interval must be a non-negative number");
     }
 
-    this.instance.logger.info(`Socket opened: ${request.ip}`);
-
     let timer: NodeJS.Timeout | undefined;
+    let heartbeatTimer: NodeJS.Timeout | undefined;
     let stopped = false;
 
     const stop = (logClosed = false): void => {
@@ -53,13 +52,13 @@ export default abstract class Controller {
         clearTimeout(timer);
         timer = undefined;
       }
+      if (heartbeatTimer !== undefined) {
+        clearInterval(heartbeatTimer);
+        heartbeatTimer = undefined;
+      }
 
       socket.off("close", onClose);
       socket.off("error", onError);
-
-      if (logClosed) {
-        this.instance.logger.info(`Socket closed: ${request.ip}`);
-      }
     };
 
     const onClose = (): void => stop(true);
@@ -112,6 +111,22 @@ export default abstract class Controller {
 
     socket.once("close", onClose);
     socket.once("error", onError);
+
+    if (interval > 30_000) {
+      heartbeatTimer = setInterval(() => {
+        if (stopped || socket.readyState !== socket.OPEN) {
+          stop();
+          return;
+        }
+
+        socket.ping((error?: Error) => {
+          if (error) {
+            stop();
+            this.instance.handleModuleError(error);
+          }
+        });
+      }, 30_000);
+    }
 
     void sendNext();
   }
